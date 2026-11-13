@@ -1,0 +1,24 @@
+name: Verify public website
+on:
+  push:
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run static and unit tests
+        run: npm test
+      - name: TypeScript check
+        run: npm run typecheck
+      - name: Compile Next.js
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          NEXT_PUBLIC_ADAPTER_API_URL: http://localhost:8080
+          ADAPTER_INTERNAL_URL: http://localhost:8080

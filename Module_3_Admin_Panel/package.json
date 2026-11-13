@@ -1,0 +1,26 @@
+{
+  "name": "pakistan-creator-index-admin",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {"node": ">=22"},
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "@pci/ui": "file:../Module_2_Public_Website/packages/ui",
+    "next": "16.4.6",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "^5.9.0"
+  }
+}

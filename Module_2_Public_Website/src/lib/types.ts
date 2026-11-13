@@ -1,0 +1,14 @@
+export type SortMetric='subscribers'|'views'|'videos';
+export type Category={id:string;slug:string;label:string;description?:string|null;displayOrder?:number};
+export type Creator={id:string;channelId:string;slug:string;displayName:string;description?:string|null;youtubeTitle?:string|null;thumbnailUrl?:string|null;subscriberCount:string|null;subscriberHidden?:boolean;viewCount:string|null;videoCount:string|null;fetchedAt?:string|null;rank?:number|null;rankMetric?:SortMetric;categories:Pick<Category,'slug'|'label'>[];featured?:boolean;channelUrl?:string;youtubeDescription?:string|null;channelPublishedAt?:string|null};
+export type Pagination={page:number;limit:number;total:number;pages:number};
+export type CreatorList={data:Creator[];pagination:Pagination};
+export type Overview={creators:number;channelsWithStatistics:number;sumChannelViews:string|null;sumChannelSubscribers:string|null;publishedAt:string|null;note?:string};
+export type StatsMetric={availableSamples:number;total:string|null;mean:string|null};
+export type VideoSummary={videosSampled:number;expectedMaxSample:number;views:StatsMetric;likes:StatsMetric;comments:StatsMetric;latestUploadedAt:string|null;statsFetchedAt:string|null;disclosure:string};
+export type Video={videoId:string;title:string;description?:string;publishedAt:string|null;thumbnailUrl:string|null;durationIso:string|null;viewCount:string|null;likeCount:string|null;commentCount:string|null;fetchedAt:string|null};
+export type WallMessage={id:string;nickname:string;authorType:'guest'|'user';body:string;createdAt:string};
+export type WallIdentity={type:'guest'|'user';id:string;nickname:string;version?:number};
+export type WallSession={identity:WallIdentity;token:string;expiresIn:number};
+export type WallStatus={enabled:boolean;readOnly:boolean;retentionDays:number};
+export type ApiError={code:string;message:string};

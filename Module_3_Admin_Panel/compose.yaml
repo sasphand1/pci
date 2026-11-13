@@ -1,0 +1,15 @@
+services:
+  admin-web:
+    build:
+      context: ..
+      dockerfile: Module_3_Admin_Panel/Dockerfile
+      args:
+        NEXT_PUBLIC_ADAPTER_API_URL: ${NEXT_PUBLIC_ADAPTER_API_URL:-http://localhost:8080}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3001
+    restart: unless-stopped

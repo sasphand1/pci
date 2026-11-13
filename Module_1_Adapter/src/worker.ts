@@ -1,0 +1,39 @@
+import cron from 'node-cron';
+import { config } from './lib/config.js';
+import { pool } from './lib/db.js';
+import { ensureRedis,redis } from './lib/redis.js';
+import { cleanupRetention,enqueueSync,recoverStalledJobs,takeNextJob,performSync } from './modules/sync/service.js';
+import { logger } from './lib/errors.js';
+
+let running=false;
+async function processQueue(){
+ if(running || config.YOUTUBE_SYNC_ENABLED!=='true')return;
+ running=true;
+ try{const job=await takeNextJob();if(job)await performSync(job);}catch(e){logger.error({err:e},'worker poll failed');}finally{running=false;}
+}
+async function main(){
+ await pool.query('SELECT 1');await ensureRedis();await recoverStalledJobs();
+ logger.info('Worker ready');
+ if(config.YOUTUBE_SYNC_ENABLED==='true' && (await pool.query("SELECT value FROM app_settings WHERE key='sync_schedule_enabled'")).rows[0]?.value!==false){
+   const state=await pool.query("SELECT published_at FROM publication_state WHERE id=true");
+   const published=state.rows[0]?.published_at ? new Date(state.rows[0].published_at).getTime() : 0;
+   if(Date.now()-published>24*60*60*1000)await enqueueSync('scheduled');
+ }
+ cron.schedule('* * * * *',async()=>{
+   try{
+     if(config.YOUTUBE_SYNC_ENABLED!=='true')return;
+     const r=await pool.query("SELECT key,value FROM app_settings WHERE key IN ('sync_schedule_enabled','sync_schedule_time')");
+     const values=Object.fromEntries(r.rows.map((x:{key:string,value:unknown})=>[x.key,x.value]));
+     const now=new Date();const time=new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZone:'Asia/Karachi'}).format(now);
+     if(values.sync_schedule_enabled!==false && time===(values.sync_schedule_time??'09:00'))await enqueueSync('scheduled');
+   }catch(e){logger.error({err:e},'schedule failed');}
+ },{timezone:'Asia/Karachi'});
+ cron.schedule('*/10 * * * *',()=>recoverStalledJobs().catch(e=>logger.error({err:e},'stalled job recovery failed')));
+ cron.schedule('0 4 * * *',()=>cleanupRetention().catch(e=>logger.error({err:e},'retention failed')),{timezone:'Asia/Karachi'});
+ await cleanupRetention();
+ await processQueue();
+ const timer=setInterval(()=>void processQueue(),10000);
+ const stop=async()=>{clearInterval(timer);await redis.quit();await pool.end();process.exit(0);};
+ process.once('SIGINT',()=>void stop());process.once('SIGTERM',()=>void stop());
+}
+main().catch(e=>{logger.fatal({err:e},'worker startup failed');process.exit(1);});
