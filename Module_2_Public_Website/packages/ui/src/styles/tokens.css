@@ -12,3 +12,6 @@
   --max: 1220px; --gutter: clamp(18px,4vw,44px);
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px;
 }
+
+/* PCI cinematic / editorial palette — shared palette for site and admin. */
+:root{--pci-midnight:#071529;--pci-navy:#0c1c34;--pci-mint:#10d1bf;--pci-mint-dark:#048f84;--pci-gold:#f3b944;--pci-paper:#f5f7fa}
