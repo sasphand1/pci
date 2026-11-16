@@ -2,7 +2,9 @@
   "name": "pakistan-creator-index-admin",
   "version": "1.0.0",
   "private": true,
-  "engines": {"node": ">=22"},
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
@@ -12,7 +14,7 @@
     "check": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
-    "@pci/ui": "file:../Module_2_Public_Website/packages/ui",
+    "@pci/ui": "file:./vendor/pci-ui",
     "next": "16.4.6",
     "react": "19.2.0",
     "react-dom": "19.2.0"
