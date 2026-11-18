@@ -1,4 +1,6 @@
 import cron from 'node-cron';
+import {syncInstagramProfiles} from './modules/instagram/service.js';
+import {bustPublicCache} from './lib/redis.js';
 import { config } from './lib/config.js';
 import { pool } from './lib/db.js';
 import { ensureRedis,redis } from './lib/redis.js';
@@ -30,6 +32,12 @@ async function main(){
  },{timezone:'Asia/Karachi'});
  cron.schedule('*/10 * * * *',()=>recoverStalledJobs().catch(e=>logger.error({err:e},'stalled job recovery failed')));
  cron.schedule('0 4 * * *',()=>cleanupRetention().catch(e=>logger.error({err:e},'retention failed')),{timezone:'Asia/Karachi'});
+ // Instagram sync is independent of YouTube's enable switch and schedule.
+ cron.schedule('0 9,21 * * *',async()=>{
+  if(process.env.INSTAGRAM_SYNC_ENABLED!=='true')return;
+  try{await syncInstagramProfiles();await bustPublicCache();}
+  catch(err){logger.error({err},'Instagram sync failed');}
+ },{timezone:'Asia/Karachi'});
  await cleanupRetention();
  await processQueue();
  const timer=setInterval(()=>void processQueue(),10000);
