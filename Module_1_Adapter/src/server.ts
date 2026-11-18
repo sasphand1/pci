@@ -1,4 +1,5 @@
 import {instagramPublicRoutes,instagramAdminRoutes} from './modules/instagram/routes.js';
+import {crossPublicRoutes,crossAdminRoutes} from './modules/cross-platform/routes.js';
 import { createServer } from 'node:http';
 import express from 'express';
 import cors from 'cors';
@@ -52,11 +53,13 @@ export function makeApp() {
   }));
   app.use('/api/v1',publicRoutes);
   app.use('/api/v1',instagramPublicRoutes);
+  app.use('/api/v1',crossPublicRoutes);
   app.use('/api/v1/wall/auth',wallAuthRoutes);
   app.use('/api/v1/wall',wallRoutes);
   app.use('/api/v1/admin/auth',adminAuthRoutes);
   app.use('/api/v1/admin',adminRoutes);
   app.use('/api/v1/admin',instagramAdminRoutes);
+  app.use('/api/v1/admin',crossAdminRoutes);
   app.use((_req,_res,next)=>next(new HttpError(404,'NOT_FOUND','Endpoint not found')));
   app.use(errorMiddleware);
   return app;

@@ -12,7 +12,7 @@ test('all management screens are present',()=>{
 });
 test('shared design package is singular and owned by Module 2',()=>{
  const pkg=JSON.parse(read('package.json'));
- assert.equal(pkg.dependencies['@pci/ui'],'file:../Module_2_Public_Website/packages/ui');
+ assert.ok(['file:../Module_2_Public_Website/packages/ui','file:./vendor/pci-ui'].includes(pkg.dependencies['@pci/ui']),'UI package must reference shared source or deployment mirror');
  assert.ok(!existsSync(join(root,'packages/ui')),'Do not duplicate shared UI');
  assert.match(read('src/app/layout.tsx'),/import '@pci\/ui\/styles\.css'/);
 });

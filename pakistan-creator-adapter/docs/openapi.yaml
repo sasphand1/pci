@@ -1,0 +1,481 @@
+openapi: 3.0.3
+info:
+  title: Pakistan Creator Index Adapter API
+  version: 1.0.0
+  description: |
+    Backend API for the curated Pakistan creator directory, its administration panel,
+    and one shared public live wall. NOT affiliated with YouTube.
+servers:
+  - url: http://localhost:8080
+    description: Local development API
+security: []
+tags:
+  - name: Public
+  - name: Wall
+  - name: Wall Authentication
+  - name: Administration
+  - name: Admin Authentication
+paths:
+  /health/live:
+    get:
+      summary: Process liveness
+      responses:
+        '200': {description: Alive}
+  /health/ready:
+    get:
+      summary: Database and Redis readiness
+      responses:
+        '200': {description: Ready}
+        '500': {description: Dependency failed}
+  /api/v1/meta:
+    get:
+      tags: [Public]
+      summary: API capabilities and source attribution
+      responses:
+        '200': {description: Capabilities}
+  /api/v1/site-config:
+    get:
+      tags: [Public]
+      summary: Public display settings and featured creators
+      responses:
+        '200': {description: Public settings}
+  /api/v1/categories:
+    get:
+      tags: [Public]
+      summary: Get navigation categories
+      responses:
+        '200': {description: Categories}
+  /api/v1/creators:
+    get:
+      tags: [Public]
+      summary: Browse curated creator directory
+      parameters:
+        - {in: query, name: page, schema: {type: integer, default: 1}}
+        - {in: query, name: limit, schema: {type: integer, default: 25, maximum: 100}}
+        - {in: query, name: category, schema: {type: string}}
+        - {in: query, name: search, schema: {type: string}}
+        - {in: query, name: sort, schema: {type: string, enum: [subscribers, views, videos]}}
+      responses:
+        '200': {description: Creator results with pagination and rank}
+        '400': {description: Invalid query}
+  /api/v1/rankings:
+    get:
+      tags: [Public]
+      summary: Raw-metric rankings within selected directory
+      parameters:
+        - {in: query, name: sort, schema: {type: string, enum: [subscribers, views, videos]}}
+        - {in: query, name: page, schema: {type: integer}}
+        - {in: query, name: limit, schema: {type: integer}}
+        - {in: query, name: category, schema: {type: string}}
+      responses:
+        '200': {description: Sorted creators; ties have same rank}
+  /api/v1/overview:
+    get:
+      tags: [Public]
+      summary: Current collection summary, not unique audience sizes
+      responses:
+        '200': {description: Overview}
+  /api/v1/creators/{slug}:
+    get:
+      tags: [Public]
+      summary: Creator detail and source attribution
+      parameters:
+        - {$ref: '#/components/parameters/slug'}
+      responses:
+        '200': {description: Creator profile}
+        '404': {description: No such enabled creator}
+  /api/v1/creators/{slug}/summary:
+    get:
+      tags: [Public]
+      summary: Exact sums and arithmetic mean across latest up to 50 retrievable videos
+      parameters: [{$ref: '#/components/parameters/slug'}]
+      responses:
+        '200': {description: View/like/comment sums, available sample sizes and mean}
+  /api/v1/creators/{slug}/videos:
+    get:
+      tags: [Public]
+      summary: Videos from latest fifty retrieved uploads, not lifetime most popular
+      parameters:
+        - {$ref: '#/components/parameters/slug'}
+        - {in: query, name: limit, schema: {type: integer, default: 25, maximum: 50}}
+        - {in: query, name: order, schema: {type: string, enum: [recent, views]}}
+      responses:
+        '200': {description: Videos and counts with fetch dates}
+  /api/v1/status:
+    get:
+      tags: [Public]
+      summary: Snapshot publication timestamp
+      responses:
+        '200': {description: Snapshot metadata}
+  /api/v1/wall/status:
+    get:
+      tags: [Wall]
+      summary: Chat enabled/read-only and retention settings
+      responses:
+        '200': {description: Wall status}
+  /api/v1/wall/messages:
+    get:
+      tags: [Wall]
+      summary: Recent public messages
+      parameters:
+        - {in: query, name: limit, schema: {type: integer, default: 50, maximum: 100}}
+        - {in: query, name: before, schema: {type: string, format: date-time}}
+      responses:
+        '200': {description: Recent messages}
+    post:
+      tags: [Wall]
+      summary: Write message as a registered user or guest
+      security: [{wallBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties: {body: {type: string, minLength: 1, maxLength: 500}}
+      responses:
+        '201': {description: Message broadcast}
+        '429': {description: Spam/duplicate/slow-mode protection}
+  /api/v1/wall/reports:
+    post:
+      tags: [Wall]
+      summary: Report abusive message
+      security: [{wallBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [messageId, reason]
+              properties:
+                messageId: {type: string, format: uuid}
+                reason: {type: string, minLength: 5, maxLength: 300}
+      responses:
+        '201': {description: Report created}
+  /api/v1/wall/auth/guest:
+    post:
+      tags: [Wall Authentication]
+      summary: Obtain a guest wall bearer token after bot verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nickname]
+              properties:
+                nickname: {type: string, minLength: 3, maxLength: 24}
+                turnstileToken: {type: string}
+      responses:
+        '201': {description: Guest token}
+  /api/v1/wall/auth/register:
+    post:
+      tags: [Wall Authentication]
+      summary: Register wall account; verification email required before login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, nickname]
+              properties:
+                email: {type: string, format: email}
+                password: {type: string, minLength: 12}
+                nickname: {type: string}
+                turnstileToken: {type: string}
+      responses:
+        '201': {description: Verification email sent}
+  /api/v1/wall/auth/resend-verification:
+    post:
+      tags: [Wall Authentication]
+      summary: Resend verification email, subject to anti-bot limits
+      responses:
+        '200': {description: Generic response}
+  /api/v1/wall/auth/verify-email:
+    post:
+      tags: [Wall Authentication]
+      summary: Verify registered wall account
+      responses:
+        '200': {description: Verified}
+  /api/v1/wall/auth/forgot-password:
+    post:
+      tags: [Wall Authentication]
+      summary: Request account recovery by email; response does not reveal whether an account exists
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: {type: string, format: email}
+                turnstileToken: {type: string}
+      responses: {'200': {description: Generic recovery notice}}
+  /api/v1/wall/auth/reset-password:
+    post:
+      tags: [Wall Authentication]
+      summary: Exchange valid single-use recovery token for a new password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              properties:
+                token: {type: string}
+                newPassword: {type: string, minLength: 12, maxLength: 128}
+      responses: {'200': {description: Password changed and prior member sessions invalidated}}
+  /api/v1/wall/auth/login:
+    post:
+      tags: [Wall Authentication]
+      summary: Exchange email/password for wall bearer token
+      responses:
+        '200': {description: Bearer token}
+  /api/v1/wall/auth/me:
+    get:
+      tags: [Wall Authentication]
+      summary: Read current guest/registered identity
+      security: [{wallBearer: []}]
+      responses:
+        '200': {description: Identity}
+  /api/v1/wall/auth/logout:
+    post:
+      tags: [Wall Authentication]
+      summary: Revoke wall session
+      security: [{wallBearer: []}]
+      responses:
+        '200': {description: Logged out}
+  /api/v1/wall/auth/account:
+    delete:
+      tags: [Wall Authentication]
+      summary: Delete registered wall account after password confirmation
+      security: [{wallBearer: []}]
+      responses:
+        '200': {description: Account removed}
+  /api/v1/admin/auth/login:
+    post:
+      tags: [Admin Authentication]
+      summary: Admin email/password/TOTP login; returns csrfToken and sets HttpOnly cookie
+      responses:
+        '200': {description: Admin login}
+        '401': {description: Invalid credentials}
+  /api/v1/admin/auth/me:
+    get:
+      tags: [Admin Authentication]
+      security: [{adminCookie: []}]
+      summary: Current admin identity and CSRF token
+      responses:
+        '200': {description: Admin identity}
+  /api/v1/admin/auth/logout:
+    post:
+      tags: [Admin Authentication]
+      security: [{adminCookie: []}]
+      summary: Revoke session; X-CSRF-Token required
+      responses:
+        '200': {description: Logged out}
+  /api/v1/admin/dashboard:
+    get:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Admin dashboard aggregates
+      responses:
+        '200': {description: Dashboard}
+  /api/v1/admin/creators:
+    get:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Admin creator list
+      responses:
+        '200': {description: Creators}
+    post:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Verify channel with YouTube API and insert creator
+      responses:
+        '201': {description: Created}
+  /api/v1/admin/creators/validate:
+    post:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Validate YouTube channel ID before creating creator
+      responses:
+        '200': {description: Channel metadata}
+  /api/v1/admin/creators/bulk:
+    post:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Import up to 100 verified creator objects; transactionally
+      responses:
+        '201': {description: Imported}
+  /api/v1/admin/creators/{id}:
+    patch:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Edit creator and category IDs
+      parameters: [{$ref: '#/components/parameters/id'}]
+      responses:
+        '200': {description: Updated}
+    delete:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Soft disable creator, retaining registry
+      parameters: [{$ref: '#/components/parameters/id'}]
+      responses:
+        '200': {description: Disabled}
+  /api/v1/admin/categories:
+    get:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Manage categories
+      responses: {'200': {description: Categories}}
+    post:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Create category
+      responses: {'201': {description: Created}}
+  /api/v1/admin/categories/{id}:
+    patch:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Update category
+      parameters: [{$ref: '#/components/parameters/id'}]
+      responses: {'200': {description: Updated}}
+  /api/v1/admin/ranking-preview:
+    get:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Inspect deterministic raw metric ranking
+      responses: {'200': {description: Rankings}}
+  /api/v1/admin/videos:
+    get:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Inspect tracked videos
+      responses: {'200': {description: Videos}}
+  /api/v1/admin/sync-runs:
+    get:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Recent sync jobs
+      responses: {'200': {description: Jobs}}
+    post:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Request one sync job, deduplicated
+      responses: {'202': {description: Job queued or already active}}
+  /api/v1/admin/videos/{id}:
+    patch:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Editorially hide or show an individual video card; source statistics remain unchanged
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: string, minLength: 11, maxLength: 11}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayOnSite]
+              properties: {displayOnSite: {type: boolean}}
+      responses: {'200': {description: Updated}}
+  /api/v1/admin/wall/reports:
+    get:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Reports for wall moderation
+      responses: {'200': {description: Reports}}
+  /api/v1/admin/wall/reports/{id}:
+    patch:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Resolve or dismiss wall report
+      parameters: [{$ref: '#/components/parameters/id'}]
+      responses: {'200': {description: Reviewed}}
+  /api/v1/admin/wall/messages:
+    get:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Recent wall messages for moderation
+      responses: {'200': {description: Messages}}
+  /api/v1/admin/wall/messages/{id}:
+    delete:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Soft delete message and broadcast removal
+      parameters: [{$ref: '#/components/parameters/id'}]
+      responses: {'200': {description: Deleted}}
+  /api/v1/admin/wall/bans:
+    post:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Ban guest or user by identity (not permanent device ban)
+      responses: {'201': {description: Banned}}
+  /api/v1/admin/wall/bans/{type}/{id}:
+    delete:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Unban wall identity
+      parameters:
+        - {in: path, name: type, required: true, schema: {type: string, enum: [guest, user]}}
+        - {$ref: '#/components/parameters/id'}
+      responses: {'200': {description: Unbanned}}
+  /api/v1/admin/settings:
+    get:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Whitelisted settings
+      responses: {'200': {description: Settings}}
+    patch:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Owner-only settings change (X-CSRF-Token required)
+      responses: {'200': {description: Updated}}
+  /api/v1/admin/system-health:
+    get:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: DB/Redis/quota estimation/YouTube configuration
+      responses: {'200': {description: Status}}
+  /api/v1/admin/admins:
+    get:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Owner-only admin identities
+      responses: {'200': {description: Admins}}
+    post:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Provision role, temporary password and MFA URI
+      responses: {'201': {description: One-time credentials}}
+  /api/v1/admin/admins/{id}:
+    patch:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Activate/deactivate/change role; revoke existing sessions
+      parameters: [{$ref: '#/components/parameters/id'}]
+      responses: {'200': {description: Updated}}
+  /api/v1/admin/admin-password:
+    post:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Change password after current password and fresh TOTP
+      responses: {'200': {description: Changed}}
+  /api/v1/admin/audit-logs:
+    get:
+      tags: [Administration]
+      security: [{adminCookie: []}]
+      summary: Recent admin audit events
+      responses: {'200': {description: Audit records}}
+components:
+  securitySchemes:
+    wallBearer: {type: http, scheme: bearer}
+    adminCookie: {type: apiKey, in: cookie, name: pci_admin}
+  parameters:
+    slug: {name: slug, in: path, required: true, schema: {type: string}}
+    id: {name: id, in: path, required: true, schema: {type: string, format: uuid}}

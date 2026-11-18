@@ -1,0 +1,11 @@
+import type {Metadata} from 'next';
+import {Card,PageHeading,Notice} from '@pci/ui';
+import {adapterGet} from '@/lib/api';
+import type {Creator,CreatorList} from '@/lib/types';
+import {formatCount,displayDate} from '@/lib/format.mjs';
+import {ComparisonPicker} from '@/components/ComparisonPicker';
+export const metadata:Metadata={title:'Compare creators'};
+export default async function Compare({searchParams}:{searchParams:Promise<{left?:string;right?:string}>}){const {left='',right=''}=await searchParams;const valid=(x:string)=>/^[a-z0-9-]{2,100}$/.test(x);const list=await adapterGet<CreatorList>('/api/v1/creators?limit=100&sort=subscribers');const available=list?.data||[];
+ const [a,b]=await Promise.all([valid(left)?adapterGet<{data:Creator}>(`/api/v1/creators/${left}`):null,valid(right)?adapterGet<{data:Creator}>(`/api/v1/creators/${right}`):null]);
+ const rows=[['Subscribers',a?.data.subscriberHidden?'Hidden':formatCount(a?.data.subscriberCount),b?.data.subscriberHidden?'Hidden':formatCount(b?.data.subscriberCount)],['Lifetime channel views',formatCount(a?.data.viewCount),formatCount(b?.data.viewCount)],['Public videos',formatCount(a?.data.videoCount),formatCount(b?.data.videoCount)],['Last fetched',displayDate(a?.data.fetchedAt),displayDate(b?.data.fetchedAt)]];
+ return <div className="container"><PageHeading eyebrow="Side by side" title="Compare creators" description="Compare reported YouTube numbers. This is not an evaluation of content quality, news accuracy or influence."/><Card><ComparisonPicker creators={available} left={left} right={right}/></Card><section className="section">{a?.data&&b?.data?<Card><div className="compare-row"><span className="compare-label">Metric</span><strong>{a.data.displayName}</strong><strong>{b.data.displayName}</strong></div>{rows.map(([metric,av,bv])=><div key={metric} className="compare-row"><span className="compare-label">{metric}</span><strong>{av}</strong><strong>{bv}</strong></div>)}<p className="fineprint">Counts may be rounded or unavailable. Values reflect independent channel totals; shared audiences are not deduplicated.</p></Card>:<Notice>Choose two different creators above to see a side-by-side comparison. No score is assigned.</Notice>}</section></div>}

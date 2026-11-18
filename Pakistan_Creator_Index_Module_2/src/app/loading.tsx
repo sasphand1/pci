@@ -1,0 +1,1 @@
+export default function Loading(){return <div className="container section"><div className="skeleton" aria-label="Loading content" role="status"/><div className="section skeleton" aria-hidden="true"/></div>}

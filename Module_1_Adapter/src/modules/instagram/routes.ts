@@ -92,6 +92,7 @@ instagramAdminRoutes.patch('/instagram/creators/:id',roles('owner','editor'),han
  await tx.query(`UPDATE instagram_creators SET username=COALESCE($2,username),display_name=COALESCE($3,display_name),
  slug=COALESCE($4,slug),biography=COALESCE($5,biography),enabled=COALESCE($6,enabled),youtube_creator_id=COALESCE($7,youtube_creator_id),
  eligibility=CASE WHEN $2 IS NOT NULL OR $7 IS NOT NULL THEN 'pending' ELSE eligibility END,
+ cross_platform_curated=CASE WHEN $2 IS NOT NULL OR $7 IS NOT NULL OR $6=false THEN false ELSE cross_platform_curated END,
  human_attested=CASE WHEN $2 IS NOT NULL OR $7 IS NOT NULL THEN false ELSE human_attested END,
  reviewed_by=CASE WHEN $2 IS NOT NULL OR $7 IS NOT NULL THEN NULL ELSE reviewed_by END,
  reviewed_at=CASE WHEN $2 IS NOT NULL OR $7 IS NOT NULL THEN NULL ELSE reviewed_at END,
@@ -114,7 +115,7 @@ instagramAdminRoutes.post('/instagram/creators/:id/review',roles('owner','editor
   if(!linked.rowCount)throw new HttpError(400,'YOUTUBER_LINK_REQUIRED','Link the Instagram profile to a verified YouTube creator in PCI before approving');
  }
  const reviewer=(res.locals.admin as AdminIdentity).id;
- const r=await query(`UPDATE instagram_creators SET eligibility=$2,human_attested=$3,reviewed_by=$4,reviewed_at=now(),updated_at=now()
+ const r=await query(`UPDATE instagram_creators SET eligibility=$2,human_attested=$3,reviewed_by=$4,reviewed_at=now(),cross_platform_curated=CASE WHEN $2='approved' THEN cross_platform_curated ELSE false END,updated_at=now()
  WHERE id=$1 RETURNING id`,[id,b.decision,b.decision==='approved'&&b.humanAttested,reviewer]);
  if(!r.rowCount)throw new HttpError(404,'NOT_FOUND','Creator not found');
  await audit(reviewer,'instagram.creator.review',id,{decision:b.decision,note:b.note??''});
