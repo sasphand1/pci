@@ -2,6 +2,7 @@ import type {Role} from './types';
 export const NAV:{title:string;href:string;roles:Role[]}[]=[
  {title:'Overview',href:'/',roles:['owner','editor','moderator']},
  {title:'Creators',href:'/creators',roles:['owner','editor']},
+ {title:'Unified human review',href:'/unified',roles:['owner','editor']},
  {title:'Instagram creators',href:'/instagram',roles:['owner','editor']},
  {title:'Unified Top 10',href:'/cross-platform',roles:['owner','editor']},
  {title:'Categories',href:'/categories',roles:['owner','editor']},

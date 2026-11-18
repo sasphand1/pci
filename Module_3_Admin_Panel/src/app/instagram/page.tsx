@@ -7,7 +7,7 @@ import {useAuth} from '@/components/AuthProvider';
 
 type Category={id:string;label:string};
 type YoutubeCreator={id:string;display_name:string};
-type Creator={id:string;username:string;display_name:string;slug:string;eligibility:'pending'|'approved'|'rejected';human_attested:boolean;category_ids:string[];followers_count:string|null;media_count:string|null;fetched_at:string|null;error_code:string|null;enabled:boolean};
+type Creator={id:string;youtube_creator_id:string|null;username:string;display_name:string;slug:string;eligibility:'pending'|'approved'|'rejected';human_attested:boolean;category_ids:string[];followers_count:string|null;media_count:string|null;fetched_at:string|null;error_code:string|null;enabled:boolean};
 type Form={username:string;displayName:string;slug:string;biography:string;categoryIds:string[];enabled:boolean;youtubeCreatorId:string|null};
 const fresh:Form={username:'',displayName:'',slug:'',biography:'',categoryIds:[],enabled:true,youtubeCreatorId:null};
 export default function InstagramManagement(){

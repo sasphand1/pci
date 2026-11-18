@@ -1,0 +1,20 @@
+/* PCI unified social extension. Additive only: existing wheel and website styles stay intact. */
+.pci-unified-top{margin-block:2.2rem}.pci-unified-top h2{margin-bottom:.4rem}
+.pci-unified-filters{display:flex;gap:.55rem;flex-wrap:wrap;align-items:center;margin:1.1rem 0}
+.pci-unified-filters .btn{min-height:38px}
+.pci-unified-white{background:#fff;color:#1c2635;border:1px solid #e5eaf0;border-radius:14px;overflow-x:auto;padding:0;box-shadow:0 6px 30px #101d3014}
+.pci-unified-white .data-table{width:100%;background:#fff;color:#1c2635;min-width:780px}
+.pci-unified-white th{color:#41516a;background:#f2f5f9}
+.pci-unified-white td{color:#1c2635}
+.pci-unified-white a{color:#123d79}
+.pci-unified-thumb{width:38px;height:38px;object-fit:cover;border-radius:50%;flex:none}
+.pci-unified-avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#e2e8f0;color:#1c2635;flex:none}
+.pci-unified-white .identity{display:flex;gap:.65rem;align-items:center;min-width:180px;text-decoration:none}
+.pci-unified-white .identity-sub{display:block;font-size:.76rem;color:#66748b}
+.pci-unified-links{display:flex;gap:.5rem;align-items:center;white-space:nowrap}
+.pci-unified-platform-link{display:inline-flex;align-items:center;justify-content:center;border-radius:7px;padding:5px;transition:background .15s ease}
+.pci-unified-platform-link:hover{background:#e9f2ff}
+.pci-unified-empty{padding:1.3rem}
+.pci-unified-checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;max-width:360px}
+.pci-unified-checks label{display:flex;align-items:center;gap:5px}
+@media(max-width:680px){.pci-unified-filters{gap:.35rem}.pci-unified-filters .btn{font-size:.76rem;padding:.5rem .7rem}}

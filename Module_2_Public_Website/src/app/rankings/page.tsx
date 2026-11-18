@@ -1,11 +1,11 @@
+import {PageHeading} from '@pci/ui';
+import {adapterGet} from '@/lib/api';
+import {UnifiedTop100,type UnifiedPerson,type UnifiedRankingResponse} from '@/components/UnifiedCreatorExperience';
 import type {Metadata} from 'next';
-import Link from 'next/link';
-import {PageHeading,Notice,Card} from '@pci/ui';
-import {adapterGet,qs} from '@/lib/api';
-import type {Creator,SortMetric} from '@/lib/types';
-import {CreatorTable} from '@/components/CreatorParts';
-import {displayDate} from '@/lib/format.mjs';
-export const metadata:Metadata={title:'Rankings'};
-export default async function Rankings({searchParams}:{searchParams:Promise<{sort?:string;category?:string}>}){const p=await searchParams;const sort:SortMetric=p.sort==='views'||p.sort==='videos'?p.sort:'subscribers';const category=typeof p.category==='string'&&/^[a-z0-9-]{2,60}$/.test(p.category)?p.category:'';
- const response=await adapterGet<{data:Creator[];meta:{sort:string;scope:string;total:number;asOf:string|null;coverage:{metric:string;known:number;unavailable:number;total:number};method:string}}>(`/api/v1/rankings?${qs({sort,category,limit:100})}`);const rankings=response?.data||[];
- return <div className="container"><PageHeading eyebrow="Published statistics" title="Creator rankings" description="No proprietary score, popularity grade, or estimated earnings. These lists are sorted directly by the reported YouTube metric."/><div className="inline"><Link className={`btn ${sort==='subscribers'?'btn-primary':'btn-secondary'}`} href={`/rankings?${qs({sort:'subscribers',category})}`}>Subscribers</Link><Link className={`btn ${sort==='views'?'btn-primary':'btn-secondary'}`} href={`/rankings?${qs({sort:'views',category})}`}>Channel views</Link><Link className={`btn ${sort==='videos'?'btn-primary':'btn-secondary'}`} href={`/rankings?${qs({sort:'videos',category})}`}>Video count</Link></div><section className="section"><Card><p className="muted text-sm">Ranking scope: selected and enabled creators only (not all Pakistani channels). Equal values share a rank; unavailable statistics are unranked. Subscriber counts are rounded by YouTube.</p></Card></section>{response?.meta&&<section className="section"><Card><p className="muted text-sm">Reporting coverage: {response.meta.coverage.known} of {response.meta.coverage.total} creators have a usable {sort==='subscribers'?'subscriber count':sort==='views'?'channel view count':'public video count'}; {response.meta.coverage.unavailable} unavailable. Last complete publication: {displayDate(response.meta.asOf)}. Rankings are not an influence or approval score.</p></Card></section>}<section className="section">{response?<CreatorTable creators={rankings} sort={sort}/>:<Notice tone="warning">Ranking data is unavailable. Check the adapter connection.</Notice>}</section></div>}
+export const metadata:Metadata={title:'Top 100 Creators'};
+type Metric='views'|'subscribers'|'videos';
+export default async function Rankings(){const metrics:Metric[]=['views','subscribers','videos'];
+ const responses=await Promise.all(metrics.map(metric=>adapterGet<UnifiedRankingResponse>(`/api/v1/unified/rankings?metric=${metric}&platform=all&limit=100`)));
+ const rankings=Object.fromEntries(metrics.map((m,i)=>[m,responses[i]?.data??[]])) as Record<Metric,UnifiedPerson[]>;
+ return <div className="container"><PageHeading eyebrow="Pakistan Creator Index" title="Top 100 Creators" description="Individual human creators across linked YouTube and Instagram accounts. TikTok integration is reserved for later."/><UnifiedTop100 rankings={rankings}/></div>;
+}

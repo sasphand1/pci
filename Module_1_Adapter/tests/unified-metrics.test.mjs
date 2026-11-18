@@ -1,0 +1,16 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {rankPeople,projectCreator,aggregate} from '../src/modules/unified/metrics.mjs';
+const p=(id,yt,ig=null,status='approved',cats=['vloggers-influencers'])=>({id,slug:id,displayName:id,enabled:true,humanReviewStatus:status,categories:cats.map(slug=>({slug,label:slug})),youtube:yt,instagram:ig});
+const yt=(subs,views,videos)=>({subscribers:subs,views,videos,url:'https://www.youtube.com/channel/UCtest'});
+const ig=(followers,posts)=>({followers,posts,url:'https://www.instagram.com/example/'});
+const people=[p('a',yt('100','1000','12'),ig('200','13')),p('b',yt('250','5000','6')),p('c',yt('999','9999','60'),ig('999','99'),'pending'),p('d',yt('50','5000','9'),ig('300','20'))];
+test('combined followers are source-account sums, never unique reach',()=>{const r=projectCreator(people[0]);assert.equal(r.subscriberCount,'300');assert.equal(r.videoCount,'25');assert.equal(r.viewCount,'1000');assert.deepEqual(r.metricSources.views,['youtube']);});
+test('all platform includes YouTube-only eligible humans',()=>assert.deepEqual(rankPeople(people,{metric:'subscribers'}).data.map(x=>x.id),['d','a','b']));
+test('views do not mix Instagram followers into lifetime YouTube views',()=>assert.deepEqual(rankPeople(people,{metric:'views'}).data.map(x=>x.rank),[1,1,2]));
+test('Instagram platform excludes YouTube-only creators and has unavailable views',()=>{const r=rankPeople(people,{platform:'instagram',metric:'views'});assert.equal(r.total,2);assert.deepEqual(r.data.map(x=>x.rank),[null,null]);});
+test('pending and rejected humans are excluded',()=>assert.equal(rankPeople(people).total,3));
+test('category filter applies to linked person across platforms',()=>assert.equal(rankPeople(people,{category:'vloggers-influencers',platform:'instagram'}).total,2));
+test('TikTok placeholder does not fabricate metrics',()=>assert.equal(rankPeople(people,{platform:'tiktok'}).total,0));
+test('BigInt counts beyond JS safe integer retain exact ordering',()=>{const r=rankPeople([p('x',yt('9007199254740994',null,null)),p('y',yt('9007199254740993',null,null))]);assert.equal(r.data[0].id,'x');});
+test('no accidental input mutation',()=>{const old=JSON.stringify(people);rankPeople(people);assert.equal(JSON.stringify(people),old);});
+test('overview totals are source-count sums',()=>{const r=aggregate(people);assert.equal(r.subscribers,'900');assert.equal(r.views,'11000');assert.equal(r.posts,'60');});

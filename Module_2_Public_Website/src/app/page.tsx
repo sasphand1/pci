@@ -1,39 +1,39 @@
 import Link from 'next/link';
-import {Card,MetricCard,SectionHeading} from '@pci/ui';
+import {Card} from '@pci/ui';
 import {adapterGet} from '@/lib/api';
-import type {Creator,Overview,Category,SortMetric} from '@/lib/types';
-import {formatCount} from '@/lib/format.mjs';
+import type {Category,Creator,SortMetric} from '@/lib/types';
 import {RankingWheel} from '@/components/RankingWheel';
-import {UnifiedWheel,type UnifiedResponse} from '@/components/UnifiedWheel';
-import {PlatformTopRows} from '@/components/PlatformTopRows';
+import {CreatorTable} from '@/components/CreatorParts';
+import {UnifiedRankingWheel,UnifiedTop100,UnifiedOverview,type UnifiedPerson,type UnifiedRankingResponse,type UnifiedOverviewResponse} from '@/components/UnifiedCreatorExperience';
 import {SnapshotStatus} from '@/components/SnapshotStatus';
 
-const metrics:SortMetric[]=['views','subscribers','videos'];
+type Metric='views'|'subscribers'|'videos';
+const metrics:Metric[]=['views','subscribers','videos'];
 export default async function Home(){
- const [summary,status,categories,siteConfig,instagram,unified,...results]=await Promise.all([
-  adapterGet<{data:Overview}>('/api/v1/overview'),
+ const [rankingResponses,overviewResponses,status,categories,siteConfig]=await Promise.all([
+  Promise.all(metrics.map(metric=>adapterGet<UnifiedRankingResponse>(`/api/v1/unified/rankings?metric=${metric}&platform=all&limit=100`))),
+  Promise.all((['all','youtube','instagram'] as const).map(platform=>adapterGet<UnifiedOverviewResponse>(`/api/v1/unified/overview?platform=${platform}`))),
   adapterGet<{data:{publishedAt:string|null}}>('/api/v1/status'),
   adapterGet<{data:Category[]}>('/api/v1/categories'),
-  adapterGet<{data:{homepage_announcement?:string}}>('/api/v1/site-config'),
-  adapterGet<{data:{id:string;slug:string;username:string;displayName:string;followersCount:string|null;mediaCount:string|null;rank:number|null}[]}>('/api/v1/instagram/rankings?sort=followers&limit=10'),
-  adapterGet<UnifiedResponse>('/api/v1/cross-platform/top'),
-  ...metrics.map(metric=>adapterGet<{data:Creator[]}>(`/api/v1/rankings?sort=${metric}&limit=100`))
- ]);
- const rankings=Object.fromEntries(metrics.map((metric,i)=>[metric,results[i]?.data??[]])) as Record<SortMetric,Creator[]>;
- const stats=summary?.data;
+  adapterGet<{data:{homepage_announcement?:string}}>('/api/v1/site-config')]);
+ const [rankViews,rankSubscribers,rankVideos]=rankingResponses;
+ const [overviewAll,overviewYoutube,overviewInstagram]=overviewResponses;
+ const fallback=rankingResponses.every(x=>x===null)||rankingResponses.every(x=>!x?.data?.length);
+ const legacyResponses=fallback?await Promise.all((['views','subscribers','videos'] as SortMetric[]).map(metric=>adapterGet<{data:Creator[]}>(`/api/v1/rankings?sort=${metric}&limit=100`))):[];
+ const legacy=Object.fromEntries((['views','subscribers','videos'] as SortMetric[]).map((m,i)=>[m,legacyResponses[i]?.data??[]])) as Record<SortMetric,Creator[]>;
+ const rankings:Record<Metric,UnifiedPerson[]>={views:rankViews?.data??[],subscribers:rankSubscribers?.data??[],videos:rankVideos?.data??[]};
+ const overviews={all:overviewAll,youtube:overviewYoutube,instagram:overviewInstagram};
  return <>
-  {unified?.data?.length?<UnifiedWheel items={unified.data}/>:<RankingWheel rankings={rankings} asOf={status?.data.publishedAt??stats?.publishedAt??null}/>}
+  {fallback?<RankingWheel rankings={legacy} asOf={status?.data.publishedAt??null}/>:<UnifiedRankingWheel rankings={rankings}/>}
   <div className="container">
-   <PlatformTopRows youtube={rankings.views} instagram={instagram?.data??[]}/>
-   <section className="section"><SnapshotStatus publishedAt={status?.data.publishedAt??stats?.publishedAt}/>
-    {siteConfig?.data.homepage_announcement&&<div className="section"><Card><strong>Announcement</strong><p className="muted">{siteConfig.data.homepage_announcement}</p></Card></div>}
-    <SectionHeading title="The numbers behind the index" description="Reported public statistics for the currently monitored creators. Figures do not represent unique viewers or a proprietary influence score."/>
-    <div className="metric-grid"><MetricCard label="Tracked creators" value={String(stats?.creators??'—')}/><MetricCard label="With statistics" value={String(stats?.channelsWithStatistics??'—')}/><MetricCard label="Sum of channel views" value={formatCount(stats?.sumChannelViews,true)} note="Sum of reported channel totals"/><MetricCard label="Sum of subscriber counts" value={formatCount(stats?.sumChannelSubscribers,true)} note="Rounded counts; audiences may overlap"/></div>
+   {siteConfig?.data.homepage_announcement&&<section className="section"><Card><strong>Announcement</strong><p className="muted">{siteConfig.data.homepage_announcement}</p></Card></section>}
+   <section className="section"><h2>Explore by Category</h2><p className="muted">People, not company channels. One editorial category follows each creator across YouTube and Instagram.</p>
+    <div className="grid-4">{(categories?.data??[]).map(c=><Link className="category-link" href={`/categories/${encodeURIComponent(c.slug)}`} key={c.id}>{c.label} →</Link>)}</div>
    </section>
-   <section className="section"><SectionHeading title="Explore by topic" description="Editorial navigation within the tracked collection."/>
-    <div className="grid-4">{(categories?.data||[]).map(c=><Link className="category-link" href={`/categories/${encodeURIComponent(c.slug)}`} key={c.id}>{c.label} →</Link>)}</div>
-   </section>
-   <section className="section"><div className="split"><Card><div className="eyebrow">Browse</div><h2>All creator profiles</h2><p className="muted">Open creator profiles, compare reported statistics and browse the latest tracked videos.</p><p><Link href="/creators" className="btn btn-secondary">Creator directory</Link></p></Card><Card><div className="eyebrow">Community</div><h2>Pakistan Live Wall</h2><p className="muted">One shared conversation for guests and registered users; these are not YouTube comments.</p><p><Link href="/wall" className="btn btn-primary">Open the wall</Link></p></Card></div></section>
+   {fallback?<section className="section"><h2>Top 100 Creators</h2><p className="muted">Showing existing YouTube statistics while the unified human-creator registry awaits verification and its first published metrics.</p><CreatorTable creators={legacy.subscribers.slice(0,100)}/></section>:<UnifiedTop100 rankings={rankings}/>}
+   <SnapshotStatus publishedAt={status?.data.publishedAt}/>
+   <UnifiedOverview overviews={overviews}/>
+   <section className="section"><div className="split"><Card><div className="eyebrow">Browse</div><h2>All creator profiles</h2><p className="muted">Browse verified individuals, their linked social accounts and latest videos.</p><p><Link href="/creators" className="btn btn-secondary">Creator directory</Link></p></Card><Card><div className="eyebrow">Community</div><h2>Pakistan Live Wall</h2><p className="muted">Join the nationwide discussion. Wall posts are not YouTube comments.</p><p><Link href="/wall" className="btn btn-primary">Open the wall</Link></p></Card></div></section>
   </div>
  </>;
 }

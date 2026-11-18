@@ -4,7 +4,7 @@ import {query,transaction} from '../../lib/db.js';
 import {handler,HttpError} from '../../lib/errors.js';
 import {roles,requireAdmin,audit,type AdminIdentity} from '../auth/auth.js';
 import {bustPublicCache} from '../../lib/redis.js';
-import {rankInstagram} from './ranking.mjs';
+import {rankInstagram,type InstagramRankingRecord} from './ranking.mjs';
 import {syncInstagramProfiles} from './service.js';
 
 export const instagramPublicRoutes=Router();
@@ -40,7 +40,7 @@ instagramPublicRoutes.get('/instagram/rankings',handler(async(req,res)=>{
  const opts=page.parse(req.query);
  const all=await listCreators(true);
  const relevant=opts.category?all.filter(c=>c.categories.some((x:any)=>x.slug===opts.category)):all;
- const ranked=rankInstagram(relevant,opts.sort);
+ const ranked=rankInstagram(relevant as InstagramRankingRecord[],opts.sort);
  res.json({data:ranked.slice((opts.page-1)*opts.limit,opts.page*opts.limit),
  meta:{platform:'instagram',metric:opts.sort,total:ranked.length,scope:'approved individual human professional Instagram creators',
  method:'Descending raw Meta Business Discovery count; ties share dense ranks',asOf:ranked.reduce<string|null>((max,c)=>c.fetchedAt&&(!max||c.fetchedAt>max)?c.fetchedAt:max,null),
@@ -92,7 +92,6 @@ instagramAdminRoutes.patch('/instagram/creators/:id',roles('owner','editor'),han
  await tx.query(`UPDATE instagram_creators SET username=COALESCE($2,username),display_name=COALESCE($3,display_name),
  slug=COALESCE($4,slug),biography=COALESCE($5,biography),enabled=COALESCE($6,enabled),youtube_creator_id=COALESCE($7,youtube_creator_id),
  eligibility=CASE WHEN $2 IS NOT NULL OR $7 IS NOT NULL THEN 'pending' ELSE eligibility END,
- cross_platform_curated=CASE WHEN $2 IS NOT NULL OR $7 IS NOT NULL OR $6=false THEN false ELSE cross_platform_curated END,
  human_attested=CASE WHEN $2 IS NOT NULL OR $7 IS NOT NULL THEN false ELSE human_attested END,
  reviewed_by=CASE WHEN $2 IS NOT NULL OR $7 IS NOT NULL THEN NULL ELSE reviewed_by END,
  reviewed_at=CASE WHEN $2 IS NOT NULL OR $7 IS NOT NULL THEN NULL ELSE reviewed_at END,
@@ -115,7 +114,7 @@ instagramAdminRoutes.post('/instagram/creators/:id/review',roles('owner','editor
   if(!linked.rowCount)throw new HttpError(400,'YOUTUBER_LINK_REQUIRED','Link the Instagram profile to a verified YouTube creator in PCI before approving');
  }
  const reviewer=(res.locals.admin as AdminIdentity).id;
- const r=await query(`UPDATE instagram_creators SET eligibility=$2,human_attested=$3,reviewed_by=$4,reviewed_at=now(),cross_platform_curated=CASE WHEN $2='approved' THEN cross_platform_curated ELSE false END,updated_at=now()
+ const r=await query(`UPDATE instagram_creators SET eligibility=$2,human_attested=$3,reviewed_by=$4,reviewed_at=now(),updated_at=now()
  WHERE id=$1 RETURNING id`,[id,b.decision,b.decision==='approved'&&b.humanAttested,reviewer]);
  if(!r.rowCount)throw new HttpError(404,'NOT_FOUND','Creator not found');
  await audit(reviewer,'instagram.creator.review',id,{decision:b.decision,note:b.note??''});
