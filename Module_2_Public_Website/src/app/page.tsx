@@ -6,16 +6,19 @@ import {RankingWheel} from '@/components/RankingWheel';
 import {CreatorTable} from '@/components/CreatorParts';
 import {UnifiedRankingWheel,UnifiedTop100,UnifiedOverview,type UnifiedPerson,type UnifiedRankingResponse,type UnifiedOverviewResponse} from '@/components/UnifiedCreatorExperience';
 import {SnapshotStatus} from '@/components/SnapshotStatus';
+import {CreatorDiscoveryRows} from '@/components/CreatorDiscoveryRows';
 
 type Metric='views'|'subscribers'|'videos';
 const metrics:Metric[]=['views','subscribers','videos'];
 export default async function Home(){
- const [rankingResponses,overviewResponses,status,categories,siteConfig]=await Promise.all([
+ const [rankingResponses,overviewResponses,status,categories,siteConfig,platformYoutube,platformInstagram]=await Promise.all([
   Promise.all(metrics.map(metric=>adapterGet<UnifiedRankingResponse>(`/api/v1/unified/rankings?metric=${metric}&platform=all&limit=100`))),
   Promise.all((['all','youtube','instagram'] as const).map(platform=>adapterGet<UnifiedOverviewResponse>(`/api/v1/unified/overview?platform=${platform}`))),
   adapterGet<{data:{publishedAt:string|null}}>('/api/v1/status'),
   adapterGet<{data:Category[]}>('/api/v1/categories'),
-  adapterGet<{data:{homepage_announcement?:string}}>('/api/v1/site-config')]);
+  adapterGet<{data:{homepage_announcement?:string}}>('/api/v1/site-config'),
+  adapterGet<UnifiedRankingResponse>('/api/v1/unified/rankings?metric=subscribers&platform=youtube&limit=100'),
+  adapterGet<UnifiedRankingResponse>('/api/v1/unified/rankings?metric=subscribers&platform=instagram&limit=100')]);
  const [rankViews,rankSubscribers,rankVideos]=rankingResponses;
  const [overviewAll,overviewYoutube,overviewInstagram]=overviewResponses;
  const fallback=rankingResponses.every(x=>x===null)||rankingResponses.every(x=>!x?.data?.length);
@@ -25,11 +28,9 @@ export default async function Home(){
  const overviews={all:overviewAll,youtube:overviewYoutube,instagram:overviewInstagram};
  return <>
   {fallback?<RankingWheel rankings={legacy} asOf={status?.data.publishedAt??null}/>:<UnifiedRankingWheel rankings={rankings}/>}
+  {siteConfig?.data.homepage_announcement&&<div className="container"><section className="section"><Card><strong>Announcement</strong><p className="muted">{siteConfig.data.homepage_announcement}</p></Card></section></div>}
+  <CreatorDiscoveryRows categories={categories?.data??[]} youtube={platformYoutube?.data??[]} instagram={platformInstagram?.data??[]} />
   <div className="container">
-   {siteConfig?.data.homepage_announcement&&<section className="section"><Card><strong>Announcement</strong><p className="muted">{siteConfig.data.homepage_announcement}</p></Card></section>}
-   <section className="section"><h2>Explore by Category</h2><p className="muted">People, not company channels. One editorial category follows each creator across YouTube and Instagram.</p>
-    <div className="grid-4">{(categories?.data??[]).map(c=><Link className="category-link" href={`/categories/${encodeURIComponent(c.slug)}`} key={c.id}>{c.label} →</Link>)}</div>
-   </section>
    {fallback?<section className="section"><h2>Top 100 Creators</h2><p className="muted">Showing existing YouTube statistics while the unified human-creator registry awaits verification and its first published metrics.</p><CreatorTable creators={legacy.subscribers.slice(0,100)}/></section>:<UnifiedTop100 rankings={rankings}/>}
    <SnapshotStatus publishedAt={status?.data.publishedAt}/>
    <UnifiedOverview overviews={overviews}/>
