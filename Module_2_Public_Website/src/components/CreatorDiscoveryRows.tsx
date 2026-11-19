@@ -1,16 +1,17 @@
  'use client';
 import Link from 'next/link';
-import {useRef,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import type {ReactNode} from 'react';
-import type {Category} from '@/lib/types';
+import type {Category,Creator} from '@/lib/types';
 import type {UnifiedPerson} from '@/components/UnifiedCreatorExperience';
 import {formatCount,safeYoutubeImage} from '@/lib/format.mjs';
 
 const decorations=['◎','◉','◇','✦','★','⌘','✧','◕'];
 const palette=['sea','teal','violet','olive','rose','blue','amber','purple'];
 
-function PanelRail({title,summary,children,empty}:{title:string;summary:string;children:ReactNode;empty:boolean}){
+function PanelRail({title,summary,children,empty,startAtEnd=false}:{title:string;summary:string;children:ReactNode;empty:boolean;startAtEnd?:boolean}){
  const scroller=useRef<HTMLDivElement>(null);
+ useEffect(()=>{if(startAtEnd&&scroller.current)scroller.current.scrollLeft=scroller.current.scrollWidth;},[startAtEnd,children]);
  const scroll=(dir:-1|1)=>scroller.current?.scrollBy({left:dir*370,behavior:'smooth'});
  return <section className="pci-discovery-rail" aria-label={title}>
   <div className="pci-discovery-rail-head"><div><h3>{title}</h3><p>{summary}</p></div><div className="pci-discovery-controls"><button type="button" aria-label={`Scroll ${title} left`} onClick={()=>scroll(-1)}>‹</button><button type="button" aria-label={`Scroll ${title} right`} onClick={()=>scroll(1)}>›</button></div></div>
@@ -18,14 +19,16 @@ function PanelRail({title,summary,children,empty}:{title:string;summary:string;c
  </section>;
 }
 /** Platform rails are sourced from the server-side, admin-approved unified registry.
- * Each source ranking is calculated independently from its platform's reported
- * subscriber/follower metric. Client-side category filtering preserves rank order.
- * Up to 20 verified people per row, never 20 fabricated profiles.
+ * The YouTube row uses raw subscriber rankings from the curated YouTube API.
+ * Instagram remains sourced from the human-approved unified API.
+ * No fabricated channel statistics are introduced.
  */
-export function CreatorDiscoveryRows({categories,youtube,instagram}:{categories:Category[];youtube:UnifiedPerson[];instagram:UnifiedPerson[]}){
+export function CreatorDiscoveryRows({categories,youtube,instagram,curatedYoutube}:{categories:Category[];youtube:UnifiedPerson[];instagram:UnifiedPerson[];curatedYoutube:Creator[]}){
  const [selected,setSelected]=useState<string|null>(null);
  const included=(xs:{slug:string}[]|undefined)=>!selected||Boolean(xs?.some(c=>c.slug===selected));
- const yt=youtube.filter(p=>Boolean(p.platforms?.youtube)&&p.subscriberCount!==null&&included(p.categories)).slice(0,20);
+ // Use real, enabled YouTube channel snapshots for the editorial YouTube row.
+ // Unified approval continues to govern the cross-platform ranking wheel and Top 100.
+ const yt=curatedYoutube.filter(p=>p.subscriberCount!==null&&!p.subscriberHidden&&included(p.categories)).slice(0,20).reverse();
  const ig=instagram.filter(p=>Boolean(p.platforms?.instagram)&&p.subscriberCount!==null&&included(p.categories)).slice(0,20);
  const choice=categories.find(c=>c.slug===selected);
  return <section className="pci-discovery" aria-label="Explore creators and topics">
@@ -37,11 +40,11 @@ export function CreatorDiscoveryRows({categories,youtube,instagram}:{categories:
      <span className="pci-category-symbol" aria-hidden="true">{decorations[i%decorations.length]}</span><span className="pci-category-name">{c.label}</span><span className="pci-category-arrow" aria-hidden="true">↗</span>
     </button>)}
    </div>
-   <div className="pci-discovery-heading pci-discovery-subheading"><div><div className="pci-discovery-overline">CREATOR COLLECTIONS</div><h2>{choice?choice.label:'Discover platform creators'}</h2><p>Top 20 on each platform, ranked by verified subscribers or followers. Swipe horizontally to browse.</p></div>{selected&&<button type="button" className="pci-discovery-clear" onClick={()=>setSelected(null)}>Clear filter ×</button>}</div>
-   <PanelRail title="YouTube" summary="Top 20 verified YouTubers · subscribers" empty={!yt.length}>
+   <div className="pci-discovery-heading pci-discovery-subheading"><div><div className="pci-discovery-overline">CREATOR COLLECTIONS</div><h2>{choice?choice.label:'Discover platform creators'}</h2><p>YouTube: top tracked channels by subscriber count, from #20 to #1. Instagram: approved individuals. Swipe horizontally to browse.</p></div>{selected&&<button type="button" className="pci-discovery-clear" onClick={()=>setSelected(null)}>Clear filter ×</button>}</div>
+   <PanelRail title="YouTube" summary="Top 20 tracked YouTube channels · subscribers · #20 to #1" empty={!yt.length} startAtEnd>
     {yt.map(p=><Link key={p.id} className="pci-discovery-person" href={`/creators/${encodeURIComponent(p.slug)}`}>
-     <div className="pci-discovery-avatar">{safeYoutubeImage(p.thumbnailUrl)?<img loading="lazy" alt="" src={safeYoutubeImage(p.thumbnailUrl)!}/>:<span>{p.displayName.slice(0,1)}</span>}<span className="pci-discovery-chip">YouTube</span></div>
-     <div className="pci-discovery-caption"><strong>{p.displayName}</strong><span>{formatCount(p.subscriberCount,true)} YouTube subscribers</span></div>
+     <div className="pci-discovery-avatar">{safeYoutubeImage(p.thumbnailUrl)?<img loading="lazy" alt="" src={safeYoutubeImage(p.thumbnailUrl)!}/>:<span>{p.displayName.slice(0,1)}</span>}<span className="pci-discovery-chip">YouTube</span><span className="pci-discovery-rank" aria-label={`Rank ${p.rank??"unranked"}`}>#{p.rank??"—"}</span></div>
+     <div className="pci-discovery-caption"><strong>{p.displayName}</strong><span>{formatCount(p.subscriberCount,true)} subscribers</span></div>
     </Link>)}
    </PanelRail>
    <PanelRail title="Instagram" summary="Top 20 verified Instagram profiles · followers" empty={!ig.length}>
@@ -52,7 +55,7 @@ export function CreatorDiscoveryRows({categories,youtube,instagram}:{categories:
    </PanelRail>
    <PanelRail title="TikTok" summary="Reserved for an official future integration" empty={false}><div className="pci-discovery-placeholder"><span aria-hidden="true">♪</span><strong>TikTok creators</strong><p>Coming soon · no invented rankings or statistics</p></div></PanelRail>
    <div className="pci-discovery-future"><div><span className="pci-discovery-future-symbol" aria-hidden="true">◈</span><strong>Restaurants</strong><span>Coming soon</span></div><div><span className="pci-discovery-future-symbol" aria-hidden="true">✧</span><strong>Events</strong><span>Coming soon</span></div></div>
-   <p className="pci-discovery-disclaimer">*YouTube and Instagram rows use separate platform-reported follower/subscriber counts. Cross-platform audiences may overlap. Only admin-approved individual human creators with linked YouTube accounts appear. The rows each show a maximum of 20 verified profiles.</p>
+   <p className="pci-discovery-disclaimer">*YouTube and Instagram rows use separate platform-reported follower/subscriber counts. Cross-platform audiences may overlap. The YouTube row lists enabled, curated channels with reported subscriber counts; unified rankings and Instagram continue to require human approval. Each row displays up to 20 profiles.</p>
   </div>
  </section>;
 }

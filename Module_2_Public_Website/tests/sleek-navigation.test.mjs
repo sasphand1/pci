@@ -18,7 +18,7 @@ test('compact navigation keeps the homepage and rankings accessible',()=>{
 });
 
 test('discovery categories and platform rails use real unified API results',()=>{
- assert.match(page,/<CreatorDiscoveryRows categories=\{categories\?\.data\?\?\[\]\} youtube=\{platformYoutube\?\.data\?\?\[\]\} instagram=\{platformInstagram\?\.data\?\?\[\]\}\/>/);
+ assert.match(page,/<CreatorDiscoveryRows categories=\{categories\?\.data\?\?\[\]\} youtube=\{platformYoutube\?\.data\?\?\[\]\} instagram=\{platformInstagram\?\.data\?\?\[\]\} curatedYoutube=\{curatedYoutube\?\.data\?\?\[\]\}\/>/);
  assert.match(page,/\/api\/v1\/categories/);
  assert.match(page,/\/api\/v1\/unified\/rankings\?metric=subscribers&platform=youtube&limit=100/);
  assert.match(page,/\/api\/v1\/unified\/rankings\?metric=subscribers&platform=instagram&limit=100/);
