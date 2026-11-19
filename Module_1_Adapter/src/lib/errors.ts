@@ -12,6 +12,11 @@ export function errorMiddleware(err:unknown,req:Request,res:Response,_next:NextF
   if (err instanceof SyntaxError && 'status' in err && (err as any).status===400) return res.status(400).json({error:{code:'INVALID_JSON',message:'Invalid JSON body'},requestId:rid});
   if (err instanceof ZodError) return res.status(400).json({error:{code:'VALIDATION_ERROR',message:'Invalid request',details:err.flatten().fieldErrors},requestId:rid});
   if (err instanceof HttpError) return res.status(err.status).json({error:{code:err.code,message:err.message},requestId:rid});
+  // PCI_DIAGNOSTIC_V1: plain text survives Hostinger log UI, without SQL values or secrets.
+  const failure=err&&typeof err==='object'?err as {code?:unknown;name?:unknown}:{};
+  const sqlstate=typeof failure.code==='string' && /^[A-Z0-9]{5}$/.test(failure.code)?failure.code:'none';
+  const kind=typeof failure.name==='string'?failure.name:'UnknownError';
+  console.error(`[PCI_API_FAILURE] method=${req.method} path=${req.path} requestId=${rid} type=${kind} sqlstate=${sqlstate}`);
   logger.error({err,requestId:rid,route:req.path},'request failed');
   return res.status(500).json({error:{code:'INTERNAL_ERROR',message:'Internal server error'},requestId:rid});
 }

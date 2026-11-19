@@ -18,6 +18,9 @@ import { attachWall, wallRoutes } from './modules/wall/service.js';
 import {boundedLimit} from './lib/redis.js';
 import {pseudonym} from './lib/security.js';
 
+// PCI_STARTUP_READY_GATE_V1: report readiness only after dependencies initialize.
+let pciStartupReady = false;
+
 export function makeApp() {
   const app = express();
   app.disable('x-powered-by');
@@ -42,6 +45,11 @@ export function makeApp() {
   });
   app.use(express.json({limit:'32kb',strict:true}));
   app.use(cookieParser());
+  // Avoid requests racing with database/Redis initialization.
+  app.use('/api/v1',(_req,res,next)=>{
+    if (!pciStartupReady) return res.status(503).json({error:{code:'SERVICE_INITIALIZING',message:'Backend dependencies are initializing'}});
+    next();
+  });
   app.use('/api/v1',handler(async(req,_res,next)=>{
     const key=`http:global:${pseudonym(req.ip??'unknown')}`;
     if(!await boundedLimit(key,300,60))throw new HttpError(429,'RATE_LIMIT','Request limit exceeded');
@@ -50,6 +58,7 @@ export function makeApp() {
   app.use((req,res,next)=>{res.setHeader('Cache-Control','no-store');next();});
   app.get('/health/live',(_req,res)=>res.json({status:'alive'}));
   app.get('/health/ready',handler(async(_req,res)=>{
+    if (!pciStartupReady) return res.status(503).json({status:'initializing'});
     await pool.query('SELECT 1');await redis.ping();
     res.json({status:'ready'});
   }));
@@ -70,22 +79,40 @@ export function makeApp() {
 }
 
 async function main(){
-  await pool.query('SELECT 1');
-  // Best-effort, additive-only compatibility bridge for new unified review fields.
-  // It never modifies creator metrics or eligibility and must not take legacy APIs offline.
-  try {
-    await ensureUnifiedSchema();
-    logger.info('Unified creator schema verified');
-  } catch (err) {
-    logger.error({err},'Unified schema repair failed; legacy YouTube endpoints remain available');
-  }
-  await ensureRedis();
+  // Hostinger expects a listening socket promptly. Do NOT block listen() on network I/O.
   const httpServer=createServer(makeApp());
   const io=attachWall(httpServer);
-  httpServer.listen(config.PORT,'0.0.0.0',()=>logger.info({port:config.PORT},'API server ready'));
+  await new Promise<void>((resolve,reject)=>{
+    httpServer.once('error',reject);
+    httpServer.listen(config.PORT,'0.0.0.0',()=>{
+      httpServer.off('error',reject);
+      logger.info({port:config.PORT},'API socket listening');
+      resolve();
+    });
+  });
+  // Initialization runs after listen; API returns 503 until PostgreSQL/Redis are ready.
+  void (async()=>{
+    try {
+      await pool.query('SELECT 1');
+      try {
+        await ensureUnifiedSchema();
+        logger.info('Unified creator schema verified');
+      } catch(err) {
+        logger.error({err},'Unified schema verification failed; inspect unified routes');
+        console.error('[PCI_SCHEMA_FAILURE] review-schema initialization failed');
+      }
+      await ensureRedis();
+      pciStartupReady=true;
+      logger.info('API server ready');
+    } catch(err) {
+      logger.error({err},'Backend dependency initialization failed');
+      console.error('[PCI_STARTUP_FAILURE] database or Redis connection failed');
+    }
+  })();
   let shutdownStarted=false;
   const shutdown=async()=>{
     if(shutdownStarted)return;shutdownStarted=true;
+    pciStartupReady=false;
     logger.info('Shutting down API');
     const force=setTimeout(()=>process.exit(1),10_000);force.unref();
     await new Promise<void>(resolve=>io.close(()=>resolve()));
