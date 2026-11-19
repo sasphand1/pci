@@ -78,9 +78,32 @@ async function insertBatch(records:z.infer<typeof schema>[],res:any){
 instagramAdminRoutes.post('/instagram/creators',roles('owner','editor'),handler(async(req,res)=>{
  const count=await insertBatch([schema.parse(req.body)],res);res.status(201).json({data:{created:count,status:'pending_review'}});
 }));
+// PCI_SMART_BULK_IMPORT_V1: Same skip-existing/add-new policy as YouTube.
+// Unchanged accounts retain all approvals, statistics, and their category links.
 instagramAdminRoutes.post('/instagram/creators/bulk',roles('owner','editor'),handler(async(req,res)=>{
  const input=bulkSchema.parse(req.body?.creators);
- const count=await insertBatch(input,res);res.status(201).json({data:{created:count,status:'pending_review'}});
+ const unique=new Map<string,typeof input[number]>();
+ let duplicatesInFile=0;
+ for(const c of input){
+  if(unique.has(c.username)){duplicatesInFile++;continue;}
+  unique.set(c.username,c);
+ }
+ const list=[...unique.values()];
+ const existing=await query<{username:string;slug:string}>(
+  'SELECT username,slug FROM instagram_creators WHERE lower(username)=ANY($1::text[]) OR slug=ANY($2::text[])',
+  [list.map(x=>x.username),list.map(x=>x.slug)]);
+ const oldUsernames=new Set(existing.rows.map(x=>x.username.toLowerCase()));
+ const fresh=list.filter(x=>!oldUsernames.has(x.username));
+ const bySlug=new Map(existing.rows.map(x=>[x.slug,x.username.toLowerCase()]));
+ for(const c of fresh){
+  const owner=bySlug.get(c.slug);
+  if(owner && owner!==c.username)throw new HttpError(409,'SLUG_CONFLICT',
+   `Instagram slug ${c.slug} belongs to another profile; no profiles imported`);
+  bySlug.set(c.slug,c.username);
+ }
+ // insertBatch checks duplicate slugs and inserts in a single transaction.
+ const created=fresh.length?await insertBatch(fresh,res):0;
+ res.status(200).json({data:{created,skipped:list.length-fresh.length,duplicatesInFile,status:'pending_review'}});
 }));
 instagramAdminRoutes.patch('/instagram/creators/:id',roles('owner','editor'),handler(async(req,res)=>{
  const id=uuid.parse(req.params.id),b=schema.partial().parse(req.body);

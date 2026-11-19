@@ -25,8 +25,8 @@ export default function CreatorsPage(){
  async function importBulk(){if(!csrf)return;setBulkBusy(true);setError('');setOk('');try{
   const raw=JSON.parse(bulk) as unknown;
   if(!Array.isArray(raw)||raw.length<1||raw.length>100)throw new Error('Provide a JSON array with 1–100 creator objects.');
-  const r=await api<{created:number}>('/admin/creators/bulk',{method:'POST',csrf,body:{creators:raw}});
-  setOk(`Imported ${r.created} creators successfully.`);setBulk('');list.reload();
+  const r=await api<{created:number;skipped:number;duplicatesInFile:number}>('/admin/creators/bulk',{method:'POST',csrf,body:{creators:raw}});
+  setOk(`Added ${r.created} new creators; skipped ${r.skipped} existing channels and ${r.duplicatesInFile} duplicates in this file.`);setBulk('');list.reload();
  }catch(e){setError(errorText(e));}finally{setBulkBusy(false);}}
  return <RoleGate roles={['owner','editor']}><AdminPage title="Creator registry" description="Verify UC channel IDs and manage all curated creators. Bulk imports are transactional." action={<button className="btn btn-secondary" onClick={()=>{list.reload();categories.reload();}}>Reload</button>}>
   <Status error={error} ok={ok}/>
@@ -42,7 +42,7 @@ export default function CreatorsPage(){
     <div className="admin-inline-actions"><label className="admin-check"><input type="checkbox" checked={form.enabled} onChange={e=>setForm(p=>({...p,enabled:e.target.checked}))}/>Enabled</label><label className="admin-check"><input type="checkbox" checked={form.featured} onChange={e=>setForm(p=>({...p,featured:e.target.checked}))}/>Featured on public site</label></div>
     <BusyButton busy={saving}>{selected?'Save creator':'Verify and add creator'}</BusyButton>
    </form></Card>
-   <Card><h2 className="admin-box-title">Bulk import</h2><p className="muted text-sm">Paste a JSON array matching the exact Module 1 adapter contract. Each entry must include channelId, slug and displayName, plus optional categoryIds, description, featured and enabled. The adapter verifies all channel IDs before committing the batch.</p>
+   <Card><h2 className="admin-box-title">Bulk import</h2><p className="muted text-sm">Paste a JSON array matching the exact Module 1 adapter contract. Each entry must include channelId, slug and displayName, plus optional categoryIds, description, featured and enabled. Existing channel IDs are skipped automatically; only new channel IDs are verified and imported.</p>
     <div className="form"><div className="field"><label htmlFor="bulk-json">Creator JSON array</label><textarea id="bulk-json" rows={10} className="admin-code" value={bulk} onChange={e=>setBulk(e.target.value)} placeholder={'[{"channelId":"UC...","slug":"example","displayName":"Example","categoryIds":[]}]'}/></div>
       <button type="button" className="btn btn-primary" disabled={bulkBusy||!bulk.trim()} onClick={importBulk}>{bulkBusy?'Importing…':'Validate and bulk import'}</button>
     </div><p className="fineprint">Maximum 100 creators per request. Do not paste API keys or other secrets.</p>

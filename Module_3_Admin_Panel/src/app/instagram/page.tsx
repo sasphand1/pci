@@ -30,12 +30,14 @@ export default function InstagramManagement(){
   // Deliberately retain form on failure; clear only if server has reloaded.
  }
  async function importBulk(){
-  await execute(async()=>{
+  setBusy(true);setError('');setOk('');
+  try{
    const raw=JSON.parse(bulk) as unknown;
-   if(!Array.isArray(raw)||raw.length<1||raw.length>100)throw new Error('Import 1–100 profile objects.');
-   await api('/admin/instagram/creators/bulk',{method:'POST',csrf,body:{creators:raw}});
-   setBulk('');
-  },'Profiles imported into pending review.');
+   if(!Array.isArray(raw)||raw.length<1||raw.length>100)throw new Error('Import 1â€“100 profile objects.');
+   const result=await api<{created:number;skipped:number;duplicatesInFile:number}>('/admin/instagram/creators/bulk',{method:'POST',csrf,body:{creators:raw}});
+   setOk(`Added ${result.created}; skipped ${result.skipped} existing profiles and ${result.duplicatesInFile} duplicate usernames in this JSON.`);
+   setBulk('');reload();
+  }catch(e){setError(errorText(e));}finally{setBusy(false);}
  }
  async function review(c:Creator,decision:'approved'|'rejected'){
   const confirmation=decision==='approved'
@@ -59,7 +61,7 @@ export default function InstagramManagement(){
   <fieldset className="admin-fieldset"><legend>Categories</legend><div className="admin-check-grid">{(categories.data??[]).map(c=><label className="admin-check" key={c.id}><input type="checkbox" checked={form.categoryIds.includes(c.id)} onChange={e=>setForm(p=>({...p,categoryIds:e.target.checked?[...p.categoryIds,c.id]:p.categoryIds.filter(id=>id!==c.id)}))}/>{c.label}</label>)}</div></fieldset>
   <button className="btn btn-primary" disabled={busy}>Add for human review</button>
  </form></Card>
- <Card><h2>Bulk profile import</h2><p className="muted text-sm">JSON array, up to 100 records. All entries remain pending, never automatically ranked. Category IDs must already exist.</p>
+ <Card><h2>Bulk profile import</h2><p className="muted text-sm">JSON array, up to 100 records. New entries remain pending, never automatically ranked. Existing profiles are skipped without changes. Category IDs must already exist.</p>
  <div className="field"><label htmlFor="ig-bulk">JSON profiles</label><textarea id="ig-bulk" className="admin-code" rows={10} value={bulk} onChange={e=>setBulk(e.target.value)} placeholder={'[{"username":"human_creator","displayName":"Human Creator","slug":"human-creator","categoryIds":[]}]'}/></div>
  <button className="btn btn-primary" disabled={busy||!bulk.trim()} onClick={importBulk}>Validate and import</button>
  <p className="fineprint">Human eligibility must be reviewed per profile after importing; no automatic approval.</p>

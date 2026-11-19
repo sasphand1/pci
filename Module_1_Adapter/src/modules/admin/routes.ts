@@ -63,21 +63,59 @@ adminRoutes.post('/creators',roles('owner','editor'),handler(async(req,res)=>{
  });await auditAs(res,'creator.create',id);await bustPublicCache();res.status(201).json({data:{id}});
  }catch(e:any){if(e.code==='23505')throw new HttpError(409,'DUPLICATE','Channel ID or slug already exists');if(e.code==='23503')throw new HttpError(400,'CATEGORY_MISSING','Unknown category ID');throw e;}
 }));
+// PCI_SMART_BULK_IMPORT_V1: Existing channels are never modified or revalidated.
+// All new channel IDs are verified BEFORE an atomic insert of the new subset.
 adminRoutes.post('/creators/bulk',roles('owner','editor'),handler(async(req,res)=>{
- const b=z.array(creator).min(1).max(100).parse(req.body?.creators);
- if(!config.YOUTUBE_API_KEY)throw new HttpError(503,'YOUTUBE_UNCONFIGURED','Configure YouTube API key');
- const uniqueIds=new Set(b.map(x=>x.channelId)),uniqueSlugs=new Set(b.map(x=>x.slug));
- if(uniqueIds.size!==b.length||uniqueSlugs.size!==b.length)throw new HttpError(400,'DUPLICATE_IN_BATCH','Duplicate IDs/slugs');
- const yt=new YoutubeClient(),valid=new Set<string>();
- for(const ids of chunks([...uniqueIds],50))for(const c of await yt.channels(ids))valid.add(c.id);
- if(valid.size!==b.length)throw new HttpError(400,'CHANNEL_NOT_FOUND','Some channel IDs could not be verified');
- try{const count=await transaction(async tx=>{
-   for(const item of b){const r=await tx.query('INSERT INTO creators(channel_id,slug,display_name,description,featured,enabled) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',
-   [item.channelId,item.slug,item.displayName,item.description,item.featured,item.enabled]);
-   for(const cid of item.categoryIds)await tx.query('INSERT INTO creator_categories(creator_id,category_id) VALUES($1,$2)',[r.rows[0].id,cid]);}
-   return b.length;
- });await auditAs(res,'creator.bulk_create',null,{count});await bustPublicCache();res.status(201).json({data:{created:count}});
- }catch(e:any){if(e.code==='23505')throw new HttpError(409,'DUPLICATE','Conflict with existing creator');if(e.code==='23503')throw new HttpError(400,'CATEGORY_MISSING','Unknown category');throw e;}
+ const input=z.array(creator).min(1).max(100).parse(req.body?.creators);
+ const unique=new Map<string,typeof input[number]>();
+ const duplicatedInFile:string[]=[];
+ for(const item of input){
+   if(unique.has(item.channelId)){duplicatedInFile.push(item.channelId);continue;}
+   unique.set(item.channelId,item);
+ }
+ const items=[...unique.values()];
+ const ids=items.map(x=>x.channelId);
+ const existing=await query<{channel_id:string;slug:string}>(
+  'SELECT channel_id,slug FROM creators WHERE channel_id = ANY($1::text[]) OR slug = ANY($2::text[])',
+  [ids,items.map(x=>x.slug)]);
+ const byChannel=new Set(existing.rows.map(x=>x.channel_id));
+ const skipped=items.filter(x=>byChannel.has(x.channelId)).map(x=>x.channelId);
+ const fresh=items.filter(x=>!byChannel.has(x.channelId));
+ const claimedSlugs=new Map(existing.rows.map(x=>[x.slug,x.channel_id]));
+ const seenSlugs=new Map<string,string>();
+ for(const item of fresh){
+  const owner=claimedSlugs.get(item.slug)??seenSlugs.get(item.slug);
+  if(owner && owner!==item.channelId)throw new HttpError(409,'SLUG_CONFLICT',
+   `Slug ${item.slug} is already assigned to another channel; no records imported`);
+  seenSlugs.set(item.slug,item.channelId);
+ }
+ if(fresh.length && !config.YOUTUBE_API_KEY)throw new HttpError(503,'YOUTUBE_UNCONFIGURED','Configure YouTube API key');
+ if(fresh.length){
+  const yt=new YoutubeClient(),valid=new Set<string>();
+  for(const batch of chunks(fresh.map(x=>x.channelId),50))
+   for(const c of await yt.channels(batch))valid.add(c.id);
+  const invalid=fresh.filter(x=>!valid.has(x.channelId)).map(x=>x.channelId);
+  if(invalid.length)throw new HttpError(400,'CHANNEL_NOT_FOUND',
+   `Unverified YouTube IDs: ${invalid.join(', ')}. No records imported`);
+ }
+ let created=0;
+ try{
+  await transaction(async tx=>{
+   for(const item of fresh){
+    const r=await tx.query(`INSERT INTO creators(channel_id,slug,display_name,description,featured,enabled)
+      VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING id`,
+      [item.channelId,item.slug,item.displayName,item.description,item.featured,item.enabled]);
+    if(!r.rowCount){skipped.push(item.channelId);continue;}
+    created++;
+    for(const cid of item.categoryIds)await tx.query(
+      'INSERT INTO creator_categories(creator_id,category_id) VALUES($1,$2)',[r.rows[0].id,cid]);
+   }
+  });
+ }catch(e:any){if(e.code==='23503')throw new HttpError(400,'CATEGORY_MISSING','Unknown category');throw e;}
+ await auditAs(res,'creator.bulk_smart_import',null,{created,skipped:skipped.length,duplicatesInFile:duplicatedInFile.length});
+ if(created)await bustPublicCache();
+ res.status(200).json({data:{created,skipped:skipped.length,duplicatesInFile:duplicatedInFile.length,
+  skippedChannelIds:skipped,duplicateChannelIds:duplicatedInFile}});
 }));
 adminRoutes.patch('/creators/:id',roles('owner','editor'),handler(async(req,res)=>{
  const id=uuid.parse(req.params.id);
