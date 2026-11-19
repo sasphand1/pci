@@ -112,17 +112,21 @@ adminRoutes.post('/creators/bulk',roles('owner','editor'),handler(async(req,res)
    candidates.push(item);
  }
  if(candidates.length&&!config.YOUTUBE_API_KEY)throw new HttpError(503,'YOUTUBE_UNCONFIGURED','Configure YouTube API key');
+ // Verify every candidate against YouTube, but do not abort valid records when a
+ // different submitted channel ID is invalid or no longer available.
+ const valid=new Set<string>();
  if(candidates.length){
-   const yt=new YoutubeClient(),valid=new Set<string>();
-   for(const part of chunks(candidates.map(x=>x.channelId),50))for(const c of await yt.channels(part))valid.add(c.id);
-   const invalid=candidates.filter(x=>!valid.has(x.channelId)).map(x=>x.channelId);
-   if(invalid.length)throw new HttpError(400,'CHANNEL_NOT_FOUND',`Unverified YouTube IDs: ${invalid.join(', ')}. No records changed.`);
+   const yt=new YoutubeClient();
+   for(const part of chunks(candidates.map(x=>x.channelId),50))
+     for(const c of await yt.channels(part))valid.add(c.id);
  }
+ const unverifiedChannelIds=candidates.filter(x=>!valid.has(x.channelId)).map(x=>x.channelId);
+ const verifiedCandidates=candidates.filter(x=>valid.has(x.channelId));
  let created=0,reactivated=0;
  try{
    await transaction(async tx=>{
      await tx.query('SELECT pg_advisory_xact_lock(710324)');
-     for(const item of candidates){
+     for(const item of verifiedCandidates){
        const prev=byId.get(item.channelId);
        if(prev&&!prev.enabled){
          const r=await tx.query(`UPDATE creators SET enabled=true,featured=$2,description=$3,
@@ -143,10 +147,10 @@ adminRoutes.post('/creators/bulk',roles('owner','editor'),handler(async(req,res)
      }
    });
  }catch(e:any){if(e.code==='23503')throw new HttpError(400,'CATEGORY_MISSING','Unknown category UUID');throw e;}
- await auditAs(res,'creator.bulk_import_with_restore',null,{created,reactivated,skipped:skipped.length,conflicts:conflicted.length,duplicates:duplicateIds.length});
+ await auditAs(res,'creator.bulk_import_with_restore',null,{created,reactivated,skipped:skipped.length,conflicts:conflicted.length,duplicates:duplicateIds.length,unverified:unverifiedChannelIds.length});
  if(created||reactivated)await bustPublicCache();
  res.json({data:{created,reactivated,skipped:skipped.length,duplicatesInFile:duplicateIds.length,
-   conflicts:conflicted,skippedChannelIds:skipped}});
+   conflicts:conflicted,skippedChannelIds:skipped,unverifiedChannelIds}});
 }));
 // PCI_BULK_SOFT_DELETE_V1: owner-only, audited, reversible bulk disable.
 adminRoutes.post('/creators/bulk-disable',roles('owner'),handler(async(req,res)=>{

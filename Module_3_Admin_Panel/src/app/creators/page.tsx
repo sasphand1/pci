@@ -59,9 +59,10 @@ export default function CreatorsPage(){
  async function importBulk(){if(!csrf)return;setBulkBusy(true);setError('');setOk('');try{
   const raw=JSON.parse(bulk) as unknown;
   if(!Array.isArray(raw)||raw.length<1||raw.length>100)throw new Error('Provide a JSON array with 1–100 creator objects.');
-  const r=await api<{created:number;reactivated:number;skipped:number;duplicatesInFile:number;conflicts:{channelId:string;slug:string;existingChannelId:string}[]}>('/admin/creators/bulk',{method:'POST',csrf,body:{creators:raw}});
-  setOk(`Created ${r.created}, restored ${r.reactivated}, skipped ${r.skipped}, duplicates ${r.duplicatesInFile}, conflicts ${r.conflicts.length}.`);
-  if(r.conflicts.length)setError(r.conflicts.map(c=>`Slug ${c.slug}: ${c.channelId} conflicts with ${c.existingChannelId}`).join(' | '));
+  const r=await api<{created:number;reactivated:number;skipped:number;duplicatesInFile:number;conflicts:{channelId:string;slug:string;existingChannelId:string}[];unverifiedChannelIds:string[]}>('/admin/creators/bulk',{method:'POST',csrf,body:{creators:raw}});
+  setOk(`Created ${r.created}, restored ${r.reactivated}, skipped existing ${r.skipped}, duplicates ${r.duplicatesInFile}, slug conflicts ${r.conflicts.length}, unverified YouTube IDs ${r.unverifiedChannelIds.length}.`);
+  const issues=[...r.conflicts.map(c=>`Slug ${c.slug}: ${c.channelId} conflicts with ${c.existingChannelId}`),...r.unverifiedChannelIds.map(id=>`Unverified YouTube ID: ${id}`)];
+  if(issues.length)setError(issues.join(' | '));
   else setBulk('');
   list.reload();
  }catch(e){setError(errorText(e));}finally{setBulkBusy(false);}}
