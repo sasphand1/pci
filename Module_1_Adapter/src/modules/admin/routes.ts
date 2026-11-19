@@ -148,6 +148,19 @@ adminRoutes.post('/creators/bulk',roles('owner','editor'),handler(async(req,res)
  res.json({data:{created,reactivated,skipped:skipped.length,duplicatesInFile:duplicateIds.length,
    conflicts:conflicted,skippedChannelIds:skipped}});
 }));
+// PCI_BULK_SOFT_DELETE_V1: owner-only, audited, reversible bulk disable.
+adminRoutes.post('/creators/bulk-disable',roles('owner'),handler(async(req,res)=>{
+ const input=z.object({ids:z.array(uuid).min(1).max(250),confirmation:z.literal('DISABLE SELECTED')}).strict().parse(req.body);
+ const ids=[...new Set(input.ids)];
+ const count=await transaction(async tx=>{
+  await tx.query('SELECT pg_advisory_xact_lock(710324)');
+  const updated=await tx.query('UPDATE creators SET enabled=false,featured=false,updated_at=now() WHERE id=ANY($1::uuid[]) AND enabled=true RETURNING id',[ids]);
+  await tx.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[adminId(res),'creator.bulk_disable',null,JSON.stringify({selected:ids.length,disabled:updated.rowCount??0,ids})]);
+  return updated.rowCount??0;
+ });
+ if(count)await bustPublicCache();
+ res.json({data:{selected:ids.length,disabled:count}});
+}));
 adminRoutes.patch('/creators/:id',roles('owner','editor'),handler(async(req,res)=>{
  const id=uuid.parse(req.params.id);
  const b=creator.omit({channelId:true}).partial().parse(req.body);

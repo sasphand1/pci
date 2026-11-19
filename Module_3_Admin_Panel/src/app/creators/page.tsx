@@ -15,7 +15,26 @@ export default function CreatorsPage(){
  const [search,setSearch]=useState(''),[saving,setSaving]=useState(false),[error,setError]=useState(''),[ok,setOk]=useState('');
  const [remote,setRemote]=useState(''),[bulk,setBulk]=useState(''),[bulkBusy,setBulkBusy]=useState(false);
  const [resetBusy,setResetBusy]=useState(false);
+ // PCI_BULK_SOFT_DELETE_V1
+ const [selectedIds,setSelectedIds]=useState<string[]>([]);
+ const [deleting,setDeleting]=useState(false);
  const rows=useMemo(()=>(list.data??[]).filter(c=>`${c.display_name} ${c.channel_id} ${c.slug}`.toLowerCase().includes(search.toLowerCase())),[list.data,search]);
+ const selectedSet=new Set(selectedIds);
+ const enabledRows=rows.filter(c=>c.enabled);
+ const allVisibleSelected=enabledRows.length>0&&enabledRows.every(c=>selectedSet.has(c.id));
+ function selectAllVisible(checked:boolean){
+  setSelectedIds(prev=>checked?[...new Set([...prev,...enabledRows.map(c=>c.id)])]:prev.filter(id=>!enabledRows.some(c=>c.id===id)));
+ }
+ async function disableSelected(){
+  if(!csrf||identity?.role!=='owner'||deleting||!selectedIds.length)return;
+  const ids=[...new Set(selectedIds)];
+  if(!window.confirm('Disable '+ids.length+' selected YouTube creators? Records, metrics and Instagram links will be preserved.'))return;
+  setDeleting(true);setError('');setOk('');
+  try{
+   const result=await api<{selected:number;disabled:number}>('/admin/creators/bulk-disable',{method:'POST',csrf,body:{ids,confirmation:'DISABLE SELECTED'}});
+   setOk('Disabled '+result.disabled+' selected creators. Records preserved.');setSelectedIds([]);list.reload();
+  }catch(e){setError(errorText(e));}finally{setDeleting(false);}
+ }
  function edit(c:Creator){setSelected(c.id);setForm({channelId:c.channel_id,slug:c.slug,displayName:c.display_name,description:c.description,featured:c.featured,enabled:c.enabled,categoryIds:c.category_ids||[]});setError('');setOk('');}
  function clear(){setSelected(null);setForm(newCreator);setError('');setRemote('');}
  async function submit(e:React.FormEvent){e.preventDefault();if(!csrf)return;setSaving(true);setError('');setOk('');try{
@@ -68,8 +87,9 @@ export default function CreatorsPage(){
     </div><p className="fineprint">Maximum 100 creators per request. Do not paste API keys or other secrets.</p>
    </Card></div>
   <Card><div className="admin-toolbar"><h2>{showArchived?'All creators (including archived)':'Active creators'} ({rows.length})</h2><button type="button" className="btn btn-secondary" onClick={()=>setShowArchived(x=>!x)}>{showArchived?'Hide archived':'Show archived'}</button><div className="field"><label htmlFor="creator-search">Search</label><input id="creator-search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Channel, slug, name"/></div></div>
+   {identity?.role==='owner'&&<div className="admin-inline-actions"><label className="admin-check"><input type="checkbox" checked={allVisibleSelected} disabled={!enabledRows.length||deleting} onChange={e=>selectAllVisible(e.target.checked)}/> Select all visible active</label><button type="button" className="btn btn-secondary" disabled={!selectedIds.length||deleting} onClick={disableSelected}>{deleting?'Disabling…':'Delete selected ('+selectedIds.length+')'}</button><button type="button" className="btn btn-secondary" disabled={!selectedIds.length||deleting} onClick={()=>setSelectedIds([])}>Clear selection</button></div>}
    <DataBlock loading={list.loading} error={list.error} empty={!rows.length}>
-    <TableWrap><thead><tr><th>Creator</th><th>UC ID</th><th>Categories</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>{rows.map(c=><tr key={c.id}><td><strong>{c.display_name}</strong><p className="fineprint">/{c.slug}</p></td><td className="admin-code small">{c.channel_id}</td><td>{c.category_ids.length} assigned</td><td><Badge variant={c.enabled?'normal':'danger'}>{c.enabled?'Enabled':'Disabled'}</Badge>{c.featured&&' · Featured'}</td><td>{fmtDate(c.created_at)}</td><td><div className="admin-inline-actions"><button className="btn btn-secondary" onClick={()=>edit(c)}>Edit</button>{c.enabled&&<ConfirmButton label="Disable" confirmText={`Disable ${c.display_name}? Their public profile will be hidden.`} onConfirm={async()=>{try{await api(`/admin/creators/${c.id}`,{method:'DELETE',csrf});setOk('Creator disabled.');list.reload();}catch(e){setError(errorText(e));}}}/>}</div></td></tr>)}</tbody></TableWrap>
+    <TableWrap><thead><tr>{identity?.role==='owner'&&<th>Select</th>}<th>Creator</th><th>UC ID</th><th>Categories</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>{rows.map(c=><tr key={c.id}>{identity?.role==='owner'&&<td><input type="checkbox" aria-label={'Select '+c.display_name} disabled={!c.enabled||deleting} checked={selectedSet.has(c.id)} onChange={e=>setSelectedIds(prev=>e.target.checked?[...new Set([...prev,c.id])]:prev.filter(id=>id!==c.id))}/></td>}<td><strong>{c.display_name}</strong><p className="fineprint">/{c.slug}</p></td><td className="admin-code small">{c.channel_id}</td><td>{c.category_ids.length} assigned</td><td><Badge variant={c.enabled?'normal':'danger'}>{c.enabled?'Enabled':'Disabled'}</Badge>{c.featured&&' · Featured'}</td><td>{fmtDate(c.created_at)}</td><td><div className="admin-inline-actions"><button className="btn btn-secondary" onClick={()=>edit(c)}>Edit</button>{c.enabled&&<ConfirmButton label="Disable" confirmText={`Disable ${c.display_name}? Their public profile will be hidden.`} onConfirm={async()=>{try{await api(`/admin/creators/${c.id}`,{method:'DELETE',csrf});setOk('Creator disabled.');list.reload();}catch(e){setError(errorText(e));}}}/>}</div></td></tr>)}</tbody></TableWrap>
    </DataBlock>
   </Card>
  </AdminPage></RoleGate>;
