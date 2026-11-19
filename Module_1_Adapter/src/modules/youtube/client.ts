@@ -20,7 +20,11 @@ export class YoutubeClient {
     Object.entries({...params,key:config.YOUTUBE_API_KEY}).forEach(([k,v])=>url.searchParams.set(k,v));
     for(let attempt=0;attempt<4;attempt++){
       const quotaDay=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Los_Angeles',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-      if(!await boundedLimit(`youtube:daily:${quotaDay}`,config.YOUTUBE_DAILY_SOFT_LIMIT,172800))throw new Error('YOUTUBE_SOFT_QUOTA_LIMIT');
+      // PCI_UPDATE_1: Redis is only a soft quota counter. If it is unavailable, sync continues
+      // (YouTube enforces its own hard quota) instead of failing every channel.
+      let withinBudget=true;
+      try{withinBudget=await boundedLimit(`youtube:daily:${quotaDay}`,config.YOUTUBE_DAILY_SOFT_LIMIT,172800);}catch{withinBudget=true;}
+      if(!withinBudget)throw new Error('YOUTUBE_SOFT_QUOTA_LIMIT');
       this.calls++;
       let response:Response;
       try{response=await fetch(url,{headers:{accept:'application/json'},signal:AbortSignal.timeout(12000)});}

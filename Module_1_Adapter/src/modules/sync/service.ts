@@ -26,7 +26,7 @@ export async function takeNextJob() {
  });
 }
 export async function recoverStalledJobs(){
- await query("UPDATE sync_runs SET status='failed',finished_at=now(),error_code='WORKER_INTERRUPTED',error_message='Job interrupted; manual retry available' WHERE status='running' AND started_at<now()-interval '120 minutes'");
+ await query("UPDATE sync_runs SET status='failed',finished_at=now(),error_code='WORKER_INTERRUPTED',error_message='Job interrupted; manual retry available' WHERE status='running' AND started_at<now()-interval '20 minutes'");
 }
 export async function performSync(runId:string){
  const client=await pool.connect();const yt=new YoutubeClient();let hasLock=false;
@@ -73,6 +73,8 @@ export async function performSync(runId:string){
      await tx.query('UPDATE publication_state SET sync_run_id=$1,published_at=$2 WHERE id=true',[runId,fetchTime]);
    });
    await bustPublicCache();
+   // PCI_UPDATE_1: per-account outcome (best effort; never blocks committed statistics).
+   await recordAccountResults(runId,creators,lookup);
    const videoIdsByChannel=new Map<string,string[]>();
    const uploadFailures=new Set<string>();
    for(const creator of available){
@@ -127,6 +129,7 @@ export async function performSync(runId:string){
  }catch(e){
    const message=e instanceof Error?e.message:'Unknown sync failure';
    await query("UPDATE sync_runs SET status='failed',finished_at=now(),quota_used=$2,error_code=$3,error_message=$4 WHERE id=$1",[runId,yt.calls,message.split(':')[0].slice(0,80),message.slice(0,250)]);
+   await recordRunFailure(runId,message);
    logger.error({runId,reason:message},'YouTube sync failed; latest published statistics retained');
  } finally {
    if(hasLock){try{await client.query('SELECT pg_advisory_unlock(712002)');}catch{}}client.release();
@@ -139,4 +142,43 @@ export async function cleanupRetention(){
   await query("DELETE FROM password_resets WHERE expires_at < now() - interval '1 day'");
   await query("DELETE FROM sync_runs WHERE finished_at < now() - interval '29 days' AND status IN ('succeeded','partial','failed')");
   await query("DELETE FROM videos WHERE last_seen_at < now() - interval '29 days'");
+}
+
+/** PCI_UPDATE_1: one diagnostic row per enabled account for this run. Best effort by design:
+ * a missing diagnostics table must never discard channel statistics that are already committed. */
+async function recordAccountResults(runId:string,creators:Array<{id:string,channel_id:string}>,lookup:Map<string,YoutubeChannel>){
+ try{
+   for(const creator of creators){
+     const channel=lookup.get(creator.channel_id);
+     const hidden=!!channel&&(channel.statistics?.hiddenSubscriberCount===true||channel.statistics?.subscriberCount===undefined);
+     const outcome=!channel?'not_returned':hidden?'hidden_subscribers':'ok';
+     const detail=!channel?'YouTube did not return this channel ID (deleted, terminated, or the stored ID is wrong)':null;
+     await query(`INSERT INTO sync_account_results(sync_run_id,creator_id,platform,outcome,detail)
+       VALUES($1,$2,'youtube',$3,$4)
+       ON CONFLICT(sync_run_id,creator_id,platform) DO UPDATE SET outcome=EXCLUDED.outcome,detail=EXCLUDED.detail`,[runId,creator.id,outcome,detail]);
+   }
+ }catch(err){logger.warn({err,runId},'Per-account sync results could not be recorded');}
+}
+async function recordRunFailure(runId:string,message:string){
+ try{
+   await query(`INSERT INTO sync_account_results(sync_run_id,creator_id,platform,outcome,detail)
+     SELECT $1,id,'youtube','failed',$2 FROM creators WHERE enabled=true
+     ON CONFLICT(sync_run_id,creator_id,platform) DO NOTHING`,[runId,message.slice(0,250)]);
+ }catch(err){logger.warn({err,runId},'Run failure could not be recorded per account');}
+}
+/** PCI_UPDATE_1: queue a sync when enabled creators have never been synced, or (optionally) are stale.
+ * Guarded so a creator YouTube never returns cannot trigger repeated quota-consuming runs. */
+export async function ensureFreshness(opts:{includeStale:boolean;maxAgeHours?:number}={includeStale:true}){
+ const maxAge=opts.maxAgeHours??26;
+ const gap=await query(`SELECT count(*) FILTER (WHERE s.creator_id IS NULL)::int AS missing,
+   count(*) FILTER (WHERE s.creator_id IS NOT NULL AND s.fetched_at < now() - ($1::int * interval '1 hour'))::int AS stale
+   FROM creators c LEFT JOIN channel_stats_latest s ON s.creator_id=c.id WHERE c.enabled=true`,[maxAge]);
+ const missing=Number(gap.rows[0]?.missing??0),stale=Number(gap.rows[0]?.stale??0);
+ const staleMatters=opts.includeStale&&stale>0;
+ if(missing===0&&!staleMatters)return {queued:false,missing,stale,reason:'fresh'};
+ const guardMinutes=staleMatters?60:360;
+ const recent=await query("SELECT 1 FROM sync_runs WHERE created_at>now()-($1::int * interval '1 minute') LIMIT 1",[guardMinutes]);
+ if(recent.rowCount)return {queued:false,missing,stale,reason:'recent_run_exists'};
+ const job=await enqueueSync('scheduled');
+ return {queued:!job.alreadyQueued,missing,stale,runId:job.id,reason:job.alreadyQueued?'already_queued':'queued'};
 }

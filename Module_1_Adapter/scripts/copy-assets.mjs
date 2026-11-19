@@ -11,6 +11,7 @@ const runtimeModules = [
   'modules/instagram/ranking.mjs',
   'modules/cross-platform/score.mjs',
   'modules/unified/metrics.mjs',
+  'modules/engine/status.mjs',
 ];
 
 for (const modulePath of runtimeModules) {

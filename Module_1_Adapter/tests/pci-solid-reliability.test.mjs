@@ -18,10 +18,10 @@ test('missing metric and category exclusion never create fake ranks',()=>{
 test('bulk import queues data sync and snapshots are before optional video processing',()=>{
  const admin=readFileSync('src/modules/admin/routes.ts','utf8');
  const sync=readFileSync('src/modules/sync/service.ts','utf8');
- const worker=readFileSync('src/worker.ts','utf8');
+ const worker=readFileSync('src/modules/sync/scheduler.ts','utf8'); // PCI Update 1: worker logic moved here
  assert.match(admin,/PCI_AUTO_INITIAL_SYNC_V2/);
  assert.match(sync,/PCI_EARLY_CHANNEL_SNAPSHOTS_V2/);
  assert.ok(sync.indexOf('PCI_EARLY_CHANNEL_SNAPSHOTS_V2')<sync.indexOf('const videoIdsByChannel='));
  assert.match(sync,/videoFetchFailed/);
- assert.match(worker,/PCI_BACKFILL_UNSYNCED_V2/);
+ assert.match(worker,/ensureFreshness/); // replaces PCI_BACKFILL_UNSYNCED_V2 (startup-only backfill)
 });

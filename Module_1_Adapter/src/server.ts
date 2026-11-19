@@ -8,6 +8,8 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { config } from './lib/config.js';
 import {ensureUnifiedSchema} from './lib/unified-schema.js';
+import {ensureEngineSchema} from './lib/engine-schema.js';
+import {startScheduler,type SchedulerHandle} from './modules/sync/scheduler.js';
 import { pool } from './lib/db.js';
 import { redis, ensureRedis } from './lib/redis.js';
 import { logger, requestId, errorMiddleware, HttpError, handler } from './lib/errors.js';
@@ -52,7 +54,12 @@ export function makeApp() {
   });
   app.use('/api/v1',handler(async(req,_res,next)=>{
     const key=`http:global:${pseudonym(req.ip??'unknown')}`;
-    if(!await boundedLimit(key,300,60))throw new HttpError(429,'RATE_LIMIT','Request limit exceeded');
+    // PCI_UPDATE_1: Redis is a disposable helper. If it is down, public reads must keep working,
+    // so this global limiter fails open (login/wall limiters elsewhere still fail closed).
+    let allowed=true;
+    try{allowed=await boundedLimit(key,300,60);}
+    catch(err){logger.warn({err},'Global rate limiter unavailable; allowing request');}
+    if(!allowed)throw new HttpError(429,'RATE_LIMIT','Request limit exceeded');
     next();
   }));
   app.use((req,res,next)=>{res.setHeader('Cache-Control','no-store');next();});
@@ -90,29 +97,46 @@ async function main(){
       resolve();
     });
   });
-  // Initialization runs after listen; API returns 503 until PostgreSQL/Redis are ready.
+  let shutdownStarted=false;
+  let scheduler:SchedulerHandle|null=null;
+  // PCI_UPDATE_1: initialization RETRIES instead of leaving the API in 503 until a manual restart.
   void (async()=>{
-    try {
-      await pool.query('SELECT 1');
+    for(let attempt=1;!shutdownStarted;attempt++){
       try {
-        await ensureUnifiedSchema();
-        logger.info('Unified creator schema verified');
+        await pool.query('SELECT 1');
+        try {
+          await ensureUnifiedSchema();
+          logger.info('Unified creator schema verified');
+        } catch(err) {
+          logger.error({err},'Unified schema verification failed; inspect unified routes');
+          console.error('[PCI_SCHEMA_FAILURE] review-schema initialization failed');
+        }
+        try {
+          await ensureEngineSchema();
+          logger.info('Engine diagnostics schema verified');
+        } catch(err) {
+          logger.error({err},'Engine diagnostics schema verification failed');
+          console.error('[PCI_SCHEMA_FAILURE] engine diagnostics schema failed');
+        }
+        await ensureRedis();
+        pciStartupReady=true;
+        logger.info('API server ready');
+        if(config.RUN_WORKER_IN_API==='true'){
+          try{scheduler=await startScheduler({embedded:true});}
+          catch(err){logger.error({err},'Embedded scheduler failed to start');}
+        }
+        return;
       } catch(err) {
-        logger.error({err},'Unified schema verification failed; inspect unified routes');
-        console.error('[PCI_SCHEMA_FAILURE] review-schema initialization failed');
+        logger.error({err,attempt},'Backend dependency initialization failed; retrying');
+        console.error(`[PCI_STARTUP_FAILURE] database or Redis connection failed (attempt ${attempt}); retrying`);
+        await new Promise<void>(resolve=>setTimeout(resolve,Math.min(30000,2000*attempt)));
       }
-      await ensureRedis();
-      pciStartupReady=true;
-      logger.info('API server ready');
-    } catch(err) {
-      logger.error({err},'Backend dependency initialization failed');
-      console.error('[PCI_STARTUP_FAILURE] database or Redis connection failed');
     }
   })();
-  let shutdownStarted=false;
   const shutdown=async()=>{
     if(shutdownStarted)return;shutdownStarted=true;
     pciStartupReady=false;
+    scheduler?.stop();
     logger.info('Shutting down API');
     const force=setTimeout(()=>process.exit(1),10_000);force.unref();
     await new Promise<void>(resolve=>io.close(()=>resolve()));

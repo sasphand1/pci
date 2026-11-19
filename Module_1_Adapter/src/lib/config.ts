@@ -10,6 +10,8 @@ const EnvSchema = z.object({
   LOG_HMAC_KEY: z.string().regex(/^[0-9a-fA-F]{64}$/),
   YOUTUBE_API_KEY: z.string().optional().default(''),
   YOUTUBE_SYNC_ENABLED: z.enum(['true','false']).default('false'),
+  // PCI_UPDATE_1: run the scheduler inside the API process when no separate worker is deployed.
+  RUN_WORKER_IN_API: z.enum(['true','false']).default('false'),
   YOUTUBE_DAILY_SOFT_LIMIT: z.coerce.number().int().min(202).max(10000).default(8000),
   SYNC_VIDEOS_PER_CHANNEL: z.coerce.number().int().min(1).max(50).default(50),
   PUBLIC_CACHE_TTL_SECONDS: z.coerce.number().int().min(10).max(3600).default(300),
