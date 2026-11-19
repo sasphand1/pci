@@ -45,9 +45,9 @@ adminRoutes.post('/creators/validate',roles('owner','editor'),handler(async(req,
  res.json({data:{channelId:result[0].id,title:result[0].snippet?.title??null,thumbnail:result[0].snippet?.thumbnails?.default?.url??null}});
 }));
 adminRoutes.get('/creators',roles('owner','editor'),handler(async(req,res)=>{
- const q=z.object({limit:z.coerce.number().int().min(1).max(250).default(100),offset:z.coerce.number().int().min(0).default(0)}).parse(req.query);
+ const q=z.object({limit:z.coerce.number().int().min(1).max(250).default(100),offset:z.coerce.number().int().min(0).default(0),includeArchived:z.enum(['true','false']).default('false')}).parse(req.query);
  const r=await query(`SELECT c.*,COALESCE(array_agg(cc.category_id) FILTER(WHERE cc.category_id IS NOT NULL),ARRAY[]::uuid[]) AS category_ids
- FROM creators c LEFT JOIN creator_categories cc ON cc.creator_id=c.id GROUP BY c.id ORDER BY c.created_at DESC LIMIT $1 OFFSET $2`,[q.limit,q.offset]);
+ FROM creators c LEFT JOIN creator_categories cc ON cc.creator_id=c.id ${q.includeArchived==='true'?'':'WHERE c.enabled=true'} GROUP BY c.id ORDER BY c.created_at DESC LIMIT $1 OFFSET $2`,[q.limit,q.offset]);
  res.json({data:r.rows});
 }));
 adminRoutes.post('/creators',roles('owner','editor'),handler(async(req,res)=>{
@@ -65,62 +65,88 @@ adminRoutes.post('/creators',roles('owner','editor'),handler(async(req,res)=>{
 }));
 // PCI_SMART_BULK_IMPORT_V1: Existing channels are never modified or revalidated.
 // All new channel IDs are verified BEFORE an atomic insert of the new subset.
+// PCI_REGISTRY_RESET_V1: archive existing YouTube registry without deleting metrics,
+// videos, cross-platform links or historical reviews. Owner and exact count required.
+adminRoutes.post('/creators/archive-all',roles('owner'),handler(async(req,res)=>{
+ const b=z.object({expectedActiveCount:z.number().int().min(0).max(100000),confirmation:z.literal('ARCHIVE ALL ACTIVE CREATORS')}).strict().parse(req.body);
+ const actor=adminId(res);
+ const result=await transaction(async tx=>{
+   await tx.query('SELECT pg_advisory_xact_lock(710324)');
+   const count=Number((await tx.query('SELECT count(*)::int AS n FROM creators WHERE enabled=true')).rows[0].n);
+   if(count!==b.expectedActiveCount)throw new HttpError(409,'REGISTRY_CHANGED',`Active registry has ${count} creators, not ${b.expectedActiveCount}. Reload and confirm again.`);
+   const r=await tx.query('UPDATE creators SET enabled=false,featured=false,updated_at=now() WHERE enabled=true RETURNING id');
+   await tx.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',
+     [actor,'creator.archive_all',null,JSON.stringify({archived:r.rowCount,expectedActiveCount:b.expectedActiveCount})]);
+   return r.rowCount??0;
+ });
+ if(result)await bustPublicCache();
+ res.json({data:{archived:result,deleted:0,retainedHistoricalMetrics:true}});
+}));
+
+// Reuse the existing YouTube source verification, human-review and category tables.
+// Existing active channels stay untouched; archived channels can be restored after
+// YouTube verification, and any restored human review status resets to pending.
 adminRoutes.post('/creators/bulk',roles('owner','editor'),handler(async(req,res)=>{
  const input=z.array(creator).min(1).max(100).parse(req.body?.creators);
  const unique=new Map<string,typeof input[number]>();
- const duplicatedInFile:string[]=[];
- for(const item of input){
-   if(unique.has(item.channelId)){duplicatedInFile.push(item.channelId);continue;}
-   unique.set(item.channelId,item);
- }
+ const duplicateIds:string[]=[];
+ for(const item of input){if(unique.has(item.channelId)){duplicateIds.push(item.channelId);continue;}unique.set(item.channelId,item);}
  const items=[...unique.values()];
- const ids=items.map(x=>x.channelId);
- const existing=await query<{channel_id:string;slug:string}>(
-  'SELECT channel_id,slug FROM creators WHERE channel_id = ANY($1::text[]) OR slug = ANY($2::text[])',
-  [ids,items.map(x=>x.slug)]);
- const byChannel=new Set(existing.rows.map(x=>x.channel_id));
- const skipped=items.filter(x=>byChannel.has(x.channelId)).map(x=>x.channelId);
- const fresh=items.filter(x=>!byChannel.has(x.channelId));
- const claimedSlugs=new Map(existing.rows.map(x=>[x.slug,x.channel_id]));
+ const existing=await query<{id:string;channel_id:string;slug:string;enabled:boolean}>(
+   'SELECT id,channel_id,slug,enabled FROM creators WHERE channel_id = ANY($1::text[]) OR slug = ANY($2::text[])',
+   [items.map(x=>x.channelId),items.map(x=>x.slug)]);
+ const byId=new Map(existing.rows.map(x=>[x.channel_id,x]));
+ const slugOwner=new Map(existing.rows.map(x=>[x.slug,x.channel_id]));
  const seenSlugs=new Map<string,string>();
- const conflicts:{channelId:string;slug:string;existingChannelId:string}[]=[];
- const safeFresh:typeof fresh=[];
- for(const item of fresh){
-  const owner=claimedSlugs.get(item.slug)??seenSlugs.get(item.slug);
-  if(owner && owner!==item.channelId){
-   conflicts.push({channelId:item.channelId,slug:item.slug,existingChannelId:owner});
-   continue;
-  }
-  seenSlugs.set(item.slug,item.channelId);
-  safeFresh.push(item);
+ const skipped:string[]=[];const conflicted:{channelId:string;slug:string;existingChannelId:string}[]=[];
+ const candidates:typeof items=[];
+ for(const item of items){
+   const prev=byId.get(item.channelId);
+   if(prev?.enabled){skipped.push(item.channelId);continue;}
+   // An archived record retains its original slug; do not repurpose a slug owned
+   // by another channel. Existing archived identity always keeps its registered slug.
+   const effectiveSlug=prev?.slug??item.slug;
+   const owner=slugOwner.get(effectiveSlug)??seenSlugs.get(effectiveSlug);
+   if(owner && owner!==item.channelId){conflicted.push({channelId:item.channelId,slug:effectiveSlug,existingChannelId:owner});continue;}
+   seenSlugs.set(effectiveSlug,item.channelId);
+   candidates.push(item);
  }
- if(safeFresh.length && !config.YOUTUBE_API_KEY)throw new HttpError(503,'YOUTUBE_UNCONFIGURED','Configure YouTube API key');
- if(safeFresh.length){
-  const yt=new YoutubeClient(),valid=new Set<string>();
-  for(const batch of chunks(safeFresh.map(x=>x.channelId),50))
-   for(const c of await yt.channels(batch))valid.add(c.id);
-  const invalid=safeFresh.filter(x=>!valid.has(x.channelId)).map(x=>x.channelId);
-  if(invalid.length)throw new HttpError(400,'CHANNEL_NOT_FOUND',
-   `Unverified YouTube IDs: ${invalid.join(', ')}. No records imported`);
+ if(candidates.length&&!config.YOUTUBE_API_KEY)throw new HttpError(503,'YOUTUBE_UNCONFIGURED','Configure YouTube API key');
+ if(candidates.length){
+   const yt=new YoutubeClient(),valid=new Set<string>();
+   for(const part of chunks(candidates.map(x=>x.channelId),50))for(const c of await yt.channels(part))valid.add(c.id);
+   const invalid=candidates.filter(x=>!valid.has(x.channelId)).map(x=>x.channelId);
+   if(invalid.length)throw new HttpError(400,'CHANNEL_NOT_FOUND',`Unverified YouTube IDs: ${invalid.join(', ')}. No records changed.`);
  }
- let created=0;
+ let created=0,reactivated=0;
  try{
-  await transaction(async tx=>{
-   for(const item of safeFresh){
-    const r=await tx.query(`INSERT INTO creators(channel_id,slug,display_name,description,featured,enabled)
-      VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING id`,
-      [item.channelId,item.slug,item.displayName,item.description,item.featured,item.enabled]);
-    if(!r.rowCount){skipped.push(item.channelId);continue;}
-    created++;
-    for(const cid of item.categoryIds)await tx.query(
-      'INSERT INTO creator_categories(creator_id,category_id) VALUES($1,$2)',[r.rows[0].id,cid]);
-   }
-  });
- }catch(e:any){if(e.code==='23503')throw new HttpError(400,'CATEGORY_MISSING','Unknown category');throw e;}
- await auditAs(res,'creator.bulk_smart_import',null,{created,skipped:skipped.length,duplicatesInFile:duplicatedInFile.length,conflicts:conflicts.length});
- if(created)await bustPublicCache();
- res.status(200).json({data:{created,skipped:skipped.length,duplicatesInFile:duplicatedInFile.length,
-  skippedChannelIds:skipped,duplicateChannelIds:duplicatedInFile,conflicts}});
+   await transaction(async tx=>{
+     await tx.query('SELECT pg_advisory_xact_lock(710324)');
+     for(const item of candidates){
+       const prev=byId.get(item.channelId);
+       if(prev&&!prev.enabled){
+         const r=await tx.query(`UPDATE creators SET enabled=true,featured=$2,description=$3,
+           human_review_status='pending',human_reviewed_at=NULL,human_reviewed_by=NULL,updated_at=now()
+           WHERE id=$1 AND enabled=false RETURNING id`,[prev.id,item.featured,item.description]);
+         if(!r.rowCount){skipped.push(item.channelId);continue;}
+         // Explicit import categories replace the archived assignments only for reactivated records.
+         await tx.query('DELETE FROM creator_categories WHERE creator_id=$1',[prev.id]);
+         for(const cid of item.categoryIds)await tx.query('INSERT INTO creator_categories(creator_id,category_id) VALUES($1,$2)',[prev.id,cid]);
+         reactivated++;continue;
+       }
+       const r=await tx.query(`INSERT INTO creators(channel_id,slug,display_name,description,featured,enabled)
+         VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING id`,
+         [item.channelId,item.slug,item.displayName,item.description,item.featured,item.enabled]);
+       if(!r.rowCount){skipped.push(item.channelId);continue;}
+       created++;
+       for(const cid of item.categoryIds)await tx.query('INSERT INTO creator_categories(creator_id,category_id) VALUES($1,$2)',[r.rows[0].id,cid]);
+     }
+   });
+ }catch(e:any){if(e.code==='23503')throw new HttpError(400,'CATEGORY_MISSING','Unknown category UUID');throw e;}
+ await auditAs(res,'creator.bulk_import_with_restore',null,{created,reactivated,skipped:skipped.length,conflicts:conflicted.length,duplicates:duplicateIds.length});
+ if(created||reactivated)await bustPublicCache();
+ res.json({data:{created,reactivated,skipped:skipped.length,duplicatesInFile:duplicateIds.length,
+   conflicts:conflicted,skippedChannelIds:skipped}});
 }));
 adminRoutes.patch('/creators/:id',roles('owner','editor'),handler(async(req,res)=>{
  const id=uuid.parse(req.params.id);
