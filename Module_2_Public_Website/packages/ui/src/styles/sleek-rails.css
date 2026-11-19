@@ -17,7 +17,6 @@
 .pci-site-header .pci-header-search:hover{background:rgba(255,255,255,.1)}
 .pci-site-header .pci-nav-toggle{display:none;height:38px;padding:0 16px;border:1px solid var(--pci-line-strong);border-radius:999px;background:transparent;color:#fff;font:500 14px var(--font);cursor:pointer}
 
-/* Airy white table styles live in premium-home.css; keep rails cinematic. */
 /* Rails intro */
 .pci-category-rails{padding-top:clamp(40px,5vw,64px);border-top:1px solid var(--pci-line)}
 .pci-rails-intro{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:20px 32px;margin-bottom:24px}

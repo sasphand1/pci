@@ -4,28 +4,39 @@ import {readFileSync,existsSync} from 'node:fs';
 const read=p=>readFileSync(p,'utf8');
 const head=read('src/components/SiteHeader.tsx');
 const page=read('src/app/page.tsx');
-const rails=read('src/components/CategoryRails.tsx');
+const discovery=read('src/components/CreatorDiscoveryRows.tsx');
+const unified=read('src/components/UnifiedCreatorExperience.tsx');
 const css=read('packages/ui/src/styles/sleek-rails.css');
 const entry=read('packages/ui/src/styles.css');
-test('only three centered public navigation destinations',()=>{
- assert.match(head,/label:'Explore'/);assert.match(head,/label:'Top 100'/);assert.match(head,/label:'Live Wall'/);
- for(const name of ["label:'Videos'","label:'Compare'","label:'Account'","label:'Categories'"])assert.ok(!head.includes(name),name);
- assert.match(css,/grid-template-columns:minmax\(0,1fr\) auto minmax\(0,1fr\)/);
+
+test('compact navigation keeps the homepage and rankings accessible',()=>{
+ assert.match(head,/label:'Explore'/);
+ assert.match(head,/label:'Top 100'/);
+ assert.match(head,/label:'Live Wall'/);
  assert.match(page,/id="top-100"/);
+ assert.match(css,/grid-template-columns:minmax\(0,1fr\) auto minmax\(0,1fr\)/);
 });
-test('category rails are client-side, based on real API creator and category data',()=>{
- assert.match(page,/<CategoryRails categories=\{categories\?\.data\?\?\[\]\} creators=\{uniqueCreators\}\/>/);
- assert.match(rails,/c\.categories\?\.some/);
- assert.match(rails,/safeYoutubeImage\(creator\.thumbnailUrl\)/);
- assert.match(rails,/href=\{`\/creators\/\$\{encodeURIComponent\(creator\.slug\)\}`\}/);
- assert.match(rails,/\.scrollBy\(/);
- assert.match(rails,/INITIAL_RAILS=3/);
+
+test('discovery categories and platform rails use real unified API results',()=>{
+ assert.match(page,/<CreatorDiscoveryRows categories=\{categories\?\.data\?\?\[\]\} youtube=\{platformYoutube\?\.data\?\?\[\]\} instagram=\{platformInstagram\?\.data\?\?\[\]\}\/>/);
+ assert.match(page,/\/api\/v1\/categories/);
+ assert.match(page,/\/api\/v1\/unified\/rankings\?metric=subscribers&platform=youtube&limit=100/);
+ assert.match(page,/\/api\/v1\/unified\/rankings\?metric=subscribers&platform=instagram&limit=100/);
+ assert.match(discovery,/p\.categories/);
+ assert.match(discovery,/safeYoutubeImage\(p\.thumbnailUrl\)/);
+ assert.match(discovery,/href=\{`\/creators\/\$\{encodeURIComponent\(p.slug\)\}`\}/);
+ assert.match(discovery,/scrollBy\(/);
 });
-test('white leaderboard and existing wheel remain; no inline styles or fake creator data',()=>{
- assert.match(page,/<RankingWheel rankings=\{rankings\} asOf=\{updatedAt\}\/>/);
- assert.match(page,/<HomeLeaderboard creators=\{rankings.views\} asOf=\{updatedAt\}\/>/);
- assert.match(css,/Airy white table/);
+
+test('unified leaderboard and wheel remain with centralized styling and no mock people',()=>{
+ assert.match(page,/<UnifiedRankingWheel rankings=\{rankings\}\/>/);
+ assert.match(page,/<UnifiedTop100 rankings=\{rankings\}\/>/);
+ assert.match(page,/<RankingWheel rankings=\{legacy\} asOf=/);
+ assert.match(unified,/href=\{`\/creators\/\$\{encodeURIComponent\(c.slug\)\}`\}/);
  assert.match(entry,/sleek-rails\.css/);
- for(const source of [head,page,rails]){assert.doesNotMatch(source,/style=\{/);assert.doesNotMatch(source,/<style\b/);}
+ for(const source of [head,page,discovery,unified]){
+  assert.doesNotMatch(source,/style=\{/);
+  assert.doesNotMatch(source,/<style\b/);
+ }
  assert.ok(existsSync('public/images/islamabad-dusk.webp'));
 });

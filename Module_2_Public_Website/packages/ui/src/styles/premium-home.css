@@ -21,9 +21,8 @@
 .pci-home-white{background:#fff;color:var(--ink);padding:clamp(64px,8vw,104px) 0 clamp(64px,8vw,96px)}
 .pci-leaderboard-section{padding:0}
 
-/* Airy white table — original data-backed rankings remain unchanged. */
 /* Leaderboard */
-.pci-leaderboard-scroll{background:white;overflow-x:auto;border-top:1px solid var(--border);-webkit-overflow-scrolling:touch}
+.pci-leaderboard-scroll{overflow-x:auto;border-top:1px solid var(--border);-webkit-overflow-scrolling:touch}
 .pci-leaderboard-scroll:focus-visible{outline:2px solid var(--brand);outline-offset:4px}
 .pci-leaderboard-table{width:100%;border-collapse:collapse;font-size:15px;color:var(--ink)}
 .pci-leaderboard-table thead{background:transparent}
