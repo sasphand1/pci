@@ -7,7 +7,7 @@ const people=[p('a',yt('100','1000','12'),ig('200','13')),p('b',yt('250','5000',
 test('combined followers are source-account sums, never unique reach',()=>{const r=projectCreator(people[0]);assert.equal(r.subscriberCount,'300');assert.equal(r.videoCount,'25');assert.equal(r.viewCount,'1000');assert.deepEqual(r.metricSources.views,['youtube']);});
 test('all platform includes YouTube-only eligible humans',()=>assert.deepEqual(rankPeople(people,{metric:'subscribers'}).data.map(x=>x.id),['d','a','b']));
 test('views do not mix Instagram followers into lifetime YouTube views',()=>assert.deepEqual(rankPeople(people,{metric:'views'}).data.map(x=>x.rank),[1,1,2]));
-test('Instagram platform excludes YouTube-only creators and has unavailable views',()=>{const r=rankPeople(people,{platform:'instagram',metric:'views'});assert.equal(r.total,2);assert.deepEqual(r.data.map(x=>x.rank),[null,null]);});
+test('Instagram platform excludes YouTube-only creators and has unavailable views',()=>{const r=rankPeople(people,{platform:'instagram',metric:'views'});assert.equal(r.total,2);assert.equal(r.known,0);assert.deepEqual(r.data.map(x=>x.rank),[]);});
 test('pending and rejected humans are excluded',()=>assert.equal(rankPeople(people).total,3));
 test('category filter applies to linked person across platforms',()=>assert.equal(rankPeople(people,{category:'vloggers-influencers',platform:'instagram'}).total,2));
 test('TikTok placeholder does not fabricate metrics',()=>assert.equal(rankPeople(people,{platform:'tiktok'}).total,0));

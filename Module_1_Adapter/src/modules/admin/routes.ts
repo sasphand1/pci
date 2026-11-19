@@ -153,6 +153,42 @@ adminRoutes.post('/creators/bulk',roles('owner','editor'),handler(async(req,res)
    conflicts:conflicted,skippedChannelIds:skipped,unverifiedChannelIds}});
 }));
 // PCI_BULK_SOFT_DELETE_V1: owner-only, audited, reversible bulk disable.
+// PCI_BULK_CATEGORY_AND_PURGE_V1
+adminRoutes.post('/creators/bulk-categories',roles('owner','editor'),handler(async(req,res)=>{
+ const v=z.object({ids:z.array(uuid).min(1).max(250),categoryIds:z.array(uuid).min(1).max(7),mode:z.enum(['add','replace']).default('add')}).strict().parse(req.body);
+ const ids=[...new Set(v.ids)],categoryIds=[...new Set(v.categoryIds)];
+ const updated=await transaction(async tx=>{
+  await tx.query('SELECT pg_advisory_xact_lock(710324)');
+  const creators=await tx.query('SELECT id FROM creators WHERE id=ANY($1::uuid[]) FOR UPDATE',[ids]);
+  if(creators.rowCount!==ids.length)throw new HttpError(409,'CREATOR_SET_CHANGED','One or more selected creators no longer exists. Reload.');
+  const cats=await tx.query('SELECT id FROM categories WHERE id=ANY($1::uuid[]) AND active=true',[categoryIds]);
+  if(cats.rowCount!==categoryIds.length)throw new HttpError(400,'CATEGORY_MISSING','One or more category IDs is invalid or inactive.');
+  if(v.mode==='replace')await tx.query('DELETE FROM creator_categories WHERE creator_id=ANY($1::uuid[])',[ids]);
+  for(const id of ids)for(const categoryId of categoryIds)await tx.query('INSERT INTO creator_categories(creator_id,category_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[id,categoryId]);
+  await tx.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[adminId(res),'creator.bulk_categories',null,JSON.stringify({count:ids.length,categoryIds,mode:v.mode})]);
+  return ids.length;
+ });
+ await bustPublicCache();res.json({data:{updated,mode:v.mode}});
+}));
+adminRoutes.post('/creators/bulk-purge',roles('owner'),handler(async(req,res)=>{
+ const v=z.object({ids:z.array(uuid).min(1).max(250),confirmation:z.literal('PERMANENTLY DELETE SELECTED'),expectedCount:z.number().int().min(1).max(250)}).strict().parse(req.body);
+ const ids=[...new Set(v.ids)];if(ids.length!==v.expectedCount)throw new HttpError(409,'SELECTION_CHANGED','Selection changed. Reload and select again.');
+ const outcome=await transaction(async tx=>{
+  await tx.query('SELECT pg_advisory_xact_lock(710324)');
+  const found=await tx.query('SELECT id FROM creators WHERE id=ANY($1::uuid[]) FOR UPDATE',[ids]);
+  if(found.rowCount!==ids.length)throw new HttpError(409,'CREATOR_SET_CHANGED','Selected record changed. Nothing deleted.');
+  // A linked Instagram account belongs to this curated person. Its stats,
+  // history and category relations cascade when that Instagram row is deleted.
+  const ig=await tx.query('DELETE FROM instagram_creators WHERE youtube_creator_id=ANY($1::uuid[]) RETURNING id',[ids]);
+  // Existing creator_categories, channel_stats_latest and videos have ON DELETE CASCADE;
+  // video_stats_latest cascades through videos. Unanticipated RESTRICT FKs fail
+  // the whole transaction instead of creating inconsistent partial deletion.
+  const yt=await tx.query('DELETE FROM creators WHERE id=ANY($1::uuid[]) RETURNING id',[ids]);
+  await tx.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[adminId(res),'creator.bulk_purge',null,JSON.stringify({youtubeDeleted:yt.rowCount,linkedInstagramDeleted:ig.rowCount})]);
+  return {youtubeDeleted:yt.rowCount??0,linkedInstagramDeleted:ig.rowCount??0};
+ });
+ await bustPublicCache();res.json({data:outcome});
+}));
 adminRoutes.post('/creators/bulk-disable',roles('owner'),handler(async(req,res)=>{
  const input=z.object({ids:z.array(uuid).min(1).max(250),confirmation:z.literal('DISABLE SELECTED')}).strict().parse(req.body);
  const ids=[...new Set(input.ids)];

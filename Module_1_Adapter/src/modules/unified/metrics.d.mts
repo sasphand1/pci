@@ -9,3 +9,7 @@ export declare const METRIC_LABELS:Readonly<Record<Metric,string>>;
 export declare function projectCreator(person:Person,platform?:Platform):Omit<Ranked,'rank'|'rankMetric'>;
 export declare function rankPeople(people:Person[],options?:{metric?:Metric;platform?:Platform;limit?:number;category?:string}):{data:Ranked[];total:number;known:number};
 export declare function aggregate(people:Person[],platform?:Platform):{creators:number;subscribers:string|null;views:string|null;posts:string|null};
+
+export declare function rankAllRounders(people:Person[],options?:{limit?:number;category?:string}):{
+ data:(Omit<Ranked,'rankMetric'> & {rankMetric:'allrounders';rank:number;allRounderScore:number;score:number})[];
+ known:number;total:number;method:string};

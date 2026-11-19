@@ -5,9 +5,10 @@ import type {PointerEvent,WheelEvent} from 'react';
 import {formatCount,safeYoutubeImage} from '@/lib/format.mjs';
 
 type Metric='views'|'subscribers'|'videos';
+type WheelMetric=Metric|'allrounders';
 type Platform='all'|'youtube'|'instagram'|'tiktok';
 export type UnifiedPerson={id:string;slug:string;displayName:string;thumbnailUrl:string|null;rank:number|null;rankMetric:Metric;
- subscriberCount:string|null;viewCount:string|null;videoCount:string|null;
+ subscriberCount:string|null;viewCount:string|null;videoCount:string|null;allRounderScore?:number|null;
  platforms:{youtube:string|null;instagram:string|null;tiktok:string|null};
  metricSources:Record<Metric,string[]>;categories:{slug:string;label:string}[]};
 export type UnifiedRankingResponse={data:UnifiedPerson[];meta:{total:number;known:number;metric:Metric;platform:Platform;disclosure:Record<string,string>}};
@@ -16,6 +17,7 @@ const displayModes:{metric:Metric;title:string;label:string}[]=[
  {metric:'views',title:'Most Viewed',label:'Channel views'},
  {metric:'subscribers',title:'Most Subscribed',label:'Account followers + subscribers'},
  {metric:'videos',title:'Most Active',label:'Published videos + posts'}];
+const wheelModes=[{metric:'allrounders' as const,title:'All Rounders',label:'Relative cross-platform score'},...displayModes];
 const platformOptions:{id:Platform;label:string}[]=[{id:'all',label:'All platforms'},{id:'youtube',label:'YouTube'},{id:'instagram',label:'Instagram'},{id:'tiktok',label:'TikTok (soon)'}];
 function count(c:UnifiedPerson,m:Metric){return m==='views'?c.viewCount:m==='videos'?c.videoCount:c.subscriberCount;}
 function PlatformMark({platform}:{platform:'youtube'|'instagram'|'tiktok'}){
@@ -27,9 +29,9 @@ function Links({person}:{person:UnifiedPerson}){
  return <span className="pci-unified-links">{(['youtube','instagram','tiktok'] as const).map(platform=>person.platforms?.[platform]
  ?<a key={platform} href={person.platforms[platform]!} aria-label={`Open ${person.displayName} on ${platform}`} title={platform} target="_blank" rel="noopener noreferrer" className="pci-unified-platform-link"><PlatformMark platform={platform}/></a>:null)}</span>;
 }
-export function UnifiedRankingWheel({rankings}:{rankings:Record<Metric,UnifiedPerson[]>}){
- const [metric,setMetric]=useState<Metric>('views');const [active,setActive]=useState(0);
- const drag=useRef<number|null>(null),ignore=useRef(false);const cards=rankings[metric].filter(x=>count(x,metric)!==null).slice(0,20);
+export function UnifiedRankingWheel({rankings,allRounders=[]}:{rankings:Record<Metric,UnifiedPerson[]>;allRounders?:UnifiedPerson[]}){
+ const [metric,setMetric]=useState<WheelMetric>(allRounders.length?'allrounders':'views');const [active,setActive]=useState(0);
+ const drag=useRef<number|null>(null),ignore=useRef(false);const cards=(metric==='allrounders'?allRounders:rankings[metric]).filter(x=>metric==='allrounders'?x.allRounderScore!=null:count(x,metric)!==null).slice(0,20);
  const index=Math.max(0,Math.min(active,cards.length-1));
  const move=useCallback((diff:number)=>setActive(i=>Math.max(0,Math.min(cards.length-1,i+diff))),[cards.length]);
  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(!document.activeElement?.closest('.ranking-wheel'))return;if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();move(e.key==='ArrowRight'?1:-1);}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[move]);
@@ -38,13 +40,13 @@ export function UnifiedRankingWheel({rankings}:{rankings:Record<Metric,UnifiedPe
  function wheel(e:WheelEvent<HTMLElement>){if(!cards.length)return;const dx=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;if(dx){e.preventDefault();move(dx>0?1:-1);}}
  return <section className="ranking-wheel" tabIndex={0} aria-label="Top 20 Pakistani individual human creator rankings">
   <div className="ranking-wheel-heading"><div className="ranking-wheel-kicker">PAKISTAN CREATOR INDEX <span>•</span> VERIFIED ACCOUNT METRICS</div><h1>Explore the <span>Creator Index</span></h1><p>Top 20 individual creators across YouTube and Instagram. TikTok coming later.</p></div>
-  <div className="ranking-wheel-modes" role="group" aria-label="Choose ranking metric">{displayModes.map(m=><button key={m.metric} className="ranking-wheel-mode" data-active={metric===m.metric} aria-pressed={metric===m.metric} onClick={()=>{setMetric(m.metric);setActive(0);}}>{m.title}</button>)}</div>
+  <div className="ranking-wheel-modes" role="group" aria-label="Choose ranking metric">{wheelModes.map(m=><button key={m.metric} className="ranking-wheel-mode" data-active={metric===m.metric} aria-pressed={metric===m.metric} onClick={()=>{setMetric(m.metric);setActive(0);}}>{m.title}</button>)}</div>
   <div className="ranking-wheel-stage" onPointerDown={pointerDown} onPointerUp={pointerUp} onPointerCancel={()=>drag.current=null} onWheel={wheel}>
    <div className="ranking-wheel-light" aria-hidden="true"/>
    {cards.map((c,i)=>({c,offset:i-index})).filter(x=>Math.abs(x.offset)<=2).map(({c,offset})=><Link key={`${metric}:${c.id}`} href={`/creators/${encodeURIComponent(c.slug)}`} draggable={false} className="ranking-wheel-card" data-offset={offset} data-rank-one={c.rank===1} aria-current={offset===0?'true':undefined} onClick={e=>{if(ignore.current)e.preventDefault()}}>
-    {c.rank===1&&<div className="ranking-wheel-crown"><span aria-hidden="true">♛</span><small>#1 {displayModes.find(m=>m.metric===metric)?.title}</small></div>}
+    {c.rank===1&&<div className="ranking-wheel-crown"><span aria-hidden="true">♛</span><small>#1 {wheelModes.find(m=>m.metric===metric)?.title}</small></div>}
     <div className="ranking-wheel-portrait">{safeYoutubeImage(c.thumbnailUrl)?<img src={safeYoutubeImage(c.thumbnailUrl)!} alt="" draggable={false}/>:<span className="ranking-wheel-monogram">{c.displayName.slice(0,1)}</span>}</div>
-    <div className="ranking-wheel-card-info"><span className="ranking-wheel-place">#{c.rank} · {displayModes.find(m=>m.metric===metric)?.label}</span><strong>{c.displayName}</strong><span className="ranking-wheel-figure">{formatCount(count(c,metric),true)}</span><span className="ranking-wheel-profile">Open creator profile ↗</span></div>
+    <div className="ranking-wheel-card-info"><span className="ranking-wheel-place">#{c.rank} · {wheelModes.find(m=>m.metric===metric)?.label}</span><strong>{c.displayName}</strong><span className="ranking-wheel-figure">{metric==='allrounders'?`${c.allRounderScore?.toFixed(1)} / 100`:formatCount(count(c,metric),true)}</span><span className="ranking-wheel-profile">Open creator profile ↗</span></div>
    </Link>)}
    {!cards.length&&<div className="ranking-wheel-empty"><h2>No approved creator statistics yet</h2><p>Approve individual human creators in the management panel to populate the Top 20.</p></div>}
    <div className="ranking-wheel-stage-floor" aria-hidden="true"/>

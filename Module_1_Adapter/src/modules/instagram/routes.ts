@@ -80,6 +80,36 @@ instagramAdminRoutes.post('/instagram/creators',roles('owner','editor'),handler(
 }));
 // PCI_SMART_BULK_IMPORT_V1: Same skip-existing/add-new policy as YouTube.
 // Unchanged accounts retain all approvals, statistics, and their category links.
+// PCI_INSTAGRAM_BULK_CATEGORIES_V1
+instagramAdminRoutes.post('/instagram/creators/bulk-categories',roles('owner','editor'),handler(async(req,res)=>{
+ const v=z.object({ids:z.array(z.string().uuid()).min(1).max(250),categoryIds:z.array(z.string().uuid()).min(1).max(7),mode:z.enum(['add','replace']).default('add')}).strict().parse(req.body);
+ const ids=[...new Set(v.ids)],cats=[...new Set(v.categoryIds)];
+ const updated=await transaction(async tx=>{
+  await tx.query('SELECT pg_advisory_xact_lock(710324)');
+  const found=await tx.query('SELECT id FROM instagram_creators WHERE id=ANY($1::uuid[]) FOR UPDATE',[ids]);
+  if(found.rowCount!==ids.length)throw new HttpError(409,'CREATOR_SET_CHANGED','One or more accounts were deleted. Reload.');
+  const valid=await tx.query('SELECT id FROM categories WHERE id=ANY($1::uuid[]) AND active=true',[cats]);
+  if(valid.rowCount!==cats.length)throw new HttpError(400,'CATEGORY_MISSING','One or more categories are invalid.');
+  if(v.mode==='replace')await tx.query('DELETE FROM instagram_creator_categories WHERE creator_id=ANY($1::uuid[])',[ids]);
+  for(const id of ids)for(const cat of cats)await tx.query('INSERT INTO instagram_creator_categories(creator_id,category_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[id,cat]);
+  await tx.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[(res.locals.admin as AdminIdentity).id,'instagram.bulk_categories',null,JSON.stringify({count:ids.length,categoryIds:cats,mode:v.mode})]);
+  return ids.length;
+ });
+ await bustPublicCache();res.json({data:{updated,mode:v.mode}});
+}));
+// PCI_INSTAGRAM_PURGE_V1
+instagramAdminRoutes.post('/instagram/creators/bulk-purge',roles('owner'),handler(async(req,res)=>{
+ const b=z.object({ids:z.array(z.string().uuid()).min(1).max(250),confirmation:z.literal('PERMANENTLY DELETE SELECTED')}).strict().parse(req.body);
+ const ids=[...new Set(b.ids)];
+ const deleted=await transaction(async tx=>{
+  await tx.query('SELECT pg_advisory_xact_lock(710324)');
+  const r=await tx.query('DELETE FROM instagram_creators WHERE id=ANY($1::uuid[]) RETURNING id',[ids]);
+  if(r.rowCount!==ids.length)throw new HttpError(409,'CREATOR_SET_CHANGED','A selected Instagram record no longer exists. Nothing deleted.');
+  await tx.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[(res.locals.admin as AdminIdentity).id,'instagram.bulk_purge',null,JSON.stringify({deleted:r.rowCount})]);
+  return r.rowCount??0;
+ });
+ await bustPublicCache();res.json({data:{deleted}});
+}));
 instagramAdminRoutes.post('/instagram/creators/bulk',roles('owner','editor'),handler(async(req,res)=>{
  const input=bulkSchema.parse(req.body?.creators);
  const unique=new Map<string,typeof input[number]>();

@@ -12,7 +12,7 @@ const premium=read('packages/ui/src/styles/premium-home.css');
 test('hero uses three live raw metrics from the existing unified API',()=>{
  assert.match(page,/const metrics:Metric\[\]=\['views','subscribers','videos'\]/);
  assert.match(page,/\/api\/v1\/unified\/rankings\?metric=\$\{metric\}&platform=all&limit=100/);
- assert.match(page,/<UnifiedRankingWheel rankings=\{rankings\}\/>/);
+ assert.match(page,/<UnifiedRankingWheel rankings=\{rankings\} allRounders=\{allRounders\?\.data\?\?\[\]\}\/>/);
  assert.match(unified,/href=\{`\/creators\/\$\{encodeURIComponent\(c.slug\)\}`\}/);
  assert.match(unified,/c\.rank===1/);
  assert.doesNotMatch(page,/hardcodedCreators|mockCreators|fakeCreators/);
@@ -20,7 +20,7 @@ test('hero uses three live raw metrics from the existing unified API',()=>{
 
 test('Top 100 receives server-fetched ranking data and keeps the legacy fallback',()=>{
  assert.match(page,/<UnifiedTop100 rankings=\{rankings\}\/>/);
- assert.match(page,/<CreatorTable creators=\{legacy\.subscribers\.slice\(0,100\)\}\/>/);
+ assert.match(page,/<CreatorTable creators=\{legacy\.subscribers\.filter\(c=>c\.rank!==null\)\.slice\(0,100\)\}\/>/);
  assert.match(page,/\/api\/v1\/rankings\?sort=\$\{metric\}&limit=100/);
  assert.match(unified,/const rows=\(platform==='all'\?rankings\[metric\]:remote\?\?\[\]\)\.slice\(0,100\)/);
  assert.match(unified,/encodeURIComponent\(c.slug\)/);

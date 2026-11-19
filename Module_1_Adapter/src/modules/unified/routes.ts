@@ -4,7 +4,7 @@ import {query} from '../../lib/db.js';
 import {handler,HttpError} from '../../lib/errors.js';
 import {requireAdmin,roles,audit,type AdminIdentity} from '../auth/auth.js';
 import {bustPublicCache} from '../../lib/redis.js';
-import {rankPeople,aggregate} from './metrics.mjs';
+import {rankPeople,rankAllRounders,aggregate} from './metrics.mjs';
 
 export const unifiedPublicRoutes=Router();
 export const unifiedAdminRoutes=Router();
@@ -58,6 +58,11 @@ async function rankings(q:z.infer<typeof params>){
  limit:q.limit,disclosure,rankingMethod:'Descending source-reported counts, BigInt-safe, dense ties; unavailable values unranked.',
  platformCoverage:{youtube:true,instagram:true,tiktok:false}}};
 }
+// PCI_ALL_ROUNDERS_ROUTE_V1: no fake TikTok data or silent fallback.
+unifiedPublicRoutes.get('/unified/all-rounders',handler(async(req,res)=>{
+ const q=z.object({limit:z.coerce.number().int().min(1).max(100).default(20),category:z.string().regex(/^[a-z0-9-]{2,60}$/).optional()}).parse(req.query);
+ res.json(rankAllRounders(await listPeople(),q));
+}));
 unifiedPublicRoutes.get('/unified/rankings',handler(async(req,res)=>res.json(await rankings(params.parse(req.query)))));
 unifiedPublicRoutes.get('/unified/overview',handler(async(req,res)=>{
  const platform=z.enum(['all','youtube','instagram','tiktok']).default('all').parse(req.query.platform);

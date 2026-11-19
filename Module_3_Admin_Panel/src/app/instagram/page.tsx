@@ -18,6 +18,8 @@ export default function InstagramManagement(){
  const [form,setForm]=useState<Form>(fresh),[bulk,setBulk]=useState(''),[busy,setBusy]=useState(false);
  const [error,setError]=useState(''),[ok,setOk]=useState('');
  const [filter,setFilter]=useState('');
+ const [checkedIds,setCheckedIds]=useState<string[]>([]);
+ const [bulkCategoryIds,setBulkCategoryIds]=useState<string[]>([]);
  const reload=()=>creators.reload();
  async function execute(action:()=>Promise<unknown>,success:string){
   setBusy(true);setError('');setOk('');
@@ -48,6 +50,19 @@ export default function InstagramManagement(){
   await execute(()=>api(`/admin/instagram/creators/${c.id}/review`,{method:'POST',csrf,body:{decision,humanAttested:decision==='approved'}}),
   decision==='approved'?'Human creator approved for ranking.':'Profile rejected.');
  }
+ async function purgeChecked(){
+  if(identity?.role!=='owner'||!checkedIds.length||!csrf||busy)return;
+  if(!window.confirm('Permanently delete '+checkedIds.length+' selected Instagram profiles and their stored metrics?'))return;
+  const confirmation=window.prompt('Type PERMANENTLY DELETE SELECTED to proceed:');
+  if(confirmation!=='PERMANENTLY DELETE SELECTED')return;
+  await execute(()=>api('/admin/instagram/creators/bulk-purge',{method:'POST',csrf,body:{ids:checkedIds,confirmation}}),'Permanently deleted selected Instagram profiles.');
+  setCheckedIds([]);
+ }
+ async function categorizeChecked(){
+  if(!checkedIds.length||!bulkCategoryIds.length||!csrf||busy)return;
+  await execute(()=>api('/admin/instagram/creators/bulk-categories',{method:'POST',csrf,body:{ids:checkedIds,categoryIds:bulkCategoryIds,mode:'add'}}),'Categories assigned to selected Instagram profiles.');
+  setCheckedIds([]);
+ }
  const visible=(creators.data??[]).filter(c=>`${c.username} ${c.display_name}`.toLowerCase().includes(filter.toLowerCase()));
  return <RoleGate roles={['owner','editor']}><AdminPage title="Instagram creators" description="Curate individual human creators only. Businesses, companies, brands, organizations and generic channels are prohibited. Imports remain private until individually approved." action={<button className="btn btn-secondary" onClick={()=>{reload();categories.reload();}}>Reload</button>}>
  <Status error={error} ok={ok}/>
@@ -69,9 +84,13 @@ export default function InstagramManagement(){
  <Card><div className="admin-toolbar"><h2>Instagram registry ({visible.length})</h2>
  <div className="field"><label htmlFor="ig-search">Search profiles</label><input id="ig-search" value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Username or name"/></div>
  <button className="btn btn-secondary" disabled={busy} onClick={()=>execute(()=>api('/admin/instagram/sync',{method:'POST',csrf}), 'Instagram refresh complete.')}>Refresh approved profiles</button></div>
+ <div className="admin-inline-actions"><label className="admin-check"><input type="checkbox" checked={visible.length>0&&visible.every(c=>checkedIds.includes(c.id))} onChange={e=>setCheckedIds(e.target.checked?visible.map(c=>c.id):[])} /> Select all visible</label>
+  {identity?.role==='owner'&&<button className="btn btn-secondary" type="button" disabled={!checkedIds.length||busy} onClick={purgeChecked}>Permanently delete selected ({checkedIds.length})</button>}
+  {(categories.data??[]).map(cat=><label key={cat.id} className="admin-check"><input type="checkbox" checked={bulkCategoryIds.includes(cat.id)} onChange={e=>setBulkCategoryIds(v=>e.target.checked?[...v,cat.id]:v.filter(id=>id!==cat.id))}/>{cat.label}</label>)}
+  <button className="btn btn-secondary" type="button" disabled={!checkedIds.length||!bulkCategoryIds.length||busy} onClick={categorizeChecked}>Assign categories</button></div>
  <DataBlock loading={creators.loading} error={creators.error} empty={!visible.length}>
- <TableWrap><thead><tr><th>Person</th><th>Categories</th><th>Eligibility</th><th>Followers</th><th>Posts</th><th>Last fetch</th><th>Review</th></tr></thead>
- <tbody>{visible.map(c=><tr key={c.id}><td><strong>{c.display_name}</strong><p className="fineprint">@{c.username}</p></td>
+ <TableWrap><thead><tr><th>Select</th><th>Person</th><th>Categories</th><th>Eligibility</th><th>Followers</th><th>Posts</th><th>Last fetch</th><th>Review</th></tr></thead>
+ <tbody>{visible.map(c=><tr key={c.id}><td><input type="checkbox" aria-label={'Select Instagram '+c.username} checked={checkedIds.includes(c.id)} onChange={e=>setCheckedIds(v=>e.target.checked?[...new Set([...v,c.id])]:v.filter(id=>id!==c.id))}/></td><td><strong>{c.display_name}</strong><p className="fineprint">@{c.username}</p></td>
  <td>{c.category_ids.length}</td><td>{c.eligibility}{!c.youtube_creator_id&&<p className="fineprint">No YouTube link</p>}</td><td>{fmtNum(c.followers_count)}</td><td>{fmtNum(c.media_count)}</td>
  <td>{fmtDate(c.fetched_at)}{c.error_code&&<p className="fineprint">Refresh error: {c.error_code}</p>}</td>
  <td><div className="admin-inline-actions"><button className="btn btn-secondary" disabled={busy} onClick={()=>review(c,'approved')}>Approve human</button><button className="btn btn-secondary" disabled={busy} onClick={()=>review(c,'rejected')}>Reject</button></div></td></tr>)}</tbody></TableWrap>

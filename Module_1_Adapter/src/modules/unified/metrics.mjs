@@ -1,3 +1,4 @@
+import {rankCrossPlatform} from '../cross-platform/score.mjs';
 /** Pure metric logic. No database, network or UI dependencies.
  * The All-platform subscriber/follower figure is a sum of reported account
  * counts, NOT unique people. Views are YouTube-only until a compatible
@@ -42,7 +43,8 @@ export function rankPeople(people,{metric='subscribers',platform='all',limit=100
    if(previous!==value){count++;previous=value;}
    return {...p,rank:count,rankMetric:metric};
  });
- return {data:ranked.slice(0,limit),total:ranked.length,known:ranked.filter(x=>x[field]!==null).length};
+ const known=ranked.filter(x=>x.rank!==null);
+ return {data:known.slice(0,limit),total:ranked.length,known:known.length};
 }
 export function aggregate(people,platform='all'){
  if(!PLATFORMS.includes(platform))throw new Error('Invalid platform');
@@ -52,4 +54,25 @@ export function aggregate(people,platform='all'){
  const projected=eligible.map(p=>projectCreator(p,platform));
  const sumField=f=>addAvailable(projected.map(p=>p[f]));
  return {creators:projected.length,subscribers:sumField('subscriberCount'),views:sumField('viewCount'),posts:sumField('videoCount')};
+}
+
+/** PCI_ALL_ROUNDERS_V1: Explicit cross-platform policy, NOT IMDb/Wilson or unique reach.
+ * Requires an approved PERSON with BOTH linked approved YT + IG accounts and
+ * three source metrics. Existing research algorithm weights 25% YT subscribers,
+ * 25% YT lifetime views, 50% IG followers, normalized within the eligible cohort.
+ * No TikTok values exist yet. Score is a relative percentile, not a truth claim.
+ */
+export function rankAllRounders(people,{limit=20,category}={}){
+ if(!Number.isInteger(limit)||limit<1||limit>100)throw Error('Invalid limit');
+ const possible=people.filter(p=>p.enabled===true&&p.humanReviewStatus==='approved')
+  .filter(p=>!category||p.categories?.some(c=>c.slug===category))
+  .filter(p=>p.youtube&&p.instagram)
+  .filter(p=>[p.youtube?.subscribers,p.youtube?.views,p.instagram?.followers].every(x=>asCount(x)!==null));
+ const data=rankCrossPlatform(possible.map(p=>({...projectCreator(p,'all'),
+  youtubeCreatorId:p.id,curated:true,eligibility:'approved',enabled:true,
+  subscriberCount:p.youtube.subscribers,viewCount:p.youtube.views,
+  followersCount:p.instagram.followers})),{limit})
+  .map(p=>({...p,rankMetric:'allrounders',allRounderScore:p.score}));
+ return {data,known:possible.length,total:possible.length,
+  method:'PCI all-rounder policy v1: cohort percentiles, 25% YouTube subscribers + 25% YouTube lifetime views + 50% Instagram followers, linked and approved accounts only; no missing-data imputation; TikTok not yet available'};
 }

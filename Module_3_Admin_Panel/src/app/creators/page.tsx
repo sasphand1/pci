@@ -15,12 +15,14 @@ export default function CreatorsPage(){
  const [search,setSearch]=useState(''),[saving,setSaving]=useState(false),[error,setError]=useState(''),[ok,setOk]=useState('');
  const [remote,setRemote]=useState(''),[bulk,setBulk]=useState(''),[bulkBusy,setBulkBusy]=useState(false);
  const [resetBusy,setResetBusy]=useState(false);
+ const [selectedCategoryIds,setSelectedCategoryIds]=useState<string[]>([]);
+ const [purging,setPurging]=useState(false);
  // PCI_BULK_SOFT_DELETE_V1
  const [selectedIds,setSelectedIds]=useState<string[]>([]);
  const [deleting,setDeleting]=useState(false);
  const rows=useMemo(()=>(list.data??[]).filter(c=>`${c.display_name} ${c.channel_id} ${c.slug}`.toLowerCase().includes(search.toLowerCase())),[list.data,search]);
  const selectedSet=new Set(selectedIds);
- const enabledRows=rows.filter(c=>c.enabled);
+ const enabledRows=rows;
  const allVisibleSelected=enabledRows.length>0&&enabledRows.every(c=>selectedSet.has(c.id));
  function selectAllVisible(checked:boolean){
   setSelectedIds(prev=>checked?[...new Set([...prev,...enabledRows.map(c=>c.id)])]:prev.filter(id=>!enabledRows.some(c=>c.id===id)));
@@ -56,6 +58,24 @@ export default function CreatorsPage(){
    setOk(`Archived ${r.archived} creators. No rows permanently deleted.`);setShowArchived(false);list.reload();
   }catch(e){setError(errorText(e));}finally{setResetBusy(false);}
  }
+ async function assignSelectedCategories(){
+  if(!csrf||!selectedIds.length||!selectedCategoryIds.length)return;
+  setSaving(true);setError('');setOk('');
+  try{const result=await api<{updated:number}>('/admin/creators/bulk-categories',{method:'POST',csrf,body:{ids:selectedIds,categoryIds:selectedCategoryIds,mode:'add'}});
+   setOk('Assigned categories to '+result.updated+' creators.');setSelectedIds([]);list.reload();}
+  catch(e){setError(errorText(e));}finally{setSaving(false);}
+ }
+ async function permanentlyDeleteSelected(){
+  if(!csrf||!selectedIds.length||purging||identity?.role!=='owner')return;
+  const ids=[...new Set(selectedIds)];
+  if(!window.confirm('Permanently delete '+ids.length+' selected creators and all linked account metrics and videos? This cannot be undone.'))return;
+  const confirmation=window.prompt('Type PERMANENTLY DELETE SELECTED to continue:');
+  if(confirmation!=='PERMANENTLY DELETE SELECTED')return;
+  setPurging(true);setError('');setOk('');
+  try{const r=await api<{youtubeDeleted:number;linkedInstagramDeleted:number}>('/admin/creators/bulk-purge',{method:'POST',csrf,body:{ids,confirmation,expectedCount:ids.length}});
+    setOk('Permanently deleted '+r.youtubeDeleted+' YouTube creators and '+r.linkedInstagramDeleted+' linked Instagram profiles.');setSelectedIds([]);clear();list.reload();}
+  catch(e){setError(errorText(e));}finally{setPurging(false);}
+ }
  async function importBulk(){if(!csrf)return;setBulkBusy(true);setError('');setOk('');try{
   const raw=JSON.parse(bulk) as unknown;
   if(!Array.isArray(raw)||raw.length<1||raw.length>100)throw new Error('Provide a JSON array with 1–100 creator objects.');
@@ -88,9 +108,10 @@ export default function CreatorsPage(){
     </div><p className="fineprint">Maximum 100 creators per request. Do not paste API keys or other secrets.</p>
    </Card></div>
   <Card><div className="admin-toolbar"><h2>{showArchived?'All creators (including archived)':'Active creators'} ({rows.length})</h2><button type="button" className="btn btn-secondary" onClick={()=>setShowArchived(x=>!x)}>{showArchived?'Hide archived':'Show archived'}</button><div className="field"><label htmlFor="creator-search">Search</label><input id="creator-search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Channel, slug, name"/></div></div>
-   {identity?.role==='owner'&&<div className="admin-inline-actions"><label className="admin-check"><input type="checkbox" checked={allVisibleSelected} disabled={!enabledRows.length||deleting} onChange={e=>selectAllVisible(e.target.checked)}/> Select all visible active</label><button type="button" className="btn btn-secondary" disabled={!selectedIds.length||deleting} onClick={disableSelected}>{deleting?'Disabling…':'Delete selected ('+selectedIds.length+')'}</button><button type="button" className="btn btn-secondary" disabled={!selectedIds.length||deleting} onClick={()=>setSelectedIds([])}>Clear selection</button></div>}
+   {identity?.role==='owner'&&<div className="admin-inline-actions"><label className="admin-check"><input type="checkbox" checked={allVisibleSelected} disabled={!enabledRows.length||deleting} onChange={e=>selectAllVisible(e.target.checked)}/> Select all visible active</label><button type="button" className="btn btn-secondary" disabled={!selectedIds.length||deleting} onClick={disableSelected}>{deleting?'Disabling…':'Delete selected ('+selectedIds.length+')'}</button><button type="button" className="btn btn-secondary" disabled={!selectedIds.length||deleting} onClick={()=>setSelectedIds([])}>Clear selection</button><button type="button" className="btn btn-secondary" disabled={!selectedIds.length||purging} onClick={permanentlyDeleteSelected}>{purging?'Deleting…':'Permanently delete selected'}</button></div>}
+   <div className="admin-inline-actions"><span>Bulk assign categories:</span>{(categories.data??[]).map(cat=><label className="admin-check" key={cat.id}><input type="checkbox" checked={selectedCategoryIds.includes(cat.id)} onChange={e=>setSelectedCategoryIds(v=>e.target.checked?[...v,cat.id]:v.filter(id=>id!==cat.id))}/>{cat.label}</label>)}<button type="button" className="btn btn-secondary" disabled={!selectedIds.length||!selectedCategoryIds.length||saving} onClick={assignSelectedCategories}>Assign categories to selected</button></div>
    <DataBlock loading={list.loading} error={list.error} empty={!rows.length}>
-    <TableWrap><thead><tr>{identity?.role==='owner'&&<th>Select</th>}<th>Creator</th><th>UC ID</th><th>Categories</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>{rows.map(c=><tr key={c.id}>{identity?.role==='owner'&&<td><input type="checkbox" aria-label={'Select '+c.display_name} disabled={!c.enabled||deleting} checked={selectedSet.has(c.id)} onChange={e=>setSelectedIds(prev=>e.target.checked?[...new Set([...prev,c.id])]:prev.filter(id=>id!==c.id))}/></td>}<td><strong>{c.display_name}</strong><p className="fineprint">/{c.slug}</p></td><td className="admin-code small">{c.channel_id}</td><td>{c.category_ids.length} assigned</td><td><Badge variant={c.enabled?'normal':'danger'}>{c.enabled?'Enabled':'Disabled'}</Badge>{c.featured&&' · Featured'}</td><td>{fmtDate(c.created_at)}</td><td><div className="admin-inline-actions"><button className="btn btn-secondary" onClick={()=>edit(c)}>Edit</button>{c.enabled&&<ConfirmButton label="Disable" confirmText={`Disable ${c.display_name}? Their public profile will be hidden.`} onConfirm={async()=>{try{await api(`/admin/creators/${c.id}`,{method:'DELETE',csrf});setOk('Creator disabled.');list.reload();}catch(e){setError(errorText(e));}}}/>}</div></td></tr>)}</tbody></TableWrap>
+    <TableWrap><thead><tr>{identity?.role==='owner'&&<th>Select</th>}<th>Creator</th><th>UC ID</th><th>Categories</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>{rows.map(c=><tr key={c.id}>{identity?.role==='owner'&&<td><input type="checkbox" aria-label={'Select '+c.display_name} disabled={deleting||purging} checked={selectedSet.has(c.id)} onChange={e=>setSelectedIds(prev=>e.target.checked?[...new Set([...prev,c.id])]:prev.filter(id=>id!==c.id))}/></td>}<td><strong>{c.display_name}</strong><p className="fineprint">/{c.slug}</p></td><td className="admin-code small">{c.channel_id}</td><td>{c.category_ids.length} assigned</td><td><Badge variant={c.enabled?'normal':'danger'}>{c.enabled?'Enabled':'Disabled'}</Badge>{c.featured&&' · Featured'}</td><td>{fmtDate(c.created_at)}</td><td><div className="admin-inline-actions"><button className="btn btn-secondary" onClick={()=>edit(c)}>Edit</button>{c.enabled&&<ConfirmButton label="Disable" confirmText={`Disable ${c.display_name}? Their public profile will be hidden.`} onConfirm={async()=>{try{await api(`/admin/creators/${c.id}`,{method:'DELETE',csrf});setOk('Creator disabled.');list.reload();}catch(e){setError(errorText(e));}}}/>}</div></td></tr>)}</tbody></TableWrap>
    </DataBlock>
   </Card>
  </AdminPage></RoleGate>;
