@@ -16,6 +16,14 @@ async function processQueue(){
 async function main(){
  await pool.query('SELECT 1');await ensureRedis();await recoverStalledJobs();
  logger.info('Worker ready');
+ // PCI_BACKFILL_UNSYNCED_V2: one startup job if any enabled channel lacks snapshots.
+ if(config.YOUTUBE_SYNC_ENABLED==='true'){
+   const gaps=await pool.query(`SELECT count(*)::int AS n FROM creators c
+     LEFT JOIN channel_stats_latest s ON s.creator_id=c.id
+     WHERE c.enabled=true AND s.creator_id IS NULL`);
+   const missing=Number(gaps.rows[0]?.n??0);
+   if(missing>0){await enqueueSync('scheduled');logger.info({missing},'Queued missing channel snapshot backfill');}
+ }
  if(config.YOUTUBE_SYNC_ENABLED==='true' && (await pool.query("SELECT value FROM app_settings WHERE key='sync_schedule_enabled'")).rows[0]?.value!==false){
    const state=await pool.query("SELECT published_at FROM publication_state WHERE id=true");
    const published=state.rows[0]?.published_at ? new Date(state.rows[0].published_at).getTime() : 0;

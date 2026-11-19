@@ -12,9 +12,12 @@ const premium=read('packages/ui/src/styles/premium-home.css');
 test('hero uses three live raw metrics from the existing unified API',()=>{
  assert.match(page,/const metrics:Metric\[\]=\['views','subscribers','videos'\]/);
  assert.match(page,/\/api\/v1\/unified\/rankings\?metric=\$\{metric\}&platform=all&limit=100/);
- assert.match(page,/<UnifiedRankingWheel rankings=\{rankings\} allRounders=\{allRounders\?\.data\?\?\[\]\}\/>/);
+ assert.match(page,/<UnifiedRankingWheel rankings=\{rankings\}\/>/);
  assert.match(unified,/href=\{`\/creators\/\$\{encodeURIComponent\(c.slug\)\}`\}/);
  assert.match(unified,/c\.rank===1/);
+ // PCI_WHEEL_THREE_METRIC_TEST_V2
+ assert.match(unified,/const wheelModes=displayModes/);
+ assert.doesNotMatch(page,/unified\/all-rounders/);
  assert.doesNotMatch(page,/hardcodedCreators|mockCreators|fakeCreators/);
 });
 

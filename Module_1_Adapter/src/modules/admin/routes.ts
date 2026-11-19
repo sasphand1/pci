@@ -145,6 +145,12 @@ adminRoutes.post('/creators/bulk',roles('owner','editor'),handler(async(req,res)
        created++;
        for(const cid of item.categoryIds)await tx.query('INSERT INTO creator_categories(creator_id,category_id) VALUES($1,$2)',[r.rows[0].id,cid]);
      }
+     // PCI_AUTO_INITIAL_SYNC_V2: insert a queued job in this same transaction.
+     if(created||reactivated){
+       await tx.query('SELECT pg_advisory_xact_lock(712003)');
+       const pending=await tx.query("SELECT id FROM sync_runs WHERE status='queued' ORDER BY created_at LIMIT 1");
+       if(!pending.rowCount)await tx.query("INSERT INTO sync_runs(source,requested_by) VALUES('manual',$1)",[adminId(res)]);
+     }
    });
  }catch(e:any){if(e.code==='23503')throw new HttpError(400,'CATEGORY_MISSING','Unknown category UUID');throw e;}
  await auditAs(res,'creator.bulk_import_with_restore',null,{created,reactivated,skipped:skipped.length,conflicts:conflicted.length,duplicates:duplicateIds.length,unverified:unverifiedChannelIds.length});

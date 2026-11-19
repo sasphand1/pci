@@ -14,7 +14,7 @@ const metrics:Metric[]=['views','subscribers','videos'];
 /** Retain the existing Module 1 unified APIs and human-approval ranking rules.
  * This page changes presentation only; no hardcoded creators or fake metrics. */
 export default async function Home(){
- const [rankingResponses,overviewResponses,status,categories,siteConfig,platformYoutube,platformInstagram,curatedYoutube,allRounders]=await Promise.all([
+ const [rankingResponses,overviewResponses,status,categories,siteConfig,platformYoutube,platformInstagram,curatedYoutube]=await Promise.all([
   Promise.all(metrics.map(metric=>adapterGet<UnifiedRankingResponse>(`/api/v1/unified/rankings?metric=${metric}&platform=all&limit=100`))),
   Promise.all((['all','youtube','instagram'] as const).map(platform=>adapterGet<UnifiedOverviewResponse>(`/api/v1/unified/overview?platform=${platform}`))),
   adapterGet<{data:{publishedAt:string|null}}>('/api/v1/status'),
@@ -22,8 +22,7 @@ export default async function Home(){
   adapterGet<{data:{homepage_announcement?:string}}>('/api/v1/site-config'),
   adapterGet<UnifiedRankingResponse>('/api/v1/unified/rankings?metric=subscribers&platform=youtube&limit=100'),
   adapterGet<UnifiedRankingResponse>('/api/v1/unified/rankings?metric=subscribers&platform=instagram&limit=100'),
-  adapterGet<{data:Creator[]}>('/api/v1/rankings?sort=subscribers&limit=100'),
-  adapterGet<UnifiedRankingResponse>('/api/v1/unified/all-rounders?limit=20')
+  adapterGet<{data:Creator[]}>('/api/v1/rankings?sort=subscribers&limit=100')
  ]);
  const [rankViews,rankSubscribers,rankVideos]=rankingResponses;
  const [overviewAll,overviewYoutube,overviewInstagram]=overviewResponses;
@@ -34,7 +33,7 @@ export default async function Home(){
  const overviews={all:overviewAll,youtube:overviewYoutube,instagram:overviewInstagram};
  return <>
   <div className="pci-cinematic pci-explore-hero">
-   {fallback?<RankingWheel rankings={legacy} asOf={status?.data.publishedAt??null}/>:<UnifiedRankingWheel rankings={rankings} allRounders={allRounders?.data??[]}/>}
+   {fallback?<RankingWheel rankings={legacy} asOf={status?.data.publishedAt??null}/>:<UnifiedRankingWheel rankings={rankings}/>}
    {siteConfig?.data.homepage_announcement&&<div className="container"><section className="section"><Card><strong>Announcement</strong><p className="muted">{siteConfig.data.homepage_announcement}</p></Card></section></div>}
    <div id="discover"><CreatorDiscoveryRows categories={categories?.data??[]} youtube={platformYoutube?.data??[]} instagram={platformInstagram?.data??[]} curatedYoutube={curatedYoutube?.data??[]}/></div>
   </div>

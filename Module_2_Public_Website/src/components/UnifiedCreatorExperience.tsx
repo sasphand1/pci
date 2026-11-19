@@ -17,7 +17,7 @@ const displayModes:{metric:Metric;title:string;label:string}[]=[
  {metric:'views',title:'Most Viewed',label:'Channel views'},
  {metric:'subscribers',title:'Most Subscribed',label:'Account followers + subscribers'},
  {metric:'videos',title:'Most Active',label:'Published videos + posts'}];
-const wheelModes=[{metric:'allrounders' as const,title:'All Rounders',label:'Relative cross-platform score'},...displayModes];
+const wheelModes=displayModes; // PCI_WHEEL_THREE_METRICS_V2
 const platformOptions:{id:Platform;label:string}[]=[{id:'all',label:'All platforms'},{id:'youtube',label:'YouTube'},{id:'instagram',label:'Instagram'},{id:'tiktok',label:'TikTok (soon)'}];
 function count(c:UnifiedPerson,m:Metric){return m==='views'?c.viewCount:m==='videos'?c.videoCount:c.subscriberCount;}
 function PlatformMark({platform}:{platform:'youtube'|'instagram'|'tiktok'}){
@@ -30,7 +30,7 @@ function Links({person}:{person:UnifiedPerson}){
  ?<a key={platform} href={person.platforms[platform]!} aria-label={`Open ${person.displayName} on ${platform}`} title={platform} target="_blank" rel="noopener noreferrer" className="pci-unified-platform-link"><PlatformMark platform={platform}/></a>:null)}</span>;
 }
 export function UnifiedRankingWheel({rankings,allRounders=[]}:{rankings:Record<Metric,UnifiedPerson[]>;allRounders?:UnifiedPerson[]}){
- const [metric,setMetric]=useState<WheelMetric>(allRounders.length?'allrounders':'views');const [active,setActive]=useState(0);
+ const [metric,setMetric]=useState<WheelMetric>('views');const [active,setActive]=useState(0);
  const drag=useRef<number|null>(null),ignore=useRef(false);const cards=(metric==='allrounders'?allRounders:rankings[metric]).filter(x=>metric==='allrounders'?x.allRounderScore!=null:count(x,metric)!==null).slice(0,20);
  const index=Math.max(0,Math.min(active,cards.length-1));
  const move=useCallback((diff:number)=>setActive(i=>Math.max(0,Math.min(cards.length-1,i+diff))),[cards.length]);

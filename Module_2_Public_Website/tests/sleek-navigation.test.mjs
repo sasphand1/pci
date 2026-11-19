@@ -29,7 +29,7 @@ test('discovery categories and platform rails use real unified API results',()=>
 });
 
 test('unified leaderboard and wheel remain with centralized styling and no mock people',()=>{
- assert.match(page,/<UnifiedRankingWheel rankings=\{rankings\} allRounders=\{allRounders\?\.data\?\?\[\]\}\/>/);
+ assert.match(page,/<UnifiedRankingWheel rankings=\{rankings\}\/>/);
  assert.match(page,/<UnifiedTop100 rankings=\{rankings\}\/>/);
  assert.match(page,/<RankingWheel rankings=\{legacy\} asOf=/);
  assert.match(unified,/href=\{`\/creators\/\$\{encodeURIComponent\(c.slug\)\}`\}/);

@@ -21,31 +21,54 @@ const review=z.object({decision:z.enum(['approved','rejected','pending']),
  * Linked Instagram categories are unioned to preserve existing editor assignments.
  * Existing YouTube data stays available in the legacy endpoints unchanged.
  */
+// PCI_UNIFIED_ISOLATED_QUERIES_V2: one stable YouTube registry query, optional IG read.
+// No IG migration should be able to take down the YouTube/combined ranking API.
 async function listPeople(){
- const result=await query(`SELECT c.id,c.slug,c.display_name AS "displayName",c.enabled,
- c.human_review_status AS "humanReviewStatus", ys.thumbnail_url AS "thumbnailUrl",
- ys.subscriber_count::text AS "ytSubscribers",ys.view_count::text AS "ytViews",
- ys.video_count::text AS "ytVideos",ys.fetched_at AS "ytFetchedAt",c.channel_id AS "channelId",
- ig.id AS "instagramCreatorId",ig.username AS "instagramUsername",
- st.followers_count::text AS "igFollowers",st.media_count::text AS "igPosts",st.fetched_at AS "igFetchedAt",
- COALESCE((SELECT json_agg(DISTINCT jsonb_build_object('slug',ca.slug,'label',ca.label)) ORDER BY jsonb_build_object('slug',ca.slug,'label',ca.label))
-    FROM categories ca WHERE ca.active=true AND (
-      EXISTS(SELECT 1 FROM creator_categories cc WHERE cc.creator_id=c.id AND cc.category_id=ca.id) OR
-      EXISTS(SELECT 1 FROM instagram_creator_categories ic WHERE ic.creator_id=ig.id AND ic.category_id=ca.id)
-    )), '[]'::json) AS categories
- FROM creators c LEFT JOIN channel_stats_latest ys ON ys.creator_id=c.id
- LEFT JOIN LATERAL (SELECT i.id,i.username FROM instagram_creators i
-   WHERE i.youtube_creator_id=c.id AND i.enabled=true AND i.eligibility='approved'
-   ORDER BY i.reviewed_at DESC NULLS LAST,i.id LIMIT 1) ig ON true
- LEFT JOIN instagram_stats_latest st ON st.creator_id=ig.id
- WHERE c.enabled=true ORDER BY c.id`);
- return result.rows.map((r:any)=>({id:r.id,slug:r.slug,displayName:r.displayName,
- humanReviewStatus:r.humanReviewStatus,enabled:r.enabled,thumbnailUrl:r.thumbnailUrl,
- categories:r.categories??[],
- youtube:{url:`https://www.youtube.com/channel/${encodeURIComponent(r.channelId)}`,
- subscribers:r.ytSubscribers,views:r.ytViews,videos:r.ytVideos,fetchedAt:r.ytFetchedAt},
- instagram:r.instagramCreatorId?{url:`https://www.instagram.com/${encodeURIComponent(r.instagramUsername)}/`,
- username:r.instagramUsername,followers:r.igFollowers,posts:r.igPosts,fetchedAt:r.igFetchedAt}:null}));
+ const base=await query(`SELECT c.id,c.slug,c.display_name AS "displayName",c.enabled,
+   c.human_review_status AS "humanReviewStatus",c.channel_id AS "channelId",
+   ys.thumbnail_url AS "thumbnailUrl",ys.subscriber_count::text AS "ytSubscribers",
+   ys.view_count::text AS "ytViews",ys.video_count::text AS "ytVideos",ys.fetched_at AS "ytFetchedAt"
+   FROM creators c LEFT JOIN channel_stats_latest ys ON ys.creator_id=c.id
+   WHERE c.enabled=true ORDER BY c.id`);
+ const ids=base.rows.map((r:any)=>r.id);
+ if(!ids.length)return [];
+ const categories=await query(`SELECT cc.creator_id AS "creatorId",ca.slug,ca.label
+   FROM creator_categories cc JOIN categories ca ON ca.id=cc.category_id
+   WHERE cc.creator_id=ANY($1::uuid[]) AND ca.active=true ORDER BY ca.slug`,[ids]);
+ const categoryMap=new Map<string,{slug:string;label:string}[]>();
+ for(const c of categories.rows){const xs=categoryMap.get(c.creatorId)??[];xs.push({slug:c.slug,label:c.label});categoryMap.set(c.creatorId,xs);}
+ const people=base.rows.map((r:any)=>({id:r.id,slug:r.slug,displayName:r.displayName,enabled:r.enabled,
+   humanReviewStatus:r.humanReviewStatus,thumbnailUrl:r.thumbnailUrl,
+   categories:categoryMap.get(r.id)??[],
+   youtube:{url:`https://www.youtube.com/channel/${encodeURIComponent(r.channelId)}`,subscribers:r.ytSubscribers,views:r.ytViews,videos:r.ytVideos,fetchedAt:r.ytFetchedAt},
+   instagram:null as null|{url:string;username:string;followers:string|null;posts:string|null;fetchedAt:string|null}}));
+ const byId=new Map(people.map(p=>[p.id,p]));
+ try{
+   const ig=await query(`SELECT i.id AS "instagramId",i.youtube_creator_id AS "creatorId",i.username,
+     st.followers_count::text AS "followers",st.media_count::text AS "posts",st.fetched_at AS "fetchedAt"
+     FROM instagram_creators i LEFT JOIN instagram_stats_latest st ON st.creator_id=i.id
+     WHERE i.enabled=true AND i.eligibility='approved' AND i.youtube_creator_id=ANY($1::uuid[])
+     ORDER BY i.youtube_creator_id,i.id`,[ids]);
+   const igIds:string[]=[];const selected=new Set<string>();
+   for(const r of ig.rows){
+     const p=byId.get(r.creatorId);if(!p||selected.has(r.creatorId))continue;
+     selected.add(r.creatorId);igIds.push(r.instagramId);
+     p.instagram={url:`https://www.instagram.com/${encodeURIComponent(r.username)}/`,username:r.username,followers:r.followers,posts:r.posts,fetchedAt:r.fetchedAt};
+   }
+   if(igIds.length){
+     const linked=await query(`SELECT i.youtube_creator_id AS "creatorId",ca.slug,ca.label
+       FROM instagram_creator_categories ic JOIN instagram_creators i ON i.id=ic.creator_id
+       JOIN categories ca ON ca.id=ic.category_id
+       WHERE ic.creator_id=ANY($1::uuid[]) AND ca.active=true`,[igIds]);
+     for(const c of linked.rows){const p=byId.get(c.creatorId);if(p&&!p.categories.some(x=>x.slug===c.slug))p.categories.push({slug:c.slug,label:c.label});}
+   }
+ }catch(err){
+   // Only optional IG schema mismatches degrade gracefully. All other DB errors propagate.
+   const code=(err as {code?:string}).code;
+   if(code!=='42P01'&&code!=='42703')throw err;
+   console.error('[PCI_IG_SCHEMA_UNAVAILABLE] Unified YouTube rankings served without Instagram; complete Instagram migration',code);
+ }
+ return people;
 }
 const disclosure={audience:'Summed account follower/subscriber counts; NOT unique people. The same individual may follow a creator on multiple platforms.',
  views:'YouTube lifetime channel views only. Instagram does not provide an equivalent account-wide total through the current connector.',

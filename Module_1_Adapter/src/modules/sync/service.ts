@@ -41,29 +41,14 @@ export async function performSync(runId:string){
    const lookup=new Map(channelResults.map(c=>[c.id,c]));
    const missing=creators.filter(c=>!lookup.has(c.channel_id));
    // If most channels disappear from one response, treat it as upstream failure, not a new truth.
-   if(missing.length===creators.length || missing.length>Math.max(2,Math.floor(creators.length*0.1)))
-     throw new Error('YOUTUBE_CHANNEL_RESULTS_INCOMPLETE: suspiciously many missing channels');
+   if(missing.length===creators.length)
+     throw new Error('YOUTUBE_CHANNEL_RESULTS_INCOMPLETE: no requested channels returned');
+   // PCI_PARTIAL_CHANNEL_SYNC_V2: valid responses still publish; missing ones are reported.
    const available=creators.filter(c=>lookup.has(c.channel_id));
    const warnings:string[]=[];
    if(missing.length)warnings.push(`${missing.length} unavailable channels retained their previous statistics`);
 
-   const videoIdsByChannel=new Map<string,string[]>();
-   const uploadFailures=new Set<string>();
-   for(const creator of available){
-     const uploads=lookup.get(creator.channel_id)!.contentDetails?.relatedPlaylists?.uploads;
-     // A playlist failure must not erase previously retrieved videos for that creator.
-     try {
-       const ids=uploads?await yt.uploads(uploads,config.SYNC_VIDEOS_PER_CHANNEL):[];
-       videoIdsByChannel.set(creator.channel_id,ids);
-     } catch (e) {
-       uploadFailures.add(creator.channel_id);
-       warnings.push(`Uploads unavailable for channel ${creator.channel_id}; previous video window retained`);
-     }
-   }
-   const allIds=[...new Set([...videoIdsByChannel.values()].flat())];
-   const videoResults:YoutubeVideo[]=[];
-   for(const group of chunks(allIds,50))videoResults.push(...await yt.videos(group));
-   const videoLookup=new Map(videoResults.map(v=>[v.id,v]));
+   // PCI_EARLY_CHANNEL_SNAPSHOTS_V2: commit channel metrics before optional video downloads.
    const fetchTime=new Date().toISOString();
    await transaction(async tx=>{
      for(const creator of available){
@@ -84,6 +69,33 @@ export async function performSync(runId:string){
            channel.snippet?.title??null,channel.snippet?.description??null,thumbUrl(channel.snippet),
            dateOrNull(channel.snippet?.publishedAt),channel.contentDetails?.relatedPlaylists?.uploads??null,fetchTime,runId
          ]);
+     }
+     await tx.query('UPDATE publication_state SET sync_run_id=$1,published_at=$2 WHERE id=true',[runId,fetchTime]);
+   });
+   await bustPublicCache();
+   const videoIdsByChannel=new Map<string,string[]>();
+   const uploadFailures=new Set<string>();
+   for(const creator of available){
+     const uploads=lookup.get(creator.channel_id)!.contentDetails?.relatedPlaylists?.uploads;
+     // A playlist failure must not erase previously retrieved videos for that creator.
+     try {
+       const ids=uploads?await yt.uploads(uploads,config.SYNC_VIDEOS_PER_CHANNEL):[];
+       videoIdsByChannel.set(creator.channel_id,ids);
+     } catch (e) {
+       uploadFailures.add(creator.channel_id);
+       warnings.push(`Uploads unavailable for channel ${creator.channel_id}; previous video window retained`);
+     }
+   }
+   const allIds=[...new Set([...videoIdsByChannel.values()].flat())];
+   const videoResults:YoutubeVideo[]=[];
+   let videoFetchFailed=false; // PCI_VIDEO_PARTIAL_V2
+   for(const group of chunks(allIds,50)){
+     try{videoResults.push(...await yt.videos(group));}
+     catch(err){videoFetchFailed=true;warnings.push('One video-statistics batch failed; previously stored videos preserved');logger.warn({err,runId},'Video fetch failed; channel stats already committed');}
+   }
+   const videoLookup=new Map(videoResults.map(v=>[v.id,v]));
+   await transaction(async tx=>{
+     for(const creator of available){
        const present:string[]=[];
        for(const id of videoIdsByChannel.get(creator.channel_id)??[]){
          const video=videoLookup.get(id);
@@ -106,9 +118,8 @@ export async function performSync(runId:string){
            ]);
        }
        // Latest-50 window only; old records disappear from active catalogue.
-       if(!uploadFailures.has(creator.channel_id))await tx.query('DELETE FROM videos WHERE creator_id=$1 AND NOT (video_id=ANY($2::text[]))',[creator.id,present]);
+       if(!uploadFailures.has(creator.channel_id)&&!videoFetchFailed)await tx.query('DELETE FROM videos WHERE creator_id=$1 AND NOT (video_id=ANY($2::text[]))',[creator.id,present]);
      }
-     await tx.query('UPDATE publication_state SET sync_run_id=$1,published_at=$2 WHERE id=true',[runId,fetchTime]);
      await tx.query("UPDATE sync_runs SET status=$2,finished_at=now(),quota_used=$3,channel_count=$4,video_count=$5,error_code=$6,error_message=$7 WHERE id=$1",[runId,warnings.length?'partial':'succeeded',yt.calls,available.length,videoResults.length,warnings.length?'PARTIAL_SYNC':null,warnings.length?warnings.join('; ').slice(0,250):null]);
    });
    await bustPublicCache();
