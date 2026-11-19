@@ -25,8 +25,11 @@ export default function CreatorsPage(){
  async function importBulk(){if(!csrf)return;setBulkBusy(true);setError('');setOk('');try{
   const raw=JSON.parse(bulk) as unknown;
   if(!Array.isArray(raw)||raw.length<1||raw.length>100)throw new Error('Provide a JSON array with 1–100 creator objects.');
-  const r=await api<{created:number;skipped:number;duplicatesInFile:number}>('/admin/creators/bulk',{method:'POST',csrf,body:{creators:raw}});
-  setOk(`Added ${r.created} new creators; skipped ${r.skipped} existing channels and ${r.duplicatesInFile} duplicates in this file.`);setBulk('');list.reload();
+  const r=await api<{created:number;skipped:number;duplicatesInFile:number;conflicts:{channelId:string;slug:string;existingChannelId:string}[]}>('/admin/creators/bulk',{method:'POST',csrf,body:{creators:raw}});
+  setOk(`Added ${r.created}; skipped ${r.skipped} existing, ${r.duplicatesInFile} file duplicates; ${r.conflicts.length} slug conflicts.`);
+  if(r.conflicts.length)setError(r.conflicts.map(c=>`Slug ${c.slug}: uploaded ${c.channelId} differs from registered ${c.existingChannelId}`).join(' | '));
+  else setBulk('');
+  list.reload();
  }catch(e){setError(errorText(e));}finally{setBulkBusy(false);}}
  return <RoleGate roles={['owner','editor']}><AdminPage title="Creator registry" description="Verify UC channel IDs and manage all curated creators. Bulk imports are transactional." action={<button className="btn btn-secondary" onClick={()=>{list.reload();categories.reload();}}>Reload</button>}>
   <Status error={error} ok={ok}/>

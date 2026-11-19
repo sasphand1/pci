@@ -83,25 +83,30 @@ adminRoutes.post('/creators/bulk',roles('owner','editor'),handler(async(req,res)
  const fresh=items.filter(x=>!byChannel.has(x.channelId));
  const claimedSlugs=new Map(existing.rows.map(x=>[x.slug,x.channel_id]));
  const seenSlugs=new Map<string,string>();
+ const conflicts:{channelId:string;slug:string;existingChannelId:string}[]=[];
+ const safeFresh:typeof fresh=[];
  for(const item of fresh){
   const owner=claimedSlugs.get(item.slug)??seenSlugs.get(item.slug);
-  if(owner && owner!==item.channelId)throw new HttpError(409,'SLUG_CONFLICT',
-   `Slug ${item.slug} is already assigned to another channel; no records imported`);
+  if(owner && owner!==item.channelId){
+   conflicts.push({channelId:item.channelId,slug:item.slug,existingChannelId:owner});
+   continue;
+  }
   seenSlugs.set(item.slug,item.channelId);
+  safeFresh.push(item);
  }
- if(fresh.length && !config.YOUTUBE_API_KEY)throw new HttpError(503,'YOUTUBE_UNCONFIGURED','Configure YouTube API key');
- if(fresh.length){
+ if(safeFresh.length && !config.YOUTUBE_API_KEY)throw new HttpError(503,'YOUTUBE_UNCONFIGURED','Configure YouTube API key');
+ if(safeFresh.length){
   const yt=new YoutubeClient(),valid=new Set<string>();
-  for(const batch of chunks(fresh.map(x=>x.channelId),50))
+  for(const batch of chunks(safeFresh.map(x=>x.channelId),50))
    for(const c of await yt.channels(batch))valid.add(c.id);
-  const invalid=fresh.filter(x=>!valid.has(x.channelId)).map(x=>x.channelId);
+  const invalid=safeFresh.filter(x=>!valid.has(x.channelId)).map(x=>x.channelId);
   if(invalid.length)throw new HttpError(400,'CHANNEL_NOT_FOUND',
    `Unverified YouTube IDs: ${invalid.join(', ')}. No records imported`);
  }
  let created=0;
  try{
   await transaction(async tx=>{
-   for(const item of fresh){
+   for(const item of safeFresh){
     const r=await tx.query(`INSERT INTO creators(channel_id,slug,display_name,description,featured,enabled)
       VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING id`,
       [item.channelId,item.slug,item.displayName,item.description,item.featured,item.enabled]);
@@ -112,10 +117,10 @@ adminRoutes.post('/creators/bulk',roles('owner','editor'),handler(async(req,res)
    }
   });
  }catch(e:any){if(e.code==='23503')throw new HttpError(400,'CATEGORY_MISSING','Unknown category');throw e;}
- await auditAs(res,'creator.bulk_smart_import',null,{created,skipped:skipped.length,duplicatesInFile:duplicatedInFile.length});
+ await auditAs(res,'creator.bulk_smart_import',null,{created,skipped:skipped.length,duplicatesInFile:duplicatedInFile.length,conflicts:conflicts.length});
  if(created)await bustPublicCache();
  res.status(200).json({data:{created,skipped:skipped.length,duplicatesInFile:duplicatedInFile.length,
-  skippedChannelIds:skipped,duplicateChannelIds:duplicatedInFile}});
+  skippedChannelIds:skipped,duplicateChannelIds:duplicatedInFile,conflicts}});
 }));
 adminRoutes.patch('/creators/:id',roles('owner','editor'),handler(async(req,res)=>{
  const id=uuid.parse(req.params.id);
