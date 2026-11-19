@@ -1,12 +1,11 @@
 import {instagramPublicRoutes,instagramAdminRoutes} from './modules/instagram/routes.js';
-import {crossPublicRoutes,crossAdminRoutes} from './modules/cross-platform/routes.js';
-import {unifiedPublicRoutes,unifiedAdminRoutes} from './modules/unified/routes.js';
 import { createServer } from 'node:http';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { config } from './lib/config.js';
+import {ensureUnifiedSchema} from './lib/unified-schema.js';
 import { pool } from './lib/db.js';
 import { redis, ensureRedis } from './lib/redis.js';
 import { logger, requestId, errorMiddleware, HttpError, handler } from './lib/errors.js';
@@ -53,23 +52,28 @@ export function makeApp() {
     res.json({status:'ready'});
   }));
   app.use('/api/v1',publicRoutes);
-  app.use('/api/v1',unifiedPublicRoutes);
   app.use('/api/v1',instagramPublicRoutes);
-  app.use('/api/v1',crossPublicRoutes);
   app.use('/api/v1/wall/auth',wallAuthRoutes);
   app.use('/api/v1/wall',wallRoutes);
   app.use('/api/v1/admin/auth',adminAuthRoutes);
   app.use('/api/v1/admin',adminRoutes);
-  app.use('/api/v1/admin',unifiedAdminRoutes);
   app.use('/api/v1/admin',instagramAdminRoutes);
-  app.use('/api/v1/admin',crossAdminRoutes);
   app.use((_req,_res,next)=>next(new HttpError(404,'NOT_FOUND','Endpoint not found')));
   app.use(errorMiddleware);
   return app;
 }
 
 async function main(){
-  await pool.query('SELECT 1');await ensureRedis();
+  await pool.query('SELECT 1');
+  // Best-effort, additive-only compatibility bridge for new unified review fields.
+  // It never modifies creator metrics or eligibility and must not take legacy APIs offline.
+  try {
+    await ensureUnifiedSchema();
+    logger.info('Unified creator schema verified');
+  } catch (err) {
+    logger.error({err},'Unified schema repair failed; legacy YouTube endpoints remain available');
+  }
+  await ensureRedis();
   const httpServer=createServer(makeApp());
   const io=attachWall(httpServer);
   httpServer.listen(config.PORT,'0.0.0.0',()=>logger.info({port:config.PORT},'API server ready'));
