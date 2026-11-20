@@ -13,6 +13,8 @@ import {ensureRegistrySchema} from './lib/registry-schema.js';
 import {bucketAdminRoutes} from './modules/bucket/routes.js';
 import {ensureObservationsSchema} from './lib/observations-schema.js';
 import {refreshAdminRoutes} from './modules/refresh/routes.js';
+import {ensurePublicationSchema} from './lib/publication-schema.js';
+import {publishAdminRoutes} from './modules/publish/routes.js';
 import {startScheduler,type SchedulerHandle} from './modules/sync/scheduler.js';
 import { pool } from './lib/db.js';
 import { redis, ensureRedis } from './lib/redis.js';
@@ -83,6 +85,7 @@ export function makeApp() {
   app.use('/api/v1/admin',adminRoutes);
   app.use('/api/v1/admin',bucketAdminRoutes);
   app.use('/api/v1/admin',refreshAdminRoutes);
+  app.use('/api/v1/admin',publishAdminRoutes);
   app.use('/api/v1/admin',unifiedAdminRoutes);
   app.use('/api/v1/admin',instagramAdminRoutes);
   app.use('/api/v1/admin',crossAdminRoutes);
@@ -137,6 +140,13 @@ async function main(){
         } catch(err) {
           logger.error({err},'Observations schema verification failed');
           console.error('[PCI_SCHEMA_FAILURE] observations schema failed');
+        }
+        try {
+          await ensurePublicationSchema();
+          logger.info('Publication schema verified');
+        } catch(err) {
+          logger.error({err},'Publication schema verification failed');
+          console.error('[PCI_SCHEMA_FAILURE] publication schema failed');
         }
         await ensureRedis();
         pciStartupReady=true;

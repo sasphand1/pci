@@ -4,6 +4,7 @@ import { HttpError } from '../../lib/errors.js';
 import { classifyBatch, summarizeBatch, type ClassifyContext, type ResolveResult, type RowResult } from './classify.js';
 import { normalizeName, parseAccountInput, parseBulk, MAX_BULK_ROWS, type Platform } from './parse.js';
 import { makeResolver, mapLimit, type Resolver } from './resolver.js';
+import { captureLive, republishWithout } from '../publish/service.js';
 
 type Q = Pick<pg.PoolClient, 'query'>;
 
@@ -135,8 +136,13 @@ export async function deletePerson(personId: string, actorId: string | null) {
       if (await has('public.instagram_creators')) legacy += (await client.query('DELETE FROM instagram_creators WHERE id=ANY($1::uuid[]) OR youtube_creator_id=ANY($2::uuid[])', [ig, yt])).rowCount ?? 0;
       if (yt.length && await has('public.creators')) legacy += (await client.query('DELETE FROM creators WHERE id=ANY($1::uuid[])', [yt])).rowCount ?? 0;
     }
+    // PCI_ZIP_3: remember every live ranking that contains this person, delete, then replace those rankings
+    // (same transaction) with the same ranking minus this person. Nothing public can still show them.
+    await client.query('SELECT pg_advisory_xact_lock(710325)'); // same lock as publishing: a publish and a delete never interleave
+    const live = await captureLive(client);
     await client.query('DELETE FROM people WHERE id=$1', [personId]);
-    await client.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)', [actorId, 'bucket.delete', personId, JSON.stringify({ accounts: acc.rowCount, legacyRows: legacy })]);
-    return { deleted: true, accounts: acc.rowCount ?? 0, legacyRows: legacy };
+    const republished = await republishWithout(client, live, personId, actorId);
+    await client.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)', [actorId, 'bucket.delete', personId, JSON.stringify({ accounts: acc.rowCount, legacyRows: legacy, republishedScopes: republished })]);
+    return { deleted: true, accounts: acc.rowCount ?? 0, legacyRows: legacy, republishedScopes: republished };
   });
 }

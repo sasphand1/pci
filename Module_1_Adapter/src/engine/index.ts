@@ -9,6 +9,7 @@ import type { RankInput, RankResult, Unranked } from './types.js';
 export * from './types.js';
 export { policyFor, FIXED_SCOPES, METRIC_PLATFORMS, categoryScope, FRESHNESS_DAYS_DEFAULT } from './policy.js';
 export { inputHash } from './hash.js';
+export { removePerson } from './remove.js';
 
 /** Rank one scope. Pure: same input, same output, whatever the order of the arrays. */
 export function rankScope(scope: string, input: RankInput): RankResult {

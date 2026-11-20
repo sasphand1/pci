@@ -19,7 +19,7 @@
     "check": "npm run build && npm test",
     "smoke": "node scripts/smoke.mjs",
     "postinstall": "npm run build",
-    "test:db": "node --env-file=.env.test --import tsx --test --test-concurrency=1 tests/integration/bucket.test.ts tests/integration/refresh.test.ts",
+    "test:db": "node --env-file=.env.test --import tsx --test --test-concurrency=1 tests/integration/bucket.test.ts tests/integration/refresh.test.ts tests/integration/publish.test.ts",
     "backfill:registry": "node --env-file=.env --import tsx src/cli/backfill-registry.ts",
     "smoke:live": "node --env-file=.env --import tsx scripts/live-smoke.mjs"
   },

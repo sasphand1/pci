@@ -5,6 +5,7 @@ import { ensureUnifiedSchema } from './lib/unified-schema.js';
 import { ensureEngineSchema } from './lib/engine-schema.js';
 import { ensureRegistrySchema } from './lib/registry-schema.js';
 import { ensureObservationsSchema } from './lib/observations-schema.js';
+import { ensurePublicationSchema } from './lib/publication-schema.js';
 import { startScheduler } from './modules/sync/scheduler.js';
 
 // PCI Update 1: the scheduling logic now lives in modules/sync/scheduler.ts so the API process
@@ -13,7 +14,7 @@ async function main(){
  await pool.query('SELECT 1');await ensureRedis();
  try{await ensureUnifiedSchema();}catch(err){logger.error({err},'Unified schema verification failed in worker');}
  try{await ensureEngineSchema();}catch(err){logger.error({err},'Engine schema verification failed in worker');}
- try{await ensureRegistrySchema();await ensureObservationsSchema();}catch(err){logger.error({err},'Registry/observations schema verification failed in worker');}
+ try{await ensureRegistrySchema();await ensureObservationsSchema();await ensurePublicationSchema();}catch(err){logger.error({err},'Registry/observations schema verification failed in worker');}
  const scheduler=await startScheduler({embedded:false});
  logger.info({workerId:scheduler.workerId},'Worker ready');
  const stop=async()=>{scheduler.stop();await redis.quit();await pool.end();process.exit(0);};

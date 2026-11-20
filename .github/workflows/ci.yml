@@ -36,7 +36,7 @@ jobs:
           MFA_ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
           LOG_HMAC_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
         run: node --import tsx src/cli/migrate.ts
-      - name: Database tests (bucket, refresh)
+      - name: Database tests (bucket, refresh, publish)
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://pci:pci@localhost:5432/pci_test
@@ -46,4 +46,4 @@ jobs:
           APP_PUBLIC_URL: http://localhost:3000
           MFA_ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
           LOG_HMAC_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
-        run: node --import tsx --test --test-concurrency=1 tests/integration/bucket.test.ts tests/integration/refresh.test.ts
+        run: node --import tsx --test --test-concurrency=1 tests/integration/bucket.test.ts tests/integration/refresh.test.ts tests/integration/publish.test.ts
