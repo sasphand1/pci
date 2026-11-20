@@ -9,6 +9,8 @@ import helmet from 'helmet';
 import { config } from './lib/config.js';
 import {ensureUnifiedSchema} from './lib/unified-schema.js';
 import {ensureEngineSchema} from './lib/engine-schema.js';
+import {ensureRegistrySchema} from './lib/registry-schema.js';
+import {bucketAdminRoutes} from './modules/bucket/routes.js';
 import {startScheduler,type SchedulerHandle} from './modules/sync/scheduler.js';
 import { pool } from './lib/db.js';
 import { redis, ensureRedis } from './lib/redis.js';
@@ -77,6 +79,7 @@ export function makeApp() {
   app.use('/api/v1/wall',wallRoutes);
   app.use('/api/v1/admin/auth',adminAuthRoutes);
   app.use('/api/v1/admin',adminRoutes);
+  app.use('/api/v1/admin',bucketAdminRoutes);
   app.use('/api/v1/admin',unifiedAdminRoutes);
   app.use('/api/v1/admin',instagramAdminRoutes);
   app.use('/api/v1/admin',crossAdminRoutes);
@@ -117,6 +120,13 @@ async function main(){
         } catch(err) {
           logger.error({err},'Engine diagnostics schema verification failed');
           console.error('[PCI_SCHEMA_FAILURE] engine diagnostics schema failed');
+        }
+        try {
+          await ensureRegistrySchema();
+          logger.info('Registry (bucket) schema verified');
+        } catch(err) {
+          logger.error({err},'Registry schema verification failed');
+          console.error('[PCI_SCHEMA_FAILURE] registry schema failed');
         }
         await ensureRedis();
         pciStartupReady=true;

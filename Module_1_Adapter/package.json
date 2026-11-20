@@ -14,11 +14,13 @@
     "start:worker": "node dist/worker.js",
     "migrate": "node --env-file=.env --import tsx src/cli/migrate.ts",
     "create:owner": "node --env-file=.env --import tsx src/cli/create-owner.ts",
-    "test": "node --test tests/*.test.mjs",
+    "test": "node --test tests/*.test.mjs && node --import tsx --test tests/unit/*.test.ts",
     "test:integration": "node --env-file=.env --import tsx --test tests/integration/smoke.test.ts",
     "check": "npm run build && npm test",
     "smoke": "node scripts/smoke.mjs",
-    "postinstall": "npm run build"
+    "postinstall": "npm run build",
+    "test:db": "node --env-file=.env.test --import tsx --test tests/integration/bucket.test.ts",
+    "backfill:registry": "node --env-file=.env --import tsx src/cli/backfill-registry.ts"
   },
   "dependencies": {
     "argon2": "^0.41.1",

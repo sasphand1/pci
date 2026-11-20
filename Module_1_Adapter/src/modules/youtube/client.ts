@@ -4,7 +4,7 @@ import { chunks,countOrNull,dateOrNull,thumbUrl } from './normalizers.mjs';
 export { chunks,countOrNull,dateOrNull,thumbUrl } from './normalizers.mjs';
 
 export type YoutubeChannel={
- id:string; snippet?:{title?:string,description?:string,publishedAt?:string,thumbnails?:Record<string,{url:string}>};
+ id:string; snippet?:{title?:string,description?:string,customUrl?:string,publishedAt?:string,thumbnails?:Record<string,{url:string}>};
  statistics?:{subscriberCount?:string,hiddenSubscriberCount?:boolean,viewCount?:string,videoCount?:string};
  contentDetails?:{relatedPlaylists?:{uploads?:string}};
 };
@@ -41,6 +41,12 @@ export class YoutubeClient {
     if(ids.length>50)throw new Error('channels batch exceeds 50');
     const d=await this.get<{items?:YoutubeChannel[]}>('channels',{part:'snippet,statistics,contentDetails',id:ids.join(','),maxResults:'50'});
     return d.items??[];
+  }
+  // PCI_ZIP_1: resolve an @handle to a channel (1 quota unit). Returns null when no channel exists.
+  async channelByHandle(handle:string):Promise<YoutubeChannel|null>{
+    if(!/^[A-Za-z0-9._-]{3,30}$/.test(handle))throw new Error('INVALID_HANDLE');
+    const d=await this.get<{items?:YoutubeChannel[]}>('channels',{part:'snippet',forHandle:`@${handle}`});
+    return d.items?.[0]??null;
   }
   async uploads(playlistId:string,limit:number):Promise<string[]>{
     const d=await this.get<{items?:Array<{contentDetails?:{videoId?:string}}>}>( 'playlistItems',{part:'contentDetails',playlistId,maxResults:String(limit)});
