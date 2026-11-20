@@ -11,6 +11,8 @@ import {ensureUnifiedSchema} from './lib/unified-schema.js';
 import {ensureEngineSchema} from './lib/engine-schema.js';
 import {ensureRegistrySchema} from './lib/registry-schema.js';
 import {bucketAdminRoutes} from './modules/bucket/routes.js';
+import {ensureObservationsSchema} from './lib/observations-schema.js';
+import {refreshAdminRoutes} from './modules/refresh/routes.js';
 import {startScheduler,type SchedulerHandle} from './modules/sync/scheduler.js';
 import { pool } from './lib/db.js';
 import { redis, ensureRedis } from './lib/redis.js';
@@ -80,6 +82,7 @@ export function makeApp() {
   app.use('/api/v1/admin/auth',adminAuthRoutes);
   app.use('/api/v1/admin',adminRoutes);
   app.use('/api/v1/admin',bucketAdminRoutes);
+  app.use('/api/v1/admin',refreshAdminRoutes);
   app.use('/api/v1/admin',unifiedAdminRoutes);
   app.use('/api/v1/admin',instagramAdminRoutes);
   app.use('/api/v1/admin',crossAdminRoutes);
@@ -127,6 +130,13 @@ async function main(){
         } catch(err) {
           logger.error({err},'Registry schema verification failed');
           console.error('[PCI_SCHEMA_FAILURE] registry schema failed');
+        }
+        try {
+          await ensureObservationsSchema();
+          logger.info('Observations schema verified');
+        } catch(err) {
+          logger.error({err},'Observations schema verification failed');
+          console.error('[PCI_SCHEMA_FAILURE] observations schema failed');
         }
         await ensureRedis();
         pciStartupReady=true;

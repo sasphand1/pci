@@ -5,6 +5,8 @@ import {bustPublicCache} from '../../lib/redis.js';
 import {config} from '../../lib/config.js';
 import {query} from '../../lib/db.js';
 import {logger} from '../../lib/errors.js';
+import {recoverStalledRuns} from '../refresh/service.js';
+import {runRetention} from '../refresh/retention.js';
 import {cleanupRetention,enqueueSync,ensureFreshness,recoverStalledJobs,takeNextJob,performSync} from './service.js';
 
 /** PCI Update 1: the scheduler used by BOTH the standalone worker (src/worker.ts) and, when
@@ -44,6 +46,7 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
  }
 
  await recoverStalledJobs();
+ await recoverStalledRuns().catch(e=>logger.warn({err:e},'refresh run recovery skipped (tables may not exist yet)'));
  try{await query("DELETE FROM worker_heartbeats WHERE last_seen_at<now()-interval '7 days'");}catch{/* table may not exist yet */}
  await heartbeat();
  await freshness();
@@ -60,7 +63,9 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
    }catch(e){logger.error({err:e},'schedule failed');}
  },{timezone:'Asia/Karachi'}));
  tasks.push(cron.schedule('*/10 * * * *',()=>recoverStalledJobs().catch(e=>logger.error({err:e},'stalled job recovery failed'))));
+ tasks.push(cron.schedule('*/10 * * * *',()=>recoverStalledRuns().catch(e=>logger.error({err:e},'stalled refresh recovery failed'))));
  tasks.push(cron.schedule('*/15 * * * *',()=>void freshness()));
+ tasks.push(cron.schedule('30 4 * * *',()=>runRetention().then(r=>logger.info(r,'Observation retention done')).catch(e=>logger.error({err:e},'observation retention failed')),{timezone:'Asia/Karachi'}));
  tasks.push(cron.schedule('0 4 * * *',()=>cleanupRetention().catch(e=>logger.error({err:e},'retention failed')),{timezone:'Asia/Karachi'}));
  // Instagram sync is independent of YouTube's enable switch and schedule.
  tasks.push(cron.schedule('0 9,21 * * *',async()=>{

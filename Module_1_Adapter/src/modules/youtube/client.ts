@@ -48,6 +48,14 @@ export class YoutubeClient {
     const d=await this.get<{items?:YoutubeChannel[]}>('channels',{part:'snippet',forHandle:`@${handle}`});
     return d.items?.[0]??null;
   }
+  // PCI_ZIP_2: one page of an uploads playlist with publish dates (1 quota unit), newest first.
+  async uploadsPage(playlistId:string,pageToken?:string):Promise<{published:string[];next?:string}>{
+    if(!/^[A-Za-z0-9_-]{10,60}$/.test(playlistId))throw new Error('INVALID_PLAYLIST');
+    const params:Record<string,string>={part:'contentDetails',playlistId,maxResults:'50'};
+    if(pageToken)params.pageToken=pageToken;
+    const d=await this.get<{items?:Array<{contentDetails?:{videoPublishedAt?:string}}>;nextPageToken?:string}>('playlistItems',params);
+    return {published:(d.items??[]).map(x=>x.contentDetails?.videoPublishedAt).filter((s):s is string=>typeof s==='string'),next:d.nextPageToken};
+  }
   async uploads(playlistId:string,limit:number):Promise<string[]>{
     const d=await this.get<{items?:Array<{contentDetails?:{videoId?:string}}>}>( 'playlistItems',{part:'contentDetails',playlistId,maxResults:String(limit)});
     return (d.items??[]).map(x=>x.contentDetails?.videoId).filter((s):s is string=>typeof s==='string'&& /^[A-Za-z0-9_-]{11}$/.test(s));
