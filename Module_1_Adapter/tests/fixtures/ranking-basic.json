@@ -1,0 +1,535 @@
+{
+ "_comment": "Expected values were calculated by hand from the observations below (see the arithmetic in docs/ZIP2_DATA_AND_MATH.md), not produced by the code. Review them before trusting the tests.",
+ "now": "2026-11-20T12:00:00Z",
+ "people": [
+  {
+   "id": "p1",
+   "createdAt": "2026-01-01T00:00:00Z",
+   "accounts": [
+    {
+     "id": "a1",
+     "platform": "youtube"
+    },
+    {
+     "id": "a2",
+     "platform": "instagram"
+    }
+   ],
+   "categories": [
+    "gamer"
+   ]
+  },
+  {
+   "id": "p2",
+   "createdAt": "2026-01-02T00:00:00Z",
+   "accounts": [
+    {
+     "id": "b1",
+     "platform": "youtube"
+    }
+   ],
+   "categories": [
+    "gamer"
+   ]
+  },
+  {
+   "id": "p3",
+   "createdAt": "2026-01-03T00:00:00Z",
+   "accounts": [
+    {
+     "id": "c1",
+     "platform": "instagram"
+    }
+   ],
+   "categories": [
+    "cook"
+   ]
+  },
+  {
+   "id": "p4",
+   "createdAt": "2026-01-04T00:00:00Z",
+   "accounts": [
+    {
+     "id": "d1",
+     "platform": "youtube"
+    },
+    {
+     "id": "d2",
+     "platform": "instagram"
+    }
+   ],
+   "categories": [
+    "cook"
+   ]
+  },
+  {
+   "id": "p5",
+   "createdAt": "2026-01-05T00:00:00Z",
+   "accounts": [
+    {
+     "id": "e1",
+     "platform": "youtube"
+    }
+   ],
+   "categories": []
+  },
+  {
+   "id": "p6",
+   "createdAt": "2026-01-06T00:00:00Z",
+   "accounts": [
+    {
+     "id": "f1",
+     "platform": "youtube"
+    },
+    {
+     "id": "f2",
+     "platform": "instagram"
+    }
+   ],
+   "categories": []
+  }
+ ],
+ "observations": [
+  {
+   "accountId": "a1",
+   "metric": "followers",
+   "value": 1000,
+   "observedAt": "2026-11-20T06:00:00Z",
+   "accuracy": "rounded3"
+  },
+  {
+   "accountId": "a1",
+   "metric": "views",
+   "value": 50000,
+   "observedAt": "2026-11-20T06:00:00Z",
+   "accuracy": "exact"
+  },
+  {
+   "accountId": "a1",
+   "metric": "posts_30d",
+   "value": 4,
+   "observedAt": "2026-11-20T06:00:00Z",
+   "accuracy": "exact"
+  },
+  {
+   "accountId": "a2",
+   "metric": "followers",
+   "value": 500,
+   "observedAt": "2026-11-20T06:00:00Z",
+   "accuracy": "exact"
+  },
+  {
+   "accountId": "a2",
+   "metric": "posts_30d",
+   "value": 10,
+   "observedAt": "2026-11-20T06:00:00Z",
+   "accuracy": "exact"
+  },
+  {
+   "accountId": "b1",
+   "metric": "followers",
+   "value": 1200,
+   "observedAt": "2026-11-20T06:00:00Z",
+   "accuracy": "rounded3"
+  },
+  {
+   "accountId": "b1",
+   "metric": "views",
+   "value": 20000,
+   "observedAt": "2026-11-20T06:00:00Z",
+   "accuracy": "exact"
+  },
+  {
+   "accountId": "b1",
+   "metric": "posts_30d",
+   "value": 2,
+   "observedAt": "2026-11-20T06:00:00Z",
+   "accuracy": "exact"
+  },
+  {
+   "accountId": "c1",
+   "metric": "followers",
+   "value": 1500,
+   "observedAt": "2026-11-20T06:00:00Z",
+   "accuracy": "exact"
+  },
+  {
+   "accountId": "c1",
+   "metric": "posts_30d",
+   "value": 10,
+   "observedAt": "2026-11-20T06:00:00Z",
+   "accuracy": "exact"
+  },
+  {
+   "accountId": "d1",
+   "metric": "followers",
+   "value": 1000,
+   "observedAt": "2026-11-20T06:00:00Z",
+   "accuracy": "rounded3"
+  },
+  {
+   "accountId": "d1",
+   "metric": "views",
+   "value": 70000,
+   "observedAt": "2026-11-20T06:00:00Z",
+   "accuracy": "exact"
+  },
+  {
+   "accountId": "d1",
+   "metric": "posts_30d",
+   "value": 3,
+   "observedAt": "2026-11-20T06:00:00Z",
+   "accuracy": "exact"
+  },
+  {
+   "accountId": "d2",
+   "metric": "followers",
+   "value": 500,
+   "observedAt": "2026-11-20T06:00:00Z",
+   "accuracy": "exact"
+  },
+  {
+   "accountId": "d2",
+   "metric": "posts_30d",
+   "value": 0,
+   "observedAt": "2026-11-20T06:00:00Z",
+   "accuracy": "exact"
+  },
+  {
+   "accountId": "e1",
+   "metric": "followers",
+   "value": 800,
+   "observedAt": "2026-11-10T12:00:00Z",
+   "accuracy": "rounded3"
+  },
+  {
+   "accountId": "e1",
+   "metric": "views",
+   "value": 9000,
+   "observedAt": "2026-11-10T12:00:00Z",
+   "accuracy": "exact"
+  },
+  {
+   "accountId": "e1",
+   "metric": "posts_30d",
+   "value": 1,
+   "observedAt": "2026-11-10T12:00:00Z",
+   "accuracy": "exact"
+  },
+  {
+   "accountId": "f1",
+   "metric": "followers",
+   "value": 900,
+   "observedAt": "2026-11-20T06:00:00Z",
+   "accuracy": "rounded3"
+  },
+  {
+   "accountId": "f1",
+   "metric": "views",
+   "value": 5000,
+   "observedAt": "2026-11-20T06:00:00Z",
+   "accuracy": "exact"
+  },
+  {
+   "accountId": "f1",
+   "metric": "posts_30d",
+   "value": 6,
+   "observedAt": "2026-11-20T06:00:00Z",
+   "accuracy": "exact"
+  },
+  {
+   "accountId": "f2",
+   "metric": "followers",
+   "value": 600,
+   "observedAt": "2026-11-12T11:00:00Z",
+   "accuracy": "exact"
+  },
+  {
+   "accountId": "f2",
+   "metric": "posts_30d",
+   "value": 9,
+   "observedAt": "2026-11-12T11:00:00Z",
+   "accuracy": "exact"
+  }
+ ],
+ "expected": {
+  "wheel.subscribed": {
+   "population": 6,
+   "covered": 5,
+   "entries": [
+    {
+     "personId": "p3",
+     "slot": 1,
+     "rank": 1,
+     "value": 1500,
+     "counted": 1,
+     "linked": 1
+    },
+    {
+     "personId": "p1",
+     "slot": 2,
+     "rank": 1,
+     "value": 1500,
+     "counted": 2,
+     "linked": 2
+    },
+    {
+     "personId": "p4",
+     "slot": 3,
+     "rank": 1,
+     "value": 1500,
+     "counted": 2,
+     "linked": 2
+    },
+    {
+     "personId": "p2",
+     "slot": 4,
+     "rank": 4,
+     "value": 1200,
+     "counted": 1,
+     "linked": 1
+    },
+    {
+     "personId": "p6",
+     "slot": 5,
+     "rank": 5,
+     "value": 900,
+     "counted": 1,
+     "linked": 2
+    }
+   ],
+   "unranked": [
+    {
+     "personId": "p5",
+     "reason": "no_valid_value"
+    }
+   ]
+  },
+  "wheel.viewed": {
+   "population": 5,
+   "covered": 4,
+   "entries": [
+    {
+     "personId": "p4",
+     "slot": 1,
+     "rank": 1,
+     "value": 70000,
+     "counted": 1,
+     "linked": 1
+    },
+    {
+     "personId": "p1",
+     "slot": 2,
+     "rank": 2,
+     "value": 50000,
+     "counted": 1,
+     "linked": 1
+    },
+    {
+     "personId": "p2",
+     "slot": 3,
+     "rank": 3,
+     "value": 20000,
+     "counted": 1,
+     "linked": 1
+    },
+    {
+     "personId": "p6",
+     "slot": 4,
+     "rank": 4,
+     "value": 5000,
+     "counted": 1,
+     "linked": 1
+    }
+   ],
+   "unranked": [
+    {
+     "personId": "p3",
+     "reason": "no_supported_account"
+    },
+    {
+     "personId": "p5",
+     "reason": "no_valid_value"
+    }
+   ]
+  },
+  "wheel.active": {
+   "population": 6,
+   "covered": 5,
+   "entries": [
+    {
+     "personId": "p1",
+     "slot": 1,
+     "rank": 1,
+     "value": 14,
+     "counted": 2,
+     "linked": 2
+    },
+    {
+     "personId": "p3",
+     "slot": 2,
+     "rank": 2,
+     "value": 10,
+     "counted": 1,
+     "linked": 1
+    },
+    {
+     "personId": "p6",
+     "slot": 3,
+     "rank": 3,
+     "value": 6,
+     "counted": 1,
+     "linked": 2
+    },
+    {
+     "personId": "p4",
+     "slot": 4,
+     "rank": 4,
+     "value": 3,
+     "counted": 2,
+     "linked": 2
+    },
+    {
+     "personId": "p2",
+     "slot": 5,
+     "rank": 5,
+     "value": 2,
+     "counted": 1,
+     "linked": 1
+    }
+   ],
+   "unranked": [
+    {
+     "personId": "p5",
+     "reason": "no_valid_value"
+    }
+   ]
+  },
+  "youtube.subscribed": {
+   "population": 5,
+   "covered": 4,
+   "entries": [
+    {
+     "personId": "p2",
+     "slot": 1,
+     "rank": 1,
+     "value": 1200,
+     "counted": 1,
+     "linked": 1
+    },
+    {
+     "personId": "p1",
+     "slot": 2,
+     "rank": 2,
+     "value": 1000,
+     "counted": 1,
+     "linked": 1
+    },
+    {
+     "personId": "p4",
+     "slot": 3,
+     "rank": 2,
+     "value": 1000,
+     "counted": 1,
+     "linked": 1
+    },
+    {
+     "personId": "p6",
+     "slot": 4,
+     "rank": 4,
+     "value": 900,
+     "counted": 1,
+     "linked": 1
+    }
+   ],
+   "unranked": [
+    {
+     "personId": "p5",
+     "reason": "no_valid_value"
+    }
+   ]
+  },
+  "instagram.followers": {
+   "population": 4,
+   "covered": 3,
+   "entries": [
+    {
+     "personId": "p3",
+     "slot": 1,
+     "rank": 1,
+     "value": 1500,
+     "counted": 1,
+     "linked": 1
+    },
+    {
+     "personId": "p1",
+     "slot": 2,
+     "rank": 2,
+     "value": 500,
+     "counted": 1,
+     "linked": 1
+    },
+    {
+     "personId": "p4",
+     "slot": 3,
+     "rank": 2,
+     "value": 500,
+     "counted": 1,
+     "linked": 1
+    }
+   ],
+   "unranked": [
+    {
+     "personId": "p6",
+     "reason": "no_valid_value"
+    }
+   ]
+  },
+  "category.gamer": {
+   "population": 2,
+   "covered": 2,
+   "entries": [
+    {
+     "personId": "p1",
+     "slot": 1,
+     "rank": 1,
+     "value": 1500,
+     "counted": 2,
+     "linked": 2
+    },
+    {
+     "personId": "p2",
+     "slot": 2,
+     "rank": 2,
+     "value": 1200,
+     "counted": 1,
+     "linked": 1
+    }
+   ],
+   "unranked": []
+  },
+  "category.cook": {
+   "population": 2,
+   "covered": 2,
+   "entries": [
+    {
+     "personId": "p3",
+     "slot": 1,
+     "rank": 1,
+     "value": 1500,
+     "counted": 1,
+     "linked": 1
+    },
+    {
+     "personId": "p4",
+     "slot": 2,
+     "rank": 1,
+     "value": 1500,
+     "counted": 2,
+     "linked": 2
+    }
+   ],
+   "unranked": []
+  }
+ }
+}
