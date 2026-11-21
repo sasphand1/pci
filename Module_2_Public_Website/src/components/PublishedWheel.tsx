@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import {useCallback, useEffect, useRef, useState} from 'react';
@@ -56,9 +56,12 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
   const current=sorts[sort];
   const cards=current?.entries ?? [];
   const index=Math.max(0,Math.min(active,cards.length-1));
+  const metricLabel=current?.scope.includes('subscribed') ? 'followers' :
+    current?.scope.includes('viewed') ? 'views' :
+    current?.scope.includes('active') ? 'videos' : (current?.unit ?? '');
 
   const move=useCallback((diff:number)=>{
-    setActive(i=>Math.max(0,Math.min(cards.length-1,i+diff)));
+    setActive(i=>cards.length ? ((i+diff)%cards.length+cards.length)%cards.length : 0);
   },[cards.length]);
 
   useEffect(()=>{
@@ -105,7 +108,7 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
   }
 
   const shown = SLOTS
-    .map(({slot,step})=>({slot,entry:cards[index+step]}))
+    .map(({slot,step})=>({slot,entry:cards.length && step<cards.length ? cards[(index+step)%cards.length] : undefined}))
     .filter((x):x is {slot:number;entry:PubEntry}=>Boolean(x.entry));
 
   return (
@@ -151,7 +154,7 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
             type="button"
             className="stage-arrow"
             data-side="left"
-            disabled={index<=0}
+            disabled={cards.length<=1}
             aria-label="Previous creator"
             onClick={()=>move(-1)}
           >
@@ -194,17 +197,10 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
 
               <span className="stage-body">
                 <strong>{c.person.displayName}</strong>
-                <PlatformChips entry={c}/>
-                {slot===0 ? (
-                  <span className="stage-figure">
-                    <small>{current.unit}</small>
-                    <b>{formatCount(c.value,true)}</b>
-                  </span>
-                ) : (
-                  <span className="stage-count">
-                    <b>{formatCount(c.value,true)}</b> {current.unit}
-                  </span>
-                )}
+                <span className="stage-count">
+                  <b>{formatCount(c.value,true)}</b>
+                  <small>{metricLabel}</small>
+                </span>
               </span>
             </Link>
           ))}
@@ -220,7 +216,7 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
             type="button"
             className="stage-arrow"
             data-side="right"
-            disabled={index>=cards.length-1}
+            disabled={cards.length<=1}
             aria-label="Next creator"
             onClick={()=>move(1)}
           >

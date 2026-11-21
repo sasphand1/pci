@@ -331,11 +331,11 @@
 
 /* WHEEL */
 .stage-wheel{
-  --cw:10.1cqw;
-  --ch:16.6cqw;
-  --cc:15.1cqw;
-  --cch:21.6cqw;
-  --gap:.9cqw;
+  --cw:8.55cqw;
+  --ch:13.35cqw;
+  --cc:11.9cqw;
+  --cch:17.1cqw;
+  --gap:.8cqw;
   --shift:0px;
   --s1:calc(var(--cc)/2 + var(--cw)/2 + var(--gap));
   --s2:calc(var(--s1) + var(--cw) + var(--gap));
@@ -343,7 +343,7 @@
   --s4:calc(var(--s3) + var(--cw) + var(--gap));
   position:relative;
   margin-top:14px;
-  height:calc(var(--cch) + 7.5cqw);
+  height:calc(var(--cch) + 5.5cqw);
   touch-action:pan-y;
   user-select:none;
   -webkit-user-select:none;
@@ -353,7 +353,7 @@
 .stage-card{
   position:absolute;
   left:50%;
-  bottom:4.8cqw;
+  bottom:3.8cqw;
   width:var(--cw);
   height:var(--ch);
   transform:translateX(calc(-50% + var(--x,0px)));
@@ -385,7 +385,7 @@
 .stage-card[data-center="true"]{
   width:var(--cc);
   height:var(--cch);
-  bottom:5.55cqw;
+  bottom:4.8cqw;
   z-index:4;
   border:1px solid rgba(231,185,92,.55);
   box-shadow:
@@ -399,12 +399,12 @@
 }
 .stage-photo{
   position:absolute;
-  inset:0 0 33% 0;
+  inset:0 0 39% 0;
   overflow:hidden;
   background:linear-gradient(145deg,#164F4A,#0B2227);
 }
 .stage-card[data-center="true"] .stage-photo{
-  inset:0 0 31% 0;
+  inset:0 0 38% 0;
 }
 .stage-photo img{
   width:100%;
@@ -433,47 +433,49 @@
   z-index:3;
   top:0;
   left:0;
-  padding:.55cqw 1.4cqw .65cqw .9cqw;
-  background:linear-gradient(135deg,rgba(3,16,22,.98) 62%,rgba(3,16,22,0) 62.4%);
+  display:grid;
+  place-items:start;
+  min-width:2.45cqw;
+  height:2.55cqw;
+  padding:.5cqw .7cqw .25cqw .55cqw;
+  background:linear-gradient(135deg,#04161b 0 70%,transparent 70.5%);
   color:#fff;
-  font:700 clamp(14px,1.55cqw,24px)/1 Georgia,serif;
+  font:700 clamp(13px,1.25cqw,19px)/1 Georgia,serif;
   letter-spacing:-.02em;
 }
 .stage-card[data-center="true"] .stage-rank{
   color:#FFF7E3;
-  font-size:clamp(22px,2.3cqw,36px);
-  padding:.75cqw 1.8cqw .85cqw 1.1cqw;
+  font-size:clamp(16px,1.5cqw,23px);
+  min-width:3.05cqw;
+  height:3.15cqw;
+  padding:.58cqw .8cqw .35cqw .65cqw;
 }
 .stage-body{
   position:absolute;
   inset:auto 0 0 0;
-  height:34%;
-  padding:.8cqw .72cqw .9cqw;
+  height:39%;
+  padding:.62cqw .55cqw .68cqw;
   display:flex;
   flex-direction:column;
   align-items:center;
-  justify-content:flex-end;
-  gap:.42cqw;
+  justify-content:center;
+  gap:.4cqw;
+  background:linear-gradient(180deg,rgba(4,20,24,.86),#05191e 35%,#04171b 100%);
   text-align:center;
 }
-.stage-card[data-center="true"] .stage-body{
-  height:34%;
-  gap:.45cqw;
-}
+.stage-card[data-center="true"] .stage-body{height:38%;gap:.45cqw}
 .stage-body strong{
   width:100%;
   display:-webkit-box;
   -webkit-line-clamp:2;
   -webkit-box-orient:vertical;
   overflow:hidden;
+  overflow-wrap:anywhere;
   color:#fff;
-  font:700 clamp(12px,1.06cqw,16px)/1.14 'Segoe UI',system-ui,sans-serif;
-  letter-spacing:-.02em;
+  font:700 clamp(11px,.92cqw,14px)/1.2 'Segoe UI',system-ui,sans-serif;
+  letter-spacing:-.01em;
 }
-.stage-card[data-center="true"] .stage-body strong{
-  font-size:clamp(18px,1.95cqw,30px);
-  -webkit-line-clamp:1;
-}
+.stage-card[data-center="true"] .stage-body strong{font-size:clamp(14px,1.35cqw,20px);-webkit-line-clamp:2}
 .stage-chips{
   display:flex;
   flex-wrap:wrap;
@@ -503,13 +505,20 @@
   background:linear-gradient(45deg,#FDC468,#E1306C,#7B3FE4);
 }
 .stage-count{
-  color:#D7E6E1;
-  font-size:clamp(10px,.82cqw,12px);
+  width:100%;
+  display:flex;
+  justify-content:center;
+  align-items:baseline;
+  flex-wrap:wrap;
+  gap:.28em;
+  color:#A9CDC6;
+  font-size:clamp(9px,.78cqw,12px);
+  line-height:1.2;
 }
-.stage-count b{
-  color:#fff;
-  font-size:clamp(12px,1.02cqw,15px);
-}
+.stage-count b{color:#F5CB73;font-size:clamp(12px,1.15cqw,17px);font-weight:800}
+.stage-count small{color:#BCD7D1;font-size:inherit}
+.stage-card[data-center="true"] .stage-count b{font-size:clamp(19px,2.05cqw,30px)}
+.stage-card[data-center="true"] .stage-count{font-size:clamp(11px,.9cqw,14px)}
 .stage-figure{
   display:flex;
   flex-direction:column;
@@ -580,8 +589,8 @@
 .stage-podium{
   position:absolute;
   left:calc(50% + var(--shift));
-  bottom:2.2cqw;
-  width:17.8cqw;
+  bottom:1.7cqw;
+  width:14.6cqw;
   height:4.8cqw;
   transform:translateX(-50%);
   z-index:3;
