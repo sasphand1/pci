@@ -33,6 +33,13 @@ export async function peopleByIds(ids: string[]): Promise<Map<string, PublicPers
   return out;
 }
 
+/** rank_slots.breakdown is stored as {linked, counted, contributions}; the public shape wants just the contributions. */
+function contributionsOf(b: unknown): { platform: string; value: number }[] {
+  if (Array.isArray(b)) return b;
+  const c = (b as { contributions?: unknown } | null)?.contributions;
+  return Array.isArray(c) ? c : [];
+}
+
 async function slotsFor(runIds: string[], limit: number): Promise<Map<string, { rows: SlotRow[]; total: number }>> {
   const out = new Map<string, { rows: SlotRow[]; total: number }>(); if (!runIds.length) return out;
   const r = await query(`SELECT * FROM (SELECT run_id, slot, rank, person_id, value::text AS value, breakdown,
@@ -40,7 +47,7 @@ async function slotsFor(runIds: string[], limit: number): Promise<Map<string, { 
       FROM rank_slots WHERE run_id = ANY($1::uuid[])) t WHERE slot <= $2 ORDER BY run_id, slot`, [runIds, limit]);
   for (const x of r.rows) {
     const e: { rows: SlotRow[]; total: number } = out.get(x.run_id) ?? { rows: [], total: x.total }; e.total = x.total;
-    e.rows.push({ slot: x.slot, rank: x.rank, personId: x.person_id, value: x.value, tied: x.tied, breakdown: x.breakdown });
+    e.rows.push({ slot: x.slot, rank: x.rank, personId: x.person_id, value: x.value, tied: x.tied, breakdown: contributionsOf(x.breakdown) });
     out.set(x.run_id, e);
   }
   return out;

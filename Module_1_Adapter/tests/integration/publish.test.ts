@@ -144,7 +144,7 @@ test('D3 deleting a person updates every published scope in the same transaction
   assert.equal(await n('SELECT count(*)::int AS n FROM people WHERE id=$1', [victim.person]), 0);
   await assertConsistent('after delete');
   // the audit log records counts only
-  const audit = (await query(`SELECT metadata::text AS m FROM admin_audit_logs WHERE action='bucket.delete'`)).rows;
+  const audit = (await query(`SELECT metadata::text AS m FROM admin_audit_logs WHERE action='bucket.delete' AND subject=$1`, [victim.person])).rows;
   assert.ok(audit.length === 1 && !/Person|h\d+/.test(audit[0].m));
 });
 test('D3 deleting when nothing is published still works; deleting an unranked person updates the scope population', async () => {
