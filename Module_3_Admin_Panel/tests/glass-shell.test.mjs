@@ -168,3 +168,33 @@ test('deploy overlap: a quiet request refused by an older API retries once witho
  }finally{globalThis.fetch=real;}
  assert.equal(isApiUpdating(new ApiError(404,'NOT_FOUND','x')),true);assert.equal(isApiUpdating(new ApiError(500,'X','x')),false);assert.equal(isApiUpdating(new Error('x')),false);
 });
+
+test('update flow: steps follow the run, the headline is honest, and rejections read as plain reasons',async()=>{
+ const {flowSteps,flowHeadline,rejectedReasons,plainSystemReason}=await load('src/lib/flow.ts');
+ const st=a=>a.map(x=>x.state).join(',');
+ assert.equal(st(flowSteps(undefined,false,false)),'waiting,waiting,waiting');
+ assert.equal(st(flowSteps({status:'running',steps:[]},true,false)),'active,waiting,waiting');
+ assert.equal(st(flowSteps({status:'running',steps:[{step:'refresh',status:'ok'}]},true,false)),'done,active,waiting');
+ assert.equal(st(flowSteps({status:'partial',steps:[{step:'refresh',status:'ok'},{step:'rank',status:'ok'},{step:'publish',status:'partial',detail:'0 published'}]},false,false)),'done,done,problem');
+ assert.equal(st(flowSteps({status:'failed',steps:[{step:'refresh',status:'ok'},{step:'rank',status:'failed'},{step:'publish',status:'skipped'}]},false,false)),'done,problem,skipped');
+ assert.equal(st(flowSteps(undefined,false,true)),'active,waiting,waiting'); // a refresh started by hand shows as collecting
+ assert.equal(flowHeadline({running:true,total:0,rejected:0,liveCount:0}).tone,'busy');
+ assert.equal(flowHeadline({running:false,total:0,rejected:0,liveCount:0}).tone,'idle');
+ assert.equal(flowHeadline({running:false,lastStatus:'succeeded',total:11,rejected:0,liveCount:11}).tone,'ok');
+ const bad=flowHeadline({running:false,lastStatus:'partial',total:11,rejected:11,liveCount:0});
+ assert.equal(bad.tone,'attention');assert.match(bad.title,/11 of 11 rankings were kept out/);
+ assert.equal(flowHeadline({running:false,lastStatus:'failed',total:0,rejected:0,liveCount:3}).tone,'attention');
+ // eleven rankings that failed one check read as one reason
+ const drafts=[...Array(11)].map((_,i)=>({scope:`s${i}`,status:'rejected',gateFailures:[{gate:'coverage',message:'Only 0 of 6 people have fresh data (needs at least 50%)'}]})).concat([{scope:'ok',status:'draft',gateFailures:[]}]);
+ const r=rejectedReasons(drafts);assert.equal(r.length,1);assert.equal(r[0].scopes.length,11);assert.match(r[0].why,/last 7 days/);assert.match(r[0].fix,/Update rankings now/);
+ assert.equal(rejectedReasons([{scope:'x',status:'rejected',gateFailures:[{gate:'something_new',message:'m'}]}])[0].fix.includes('System health'),true);
+ assert.match(plainSystemReason('The background worker has not been seen'),/RUN_WORKER_IN_API=true/);
+ assert.equal(plainSystemReason('2 open alerts'),'2 open alerts');
+});
+
+test('pipeline page: one primary button, details hidden by default, no rank while running',()=>{
+ const page=read('src/app/pipeline/page.tsx');
+ assert.match(page,/Update rankings now/);assert.match(page,/useState\(false\),\[showAllAlerts/);
+ assert.match(page,/\{showDetails&&<>/);assert.match(page,/disabled=\{!!busy\|\|running\} onClick=\{rank\}/);
+ assert.match(page,/admin\/pipeline\/alerts\/ack-all/);assert.match(page,/window\.confirm\('Update rankings now\?/);
+});

@@ -148,7 +148,11 @@ export async function publishBatch(batchId: string, actorId: string | null) {
         await client.query("UPDATE rank_runs SET status='rejected', diagnostics = diagnostics || jsonb_build_object('gateFailures', $2::jsonb) WHERE id=$1", [d.id, JSON.stringify(failures)]);
         await alert(client, 'gate_failed', d.scope, `${d.scope}: ${failures[0].message}`, d.id);
         rejected.push({ scope: d.scope, failures });
-      } else { await activate(client, d.id, d.scope); published.push(d.scope); }
+      } else {
+        await activate(client, d.id, d.scope); published.push(d.scope);
+        // The problem this alert reported is over for this ranking.
+        await client.query("UPDATE pipeline_alerts SET acknowledged=true WHERE scope=$1 AND NOT acknowledged AND kind='gate_failed'", [d.scope]);
+      }
     }
     await client.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,NULL,$3::jsonb)', [actorId, 'rank.publish', JSON.stringify({ published: published.length, rejected: rejected.length })]);
     return { published, rejected };
@@ -220,5 +224,9 @@ export async function pruneRankRuns(keepPerScope = 30): Promise<number> {
     AND (SELECT count(*) FROM rank_runs r2 WHERE r2.scope=r.scope AND r2.created_at > r.created_at) >= $1`, [keepPerScope]);
   await poolDb.query("DELETE FROM pipeline_alerts WHERE acknowledged AND created_at < now() - interval '90 days'");
   return r.rowCount ?? 0;
+}
+/** Refresh runs that are queued or running. Ranking while any exist would judge people on numbers that are still arriving. */
+export async function activeRefreshCount(db: Db = poolDb): Promise<number> {
+  return (await db.query("SELECT count(*)::int AS n FROM refresh_runs WHERE status IN ('queued','running')")).rows[0].n as number;
 }
 export const recordAlert = (kind: string, scope: string | null, message: string) => alert(poolDb, kind, scope, message, null);

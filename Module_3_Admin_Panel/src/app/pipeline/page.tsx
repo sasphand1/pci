@@ -4,6 +4,8 @@ import {Card,Badge,Notice,MetricCard} from '@pci/ui';
 import {AdminPage,DataBlock,Status,TableWrap,useData,RoleGate} from '@/components/Shared';
 import {api,errorText,fmtDate,fmtNum} from '@/lib/api';
 import {useAuth} from '@/components/AuthProvider';
+import {useOverview} from '@/components/OverviewProvider';
+import {flowSteps,flowHeadline,rejectedReasons,plainSystemReason} from '@/lib/flow';
 import type {LivePublication,ShadowCompare,ShadowResult,PipelineStatus,PublishOutcome,RankBatch,RefreshResultRow,RefreshRun,ScopeDraft,StartedRun} from '@/lib/types';
 
 const SCOPE_LABEL:Record<string,string>={
@@ -24,6 +26,8 @@ export default function PipelinePage(){
  const shadow=useData<ShadowResult>('/admin/shadow/youtube',showShadow);
  const live=useData<LivePublication>(`/admin/publications/${scopeView||'wheel.subscribed'}?limit=100`,!!scopeView);
  const [busy,setBusy]=useState(''),[error,setError]=useState(''),[ok,setOk]=useState('');
+ const [showDetails,setShowDetails]=useState(false),[showAllAlerts,setShowAllAlerts]=useState(false);
+ const overview=useOverview();
  const csrf=identity?.csrfToken;
  const running=(status.data?.refresh??[]).some(r=>r.status==='queued'||r.status==='running')||(status.data?.pipeline??[]).some(p=>p.status==='running');
 
@@ -50,26 +54,63 @@ export default function PipelinePage(){
   if(!window.confirm(`Restore the previous published ranking for "${label(scope)}"?`))return;
   return act('rollback',()=>api(`/admin/publications/${scope}/rollback`,{method:'POST',csrf}),()=>`${label(scope)} restored to the previous ranking.`);
  };
+ const updateNow=()=>{
+  if(!window.confirm('Update rankings now? It collects fresh numbers (uses YouTube and Instagram quota), then publishes every ranking that passes the safety checks.'))return;
+  return act('all',()=>api<{id:string;started:boolean}>('/admin/pipeline/run',{method:'POST',csrf}),r=>r.started?'Update started. Progress shows here.':'An update is already running.');
+ };
+ const ackAll=()=>act('ack',()=>api<{acknowledged:number}>('/admin/pipeline/alerts/ack-all',{method:'POST',csrf}),r=>`${r.acknowledged} alert${r.acknowledged===1?'':'s'} dismissed.`);
  const ack=(id:number)=>act('ack',()=>api(`/admin/pipeline/alerts/${id}/ack`,{method:'POST',csrf}),()=>'Alert acknowledged.');
 
  const s=status.data;
  const drafts:ScopeDraft[]=batch.data?.scopes??[];
  const pending=drafts.filter(d=>d.status==='draft').length;
+ const pipelineRunning=(s?.pipeline??[]).some(p=>p.status==='running');
+ const refreshRunning=(s?.refresh??[]).some(r=>r.status==='queued'||r.status==='running');
+ const lastRun=s?.pipeline[0];
+ const rejected=drafts.filter(d=>d.status==='rejected').length;
+ const headline=flowHeadline({running:running,lastStatus:lastRun?.status,total:drafts.length,rejected,liveCount:(s?.live??[]).length});
+ const steps=flowSteps(lastRun,pipelineRunning,refreshRunning);
+ const reasons=rejectedReasons(drafts);
+ const alerts=s?.alerts??[];
+ const sysReasons=overview.data?.state.reasons??[];
 
- return <RoleGate roles={['owner','editor']}><AdminPage title="Pipeline" description="Refresh the numbers, Rank the bucket, Publish what passes the safety checks. The same three steps run by themselves every day at 09:00 Asia/Karachi.">
+ return <RoleGate roles={['owner','editor']}><AdminPage title="Pipeline" description="One button collects the numbers, builds the rankings and publishes the ones that pass the safety checks.">
   <Status error={error||status.error} ok={ok}/>
-  {(s?.alerts??[]).length>0&&<Card><h2 className="admin-box-title">Alerts</h2>{s!.alerts.map(a=><div key={a.id} className="admin-inline-actions"><Notice tone="warning">{fmtDate(a.createdAt)}: {a.message}</Notice><button type="button" className="btn btn-secondary" disabled={!!busy} onClick={()=>ack(a.id)}>Acknowledge</button></div>)}</Card>}
+  <Card className="flow-card">
+   <div className="flow-head"><div><h2 className="admin-box-title">{headline.title}</h2><p className="muted">{headline.text}</p></div>
+    <button type="button" className="btn btn-primary btn-large" disabled={!!busy||running} onClick={updateNow}>{busy==='all'?'Starting…':running?'Updating…':'Update rankings now'}</button></div>
+   <ol className="flow-steps">{steps.map(st=><li key={st.key} className="flow-step" data-state={st.state}><span className="flow-step-title">{st.title}</span><span className="flow-step-state">{st.state==='done'?'Done':st.state==='active'?'In progress':st.state==='problem'?'Needs a look':st.state==='skipped'?'Skipped':'Waiting'}</span><span className="flow-step-detail">{st.detail}</span></li>)}</ol>
+   {!running&&reasons.length>0&&<div className="flow-why"><h3>Why some rankings were kept out</h3>{reasons.map(r=><div key={r.gate} className="flow-reason"><p><strong>{r.scopes.length} {r.scopes.length===1?'ranking':'rankings'}:</strong> {r.why} <span className="muted">({r.example})</span></p><p><strong>What to do:</strong> {r.fix}</p></div>)}</div>}
+   {sysReasons.length>0&&<div className="flow-system"><h3>System status</h3><ul>{sysReasons.map(x=><li key={x}>{plainSystemReason(x)}</li>)}</ul></div>}
+  </Card>
+  {alerts.length>0&&<Card><div className="admin-inline-actions admin-between"><h2 className="admin-box-title">Alerts ({alerts.length})</h2><button type="button" className="btn btn-secondary" disabled={!!busy} onClick={ackAll}>Dismiss all</button></div>
+   {(showAllAlerts?alerts:alerts.slice(0,3)).map(a=><div key={a.id} className="admin-inline-actions"><Notice tone="warning">{fmtDate(a.createdAt)}: {a.message}</Notice><button type="button" className="btn btn-secondary" disabled={!!busy} onClick={()=>ack(a.id)}>Dismiss</button></div>)}
+   {alerts.length>3&&<button type="button" className="btn btn-secondary" onClick={()=>setShowAllAlerts(v=>!v)}>{showAllAlerts?'Show fewer':`Show all ${alerts.length}`}</button>}
+   <p className="fineprint">Alerts about a ranking clear themselves when that ranking publishes.</p></Card>}
   <div className="admin-panel-grid">
    <MetricCard label="People in the bucket" value={fmtNum(s?.bucket.people)} note={`${fmtNum(s?.bucket.youtube)} YouTube, ${fmtNum(s?.bucket.instagram)} Instagram accounts`}/>
-   <MetricCard label="Background worker" value={s?.worker?(s.worker.healthy?'Running':'Not responding'):'Not seen'} note={s?.worker?`Last seen ${fmtDate(s.worker.lastSeenAt)}`:'The daily run needs the worker (or RUN_WORKER_IN_API=true)'}/>
+   <MetricCard label="Background worker" value={s?.worker?(s.worker.healthy?'Running':'Not responding'):'Not seen'} note={s?.worker?`Last seen ${fmtDate(s.worker.lastSeenAt)}`:'Needed for the 09:00 daily update. Set RUN_WORKER_IN_API=true on Module 1.'}/>
    <MetricCard label="Daily automatic run" value={s?.dailyRun.enabled?'On':'Off'} note={s?.dailyRun.schedule}/>
    <MetricCard label="Last pipeline" value={s?.pipeline[0]?.status??'—'} note={s?.pipeline[0]?fmtDate(s.pipeline[0].createdAt):'Never run'}/>
   </div>
 
+  <Card><h2 className="admin-box-title">Live rankings</h2>
+   <DataBlock loading={status.loading} error="" empty={!(s?.live??[]).length}>
+    <TableWrap><thead><tr><th>Ranking</th><th>Published</th><th>Age</th><th>People ranked</th><th>Actions</th></tr></thead><tbody>{(s?.live??[]).map(l=><tr key={l.scope}>
+     <td>{label(l.scope)}</td><td>{fmtDate(l.publishedAt)}</td><td>{l.ageHours==null?'—':`${l.ageHours} h`} {l.stale&&<Badge variant="danger">stale (over 36 h)</Badge>}</td><td>{l.covered}{l.population!=null?` of ${l.population}`:''}</td>
+     <td><div className="admin-inline-actions"><button type="button" className="btn btn-secondary" onClick={()=>setScopeView(l.scope)}>View</button><button type="button" className="btn btn-secondary" disabled={!!busy} onClick={()=>rollback(l.scope)}>Restore previous</button></div></td></tr>)}</tbody></TableWrap>
+   </DataBlock>
+   {scopeView&&<><h3>{label(scopeView)}</h3><DataBlock loading={live.loading} error={live.error} empty={!(live.data?.entries??[]).length}>
+    <TableWrap><thead><tr><th>Slot</th><th>Rank</th><th>Person</th><th>Value</th><th>Accounts counted</th></tr></thead><tbody>{(live.data?.entries??[]).map(e=><tr key={e.personId}><td>{e.slot}</td><td>{e.rank}</td><td>{e.displayName}</td><td>{fmtNum(e.value)}</td><td>{e.counted} of {e.linked}</td></tr>)}</tbody></TableWrap>
+    {(live.data?.unranked??[]).length>0&&<><h3>Not ranked</h3><ul>{live.data!.unranked.map(u=><li key={u.personId}>{u.displayName}: {u.reason==='no_valid_value'?'no fresh number (older than 7 days or not returned)':'no account on a platform that supplies this number'}</li>)}</ul></>}
+   </DataBlock></>}
+  </Card>
+  <div className="flow-details-toggle"><button type="button" className="btn btn-secondary" onClick={()=>setShowDetails(v=>!v)} aria-expanded={showDetails}>{showDetails?'Hide details and manual steps':'Show details and manual steps'}</button></div>
+  {showDetails&&<>
   <Card><h2 className="admin-box-title">Run</h2>
    <div className="admin-inline-actions">
     <button type="button" className="btn btn-secondary" disabled={!!busy} onClick={refresh}>{busy==='refresh'?'Starting…':'1. Refresh numbers'}</button>
-    <button type="button" className="btn btn-secondary" disabled={!!busy} onClick={rank}>{busy==='rank'?'Ranking…':'2. Rank (make drafts)'}</button>
+    <button type="button" className="btn btn-secondary" disabled={!!busy||running} onClick={rank}>{busy==='rank'?'Ranking…':'2. Rank (make drafts)'}</button>
     <button type="button" className="btn btn-primary" disabled={!!busy||!pending} onClick={publish}>{busy==='publish'?'Publishing…':`3. Publish${pending?` (${pending})`:''}`}</button>
     <button type="button" className="btn btn-secondary" disabled={!!busy||running} onClick={runAll}>{busy==='all'?'Starting…':'Run all three'}</button>
    </div>
@@ -116,16 +157,6 @@ export default function PipelinePage(){
    </DataBlock>
   </Card>
 
-  <Card><h2 className="admin-box-title">Live rankings</h2>
-   <DataBlock loading={status.loading} error="" empty={!(s?.live??[]).length}>
-    <TableWrap><thead><tr><th>Ranking</th><th>Published</th><th>Age</th><th>People ranked</th><th>Actions</th></tr></thead><tbody>{(s?.live??[]).map(l=><tr key={l.scope}>
-     <td>{label(l.scope)}</td><td>{fmtDate(l.publishedAt)}</td><td>{l.ageHours==null?'—':`${l.ageHours} h`} {l.stale&&<Badge variant="danger">stale (over 36 h)</Badge>}</td><td>{l.covered}{l.population!=null?` of ${l.population}`:''}</td>
-     <td><div className="admin-inline-actions"><button type="button" className="btn btn-secondary" onClick={()=>setScopeView(l.scope)}>View</button><button type="button" className="btn btn-secondary" disabled={!!busy} onClick={()=>rollback(l.scope)}>Restore previous</button></div></td></tr>)}</tbody></TableWrap>
-   </DataBlock>
-   {scopeView&&<><h3>{label(scopeView)}</h3><DataBlock loading={live.loading} error={live.error} empty={!(live.data?.entries??[]).length}>
-    <TableWrap><thead><tr><th>Slot</th><th>Rank</th><th>Person</th><th>Value</th><th>Accounts counted</th></tr></thead><tbody>{(live.data?.entries??[]).map(e=><tr key={e.personId}><td>{e.slot}</td><td>{e.rank}</td><td>{e.displayName}</td><td>{fmtNum(e.value)}</td><td>{e.counted} of {e.linked}</td></tr>)}</tbody></TableWrap>
-    {(live.data?.unranked??[]).length>0&&<><h3>Not ranked</h3><ul>{live.data!.unranked.map(u=><li key={u.personId}>{u.displayName}: {u.reason==='no_valid_value'?'no fresh number (older than 7 days or not returned)':'no account on a platform that supplies this number'}</li>)}</ul></>}
-   </DataBlock></>}
-  </Card>
+  </>}
  </AdminPage></RoleGate>;
 }

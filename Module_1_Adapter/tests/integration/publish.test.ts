@@ -5,8 +5,8 @@ import { pool, query } from '../../src/lib/db.js';
 import { ensureRegistrySchema } from '../../src/lib/registry-schema.js';
 import { ensureObservationsSchema } from '../../src/lib/observations-schema.js';
 import { ensurePublicationSchema } from '../../src/lib/publication-schema.js';
-import { buildBatch, getBatch, getPublication, listPublications, publishBatch, rollbackScope } from '../../src/modules/publish/service.js';
-import { createPipelineRun, executePipeline } from '../../src/modules/publish/pipeline.js';
+import { activeRefreshCount, buildBatch, getBatch, getPublication, listPublications, publishBatch, rollbackScope } from '../../src/modules/publish/service.js';
+import { createPipelineRun, executePipeline, waitForRefreshes } from '../../src/modules/publish/pipeline.js';
 import { getPipelineStatus } from '../../src/modules/publish/status.js';
 import { deletePerson } from '../../src/modules/bucket/service.js';
 import type { Deps } from '../../src/modules/refresh/service.js';
@@ -233,4 +233,32 @@ test('only one pipeline can run at a time; a pipeline left running for over an h
   await query(`UPDATE pipeline_runs SET created_at = now() - interval '2 hours' WHERE id=$1`, [a.id]);
   const c = await createPipelineRun('manual', null); assert.equal(c.started, true); assert.notEqual(c.id, a.id);
   assert.equal((await query('SELECT status FROM pipeline_runs WHERE id=$1', [a.id])).rows[0].status, 'failed');
+});
+
+test('flow: ranking while numbers are still arriving is detected; the pipeline waits until the refresh finishes', async () => {
+  await seed(10);
+  assert.equal(await activeRefreshCount(), 0);
+  const run = (await query(`INSERT INTO refresh_runs(platform,trigger,status,started_at,heartbeat_at) VALUES('youtube','manual','running', now(), now()) RETURNING id`)).rows[0].id;
+  assert.equal(await activeRefreshCount(), 1);
+  // The refresh finishes after two polls; the wait must not return before that.
+  let polls = 0;
+  const waited = await waitForRefreshes({ sleep: async () => { polls++; if (polls === 2) await query(`UPDATE refresh_runs SET status='succeeded', finished_at=now() WHERE id=$1`, [run]); } }, 60_000, 1000);
+  assert.equal(waited, true); assert.equal(polls, 2); assert.equal(await activeRefreshCount(), 0);
+  // A refresh that never finishes is given up on after the limit, never forever.
+  await query(`UPDATE refresh_runs SET status='running', finished_at=NULL WHERE id=$1`, [run]);
+  assert.equal(await waitForRefreshes({ sleep: async () => {} }, 5000, 1000), false);
+});
+
+test('flow: an alert clears itself when that ranking publishes; unrelated alerts stay', async () => {
+  const people = await seed(10);
+  await publishAll();
+  for (const p of people.slice(0, 8)) await query("UPDATE metric_observations SET observed_at = now() - interval '20 days' WHERE account_id=$1", [p.account]);
+  await publishAll(); // rejected by coverage: alerts raised
+  assert.ok(await n(`SELECT count(*)::int AS n FROM pipeline_alerts WHERE kind='gate_failed' AND NOT acknowledged`) > 0);
+  await query(`INSERT INTO pipeline_alerts(kind,scope,message) VALUES('pipeline_failed',NULL,'Unrelated')`);
+  for (const p of people.slice(0, 8)) await query("UPDATE metric_observations SET observed_at = now() - interval '1 hour' WHERE account_id=$1", [p.account]); // numbers arrive
+  const ok = await publishAll();
+  assert.equal(ok.rejected.length, 0);
+  assert.equal(await n(`SELECT count(*)::int AS n FROM pipeline_alerts WHERE kind='gate_failed' AND NOT acknowledged`), 0);
+  assert.equal(await n(`SELECT count(*)::int AS n FROM pipeline_alerts WHERE kind='pipeline_failed' AND NOT acknowledged`), 1);
 });

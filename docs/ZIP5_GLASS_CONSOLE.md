@@ -65,3 +65,10 @@ Check `git status --short` shows only these files before you commit.
 - **Bulk add:** "Category for every line without one". A niche typed on a line always wins.
 - **People table:** select all on the page, "Set category" for the selected people (owner and editor), delete stays owner only.
 - **Errors:** a 5xx from the hosting gateway reads "Module 1 is not answering (HTTP 503)". Module 1's own failure shows its code and a short reference. Module 1's log line `[PCI_API_FAILURE]` now also carries table, column, constraint and routine names (never values).
+
+## Update 4: one-page update flow
+- **Why every ranking was rejected:** Rank was pressed while the YouTube refresh was still running. Nobody had a fresh number yet, so every ranking failed the coverage rule (at least 50% of a ranking's people need a number from the last 7 days). Nothing broken was published; the site stayed empty.
+- **Pipeline page now:** one **Update rankings now** button, a 3-step progress strip (Collect numbers, Build rankings, Publish), a plain headline, and the reasons for any rejected ranking grouped in plain words with what to do. Manual steps, refresh results, drafts and the comparison are behind "Show details and manual steps".
+- **Safety:** Rank refuses while a refresh is queued or running (409 REFRESH_RUNNING). The automatic update waits for any refresh in progress, up to 10 minutes.
+- **Alerts:** an alert about a ranking clears itself when that ranking publishes. "Dismiss all" added.
+- **"Needs action" badge:** hover shows why; the Pipeline page lists the reasons. A missing worker means the 09:00 daily update cannot run by itself: set `RUN_WORKER_IN_API=true` on Module 1 and redeploy.

@@ -2,11 +2,20 @@ import { query } from '../../lib/db.js';
 import { logger } from '../../lib/errors.js';
 import { createRuns, processRun, type Deps } from '../refresh/service.js';
 import { defaultProviders } from '../../providers/index.js';
-import { buildBatch, publishBatch, recordAlert } from './service.js';
+import { activeRefreshCount, buildBatch, publishBatch, recordAlert } from './service.js';
 
 export type PipelineStep = { step: 'refresh' | 'rank' | 'publish'; status: 'ok' | 'partial' | 'failed' | 'skipped'; detail?: string };
 type Trigger = 'manual' | 'scheduled' | 'system';
 const realDeps = (): Deps => ({ providers: defaultProviders(), now: () => new Date(), sleep: ms => new Promise(r => setTimeout(r, ms)), backoff: n => Math.min(8000, 1000 * 2 ** (n - 1)), background: true });
+
+/** Waits (up to maxMs) until no refresh is queued or running, e.g. one started by hand just before the pipeline. */
+export async function waitForRefreshes(deps: Pick<Deps, 'sleep'>, maxMs = 10 * 60_000, pollMs = 3000): Promise<boolean> {
+  for (let waited = 0; waited <= maxMs; waited += pollMs) {
+    if (await activeRefreshCount() === 0) return true;
+    await deps.sleep(pollMs);
+  }
+  return false;
+}
 
 /** One pipeline at a time, enforced by the database. A run stuck for over an hour is marked failed first. */
 export async function createPipelineRun(trigger: Trigger, actorId: string | null): Promise<{ id: string; started: boolean }> {
@@ -38,7 +47,8 @@ export async function executePipeline(id: string, trigger: Trigger, actorId: str
       if (steps[0].status !== 'ok') status = 'partial';
     } catch (e) { steps.push({ step: 'refresh', status: 'failed', detail: (e instanceof Error ? e.message : 'failed').slice(0, 150) }); status = 'partial'; }
     await save();
-    // 2. rank
+    // 2. rank (never while numbers are still arriving)
+    if (!(await waitForRefreshes(deps))) steps.push({ step: 'refresh', status: 'partial', detail: 'a refresh was still running after 10 minutes; ranking used the numbers collected so far' });
     let batchId: string;
     try { const b = await buildBatch(trigger, actorId); batchId = b.batchId; steps.push({ step: 'rank', status: 'ok', detail: `${b.drafts.length} scope(s) drafted` }); }
     catch (e) { steps.push({ step: 'rank', status: 'failed', detail: (e instanceof Error ? e.message : 'failed').slice(0, 150) }); steps.push({ step: 'publish', status: 'skipped' }); status = 'failed'; await recordAlert('pipeline_failed', null, 'Ranking failed; the live rankings were not changed'); await save(true); return status; }
