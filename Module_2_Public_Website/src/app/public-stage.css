@@ -976,3 +976,8 @@
   .site-shell .pci-site-header .pci-nav-toggle{display:inline-flex;height:35px;color:#fff;background:transparent;border:1px solid rgba(209,240,231,.29)}
 }
 /* PCI REFERENCE HEADER END */
+/* Remove duplicated decorative circles and pagination dots */
+.pci-stage .stage-floor-rings,
+.pci-stage .stage-dots {
+    display: none !important;
+}
