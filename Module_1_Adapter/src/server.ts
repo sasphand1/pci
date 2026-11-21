@@ -45,7 +45,7 @@ export function makeApp() {
     referrerPolicy: {policy:'no-referrer'}
   }));
   const origins = new Set([config.PUBLIC_ORIGIN,config.ADMIN_ORIGIN]);
-  app.use(cors({origin(origin,cb){if(!origin || origins.has(origin)) cb(null,true);else cb(new HttpError(403,'ORIGIN_DENIED','Origin not allowed'));},credentials:true,allowedHeaders:['Content-Type','Authorization','X-CSRF-Token'],methods:['GET','POST','PATCH','PUT','DELETE','OPTIONS']}));
+  app.use(cors({origin(origin,cb){if(!origin || origins.has(origin)) cb(null,true);else cb(new HttpError(403,'ORIGIN_DENIED','Origin not allowed'));},credentials:true,allowedHeaders:['Content-Type','Authorization','X-CSRF-Token','X-Pci-Background'],methods:['GET','POST','PATCH','PUT','DELETE','OPTIONS']}));
   // Refuse cross-origin browser writes even if a future CORS proxy setting is relaxed.
   app.use((req,res,next)=>{
     if(!['GET','HEAD','OPTIONS'].includes(req.method)){

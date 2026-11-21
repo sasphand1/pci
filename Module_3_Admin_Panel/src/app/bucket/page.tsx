@@ -3,6 +3,7 @@ import {useState} from 'react';
 import {Card,Badge,Notice} from '@pci/ui';
 import {AdminPage,DataBlock,Status,TableWrap,useData,RoleGate} from '@/components/Shared';
 import {api,errorText,fmtDate} from '@/lib/api';
+import {initials} from '@/lib/format';
 import {useAuth} from '@/components/AuthProvider';
 import type {BatchResult,BucketList,BucketPerson,Category,Platform,RowStatus} from '@/lib/types';
 
@@ -83,19 +84,19 @@ export default function BucketPage(){
  const rows=list.data?.rows??[];
  const total=list.data?.total??0;
 
- return <RoleGate roles={['owner','editor']}><AdminPage title="Bucket" description="The people the ranking engine works on. Add accounts here; delete a person and nothing of them is left anywhere.">
+ return <RoleGate roles={['owner','editor']}><AdminPage title="People" description="The people the ranking engine works on. Add accounts here; delete a person and nothing of them is left anywhere.">
   <Status error={error} ok={ok}/>
   <Card>
    <div className="admin-toolbar"><h2>Add to the bucket</h2>
-    <div className="admin-inline-actions">
-     <button type="button" className={`btn ${platform==='youtube'?'btn-primary':'btn-secondary'}`} onClick={()=>{setPlatform('youtube');setResult(null);}}>YouTube</button>
-     <button type="button" className={`btn ${platform==='instagram'?'btn-primary':'btn-secondary'}`} onClick={()=>{setPlatform('instagram');setResult(null);}}>Instagram</button>
-     <button type="button" className="btn btn-secondary" disabled title="TikTok is not enabled yet">TikTok (soon)</button>
+    <div className="seg" role="group" aria-label="Platform">
+     <button type="button" className={`seg-btn${platform==='youtube'?' is-on':''}`} aria-pressed={platform==='youtube'} onClick={()=>{setPlatform('youtube');setResult(null);}}>YouTube</button>
+     <button type="button" className={`seg-btn${platform==='instagram'?' is-on':''}`} aria-pressed={platform==='instagram'} onClick={()=>{setPlatform('instagram');setResult(null);}}>Instagram</button>
+     <button type="button" className="seg-btn" disabled title="TikTok is not enabled yet">TikTok (soon)</button>
     </div>
    </div>
-   <div className="admin-inline-actions">
-    <button type="button" className={`btn ${mode==='single'?'btn-primary':'btn-secondary'}`} onClick={()=>setMode('single')}>Single</button>
-    <button type="button" className={`btn ${mode==='bulk'?'btn-primary':'btn-secondary'}`} onClick={()=>setMode('bulk')}>Bulk</button>
+   <div className="seg" role="group" aria-label="How many accounts">
+    <button type="button" className={`seg-btn${mode==='single'?' is-on':''}`} aria-pressed={mode==='single'} onClick={()=>setMode('single')}>Single</button>
+    <button type="button" className={`seg-btn${mode==='bulk'?' is-on':''}`} aria-pressed={mode==='bulk'} onClick={()=>setMode('bulk')}>Bulk</button>
    </div>
    {mode==='single'?<div className="admin-form-grid">
     <div className="field"><label htmlFor="bk-account">{platform==='youtube'?'YouTube @handle, channel link or UC… id':'Instagram username or link'}</label><input id="bk-account" value={single.account} onChange={e=>setSingle(p=>({...p,account:e.target.value}))} maxLength={200} placeholder={platform==='youtube'?'@channelname':'username'}/></div>
@@ -130,7 +131,7 @@ export default function BucketPage(){
      const yt=p.accounts.find(a=>a.platform==='youtube'),ig=p.accounts.find(a=>a.platform==='instagram');
      return <tr key={p.id}>
       {isOwner&&<td><input type="checkbox" aria-label={`Select ${p.displayName}`} checked={selected.includes(p.id)} onChange={()=>setSelected(s=>toggle(s,p.id))}/></td>}
-      <td>{p.displayName}</td><td>{yt?.handle??'—'}</td><td>{ig?.handle??'—'}</td>
+      <td><span className="person-cell"><span className="top-avatar" aria-hidden="true">{initials(p.displayName)}</span><strong>{p.displayName}</strong></span></td><td>{yt?.handle??'—'}</td><td>{ig?.handle??'—'}</td>
       <td>{p.categories.length?p.categories.map(c=><Badge key={c.slug} variant={c.primary?'normal':'muted'}>{c.label}</Badge>):'—'}</td>
       <td>{fmtDate(p.createdAt)}</td>
       <td><button type="button" className="btn btn-secondary" onClick={()=>startEdit(p)}>Niches</button></td></tr>;})}</tbody></TableWrap>

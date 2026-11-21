@@ -1,5 +1,6 @@
 export type Role='owner'|'editor'|'moderator';
-export interface AdminIdentity {id:string;email:string;role:Role;csrfToken:string}
+export interface SessionInfo {idleSeconds:number;expiresAt:string|null;ttlSeconds:number}
+export interface AdminIdentity {id:string;email:string;role:Role;csrfToken:string;session?:SessionInfo}
 export interface Creator {
  id:string;channel_id:string;slug:string;display_name:string;description:string;featured:boolean;enabled:boolean;
  category_ids:string[];created_at?:string;updated_at?:string;
@@ -60,3 +61,16 @@ export interface LivePublication {
 export interface ShadowRow {key:string;name:string}
 export interface ShadowCompare {topN:number;legacyCount:number;newCount:number;overlap:number;overlapPct:number;sameOrder:boolean;onlyLegacy:ShadowRow[];onlyNew:ShadowRow[];moved:{key:string;name:string;legacy:number;published:number}[]}
 export type ShadowResult={available:false;reason:string}|{available:true;top15:ShadowCompare;top100:ShadowCompare;note:string};
+
+// PCI_ZIP_5: management overview
+export interface AttentionItem {key:'no_numbers'|'no_category'|'alerts'|'stale'|'worker';severity:'warning'|'info';count:number;message:string;href:string}
+export interface SystemState {level:'ok'|'attention'|'down';label:string;reasons:string[]}
+export interface OverviewSeries {days:string[];youtube:(number|null)[];instagram:(number|null)[]}
+export interface Overview {
+ people:number;accounts:{total:number;youtube:number;instagram:number;withNumbers:number};
+ audience:{youtube:number;instagram:number;total:number;changePct:number|null};series:OverviewSeries;
+ lastPublishedAt:string|null;openAlerts:number;
+ pipeline:{status:string;trigger:string;createdAt:string;finishedAt:string|null;steps:unknown}|null;
+ worker:{healthy:boolean|null;dailyEnabled:boolean;schedule:string};
+ top:{slot:number;rank:number;displayName:string;value:string}[];attention:AttentionItem[];state:SystemState;
+}

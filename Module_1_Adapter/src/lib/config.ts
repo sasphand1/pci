@@ -24,6 +24,7 @@ const EnvSchema = z.object({
   SMTP_FROM: z.string().optional().default(''),
   WALL_MESSAGE_RETENTION_DAYS: z.coerce.number().int().min(1).max(30).default(7),
   ADMIN_SESSION_HOURS: z.coerce.number().int().min(1).max(24).default(8),
+  ADMIN_IDLE_MINUTES: z.coerce.number().int().min(5).max(480).default(30),
   WALL_SESSION_DAYS: z.coerce.number().int().min(1).max(30).default(7)
 });
 const parsed = EnvSchema.safeParse(process.env);

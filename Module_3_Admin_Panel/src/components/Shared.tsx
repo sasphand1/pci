@@ -1,5 +1,5 @@
 'use client';
-import {useCallback,useEffect,useState,type ReactNode} from 'react';
+import {useCallback,useEffect,useRef,useState,type ReactNode} from 'react';
 import {PageHeading,Notice,EmptyState} from '@pci/ui';
 import {api,errorText} from '@/lib/api';
 import {useAuth} from './AuthProvider';
@@ -12,9 +12,11 @@ export function ConfirmButton({label,onConfirm,confirmText,variant='danger'}:{la
 }
 export function useData<T>(path:string,enabled=true){
  const {identity}=useAuth();const [data,setData]=useState<T|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(true),[revision,setRevision]=useState(0);
- const reload=useCallback(()=>setRevision(v=>v+1),[]);
- useEffect(()=>{if(!enabled||!identity){setLoading(false);return;}let active=true;setLoading(true);setError('');
-  api<T>(path).then(d=>{if(active)setData(d);}).catch(e=>{if(active)setError(errorText(e));}).finally(()=>{if(active)setLoading(false);});
+ const quiet=useRef(false);
+ /** reload(true) is for polling: it does not show the loading state and does not count as activity for the idle timeout. */
+ const reload=useCallback((background?:unknown)=>{quiet.current=background===true;setRevision(v=>v+1);},[]);
+ useEffect(()=>{if(!enabled||!identity){setLoading(false);return;}let active=true;const background=quiet.current;quiet.current=false;if(!background)setLoading(true);setError('');
+  api<T>(path,{background}).then(d=>{if(active)setData(d);}).catch(e=>{if(active)setError(errorText(e));}).finally(()=>{if(active)setLoading(false);});
   return()=>{active=false;};
  },[path,enabled,revision,identity?.id]);
  return {data,error,loading,reload,setData};

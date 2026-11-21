@@ -3,6 +3,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { z } from 'zod';
 import { pool, query } from '../../lib/db.js';
 import { redis, boundedLimit } from '../../lib/redis.js';
+import { isBackgroundRequest, sessionInfo, sessionTtlSeconds } from './session.js';
 import { config } from '../../lib/config.js';
 import { handler,HttpError } from '../../lib/errors.js';
 import { opaqueToken,sha256,hashPassword,verifyPassword,decryptSecret,validTotp,pseudonym } from '../../lib/security.js';
@@ -16,7 +17,7 @@ const password=z.string().min(12).max(128);
 const nickname=z.string().trim().min(3).max(24).regex(/^[\p{L}\p{N}_.-]+$/u);
 const tokenTTL=()=>config.WALL_SESSION_DAYS*86400;
 export type WallIdentity={type:'guest'|'user',id:string,nickname:string,version?:number};
-export type AdminIdentity={id:string,email:string,role:'owner'|'editor'|'moderator',csrf:string,version:number};
+export type AdminIdentity={id:string,email:string,role:'owner'|'editor'|'moderator',csrf:string,version:number,exp?:number};
 function ipHash(req:Request){return pseudonym(req.ip??'unknown');}
 async function gate(req:Request,scope:string,max:number,windowSeconds:number) {
   if(!await boundedLimit(`ratelimit:${scope}:${ipHash(req)}`,max,windowSeconds))throw new HttpError(429,'RATE_LIMIT','Too many requests');
@@ -43,9 +44,16 @@ export async function requireWall(req:Request,_res:Response,next:NextFunction){
 export async function requireAdmin(req:Request,res:Response,next:NextFunction){
  try {const token=req.cookies?.pci_admin;
    if(typeof token!=='string') throw new HttpError(401,'ADMIN_AUTH_REQUIRED','Admin authentication required');
-   const raw=await redis.get(`admin:session:${sha256(token)}`);
+   const key=`admin:session:${sha256(token)}`;
+   const raw=await redis.get(key);
    if(!raw)throw new HttpError(401,'ADMIN_AUTH_REQUIRED','Admin session expired');
    const identity=JSON.parse(raw) as AdminIdentity;
+   // Idle timeout inside the absolute limit. Background polling never extends it.
+   if(!isBackgroundRequest(req.header('x-pci-background'))){
+     const ttl=sessionTtlSeconds(Math.floor(Date.now()/1000),identity.exp,config.ADMIN_IDLE_MINUTES*60);
+     if(ttl<=0){await redis.del(key);throw new HttpError(401,'ADMIN_SESSION_EXPIRED','Your session ended. Sign in again.');}
+     await redis.expire(key,ttl);
+   }
    const active=await query('SELECT role,active,session_version FROM admin_users WHERE id=$1',[identity.id]);
    if(!active.rows[0]?.active || active.rows[0].session_version!==identity.version)throw new HttpError(401,'ADMIN_DISABLED','Account disabled or session revoked');
    identity.role=active.rows[0].role;
@@ -70,17 +78,18 @@ adminAuthRoutes.post('/login',handler(async(req,res)=>{
    throw new HttpError(401,'INVALID_CREDENTIALS','Invalid login credentials or MFA code');
  }
  const token=opaqueToken(),csrf=opaqueToken();
- const identity:AdminIdentity={id:user.id,email:user.email,role:user.role,csrf,version:user.session_version};
- await redis.set(`admin:session:${sha256(token)}`,JSON.stringify(identity),'EX',config.ADMIN_SESSION_HOURS*3600);
+ const nowSec=Math.floor(Date.now()/1000);
+ const identity:AdminIdentity={id:user.id,email:user.email,role:user.role,csrf,version:user.session_version,exp:nowSec+config.ADMIN_SESSION_HOURS*3600};
+ await redis.set(`admin:session:${sha256(token)}`,JSON.stringify(identity),'EX',sessionTtlSeconds(nowSec,identity.exp,config.ADMIN_IDLE_MINUTES*60));
  adminCookie(res,token);
  await query('UPDATE admin_users SET last_login_at=now() WHERE id=$1',[user.id]);await audit(user.id,'admin.login',user.id);
- res.json({data:{id:user.id,email:user.email,role:user.role,csrfToken:csrf}});
+ res.json({data:{id:user.id,email:user.email,role:user.role,csrfToken:csrf,session:sessionInfo(nowSec,identity.exp,config.ADMIN_IDLE_MINUTES*60)}});
 }));
 adminAuthRoutes.post('/logout',requireAdmin,handler(async(req,res)=>{
  await redis.del(`admin:session:${sha256(req.cookies.pci_admin)}`);res.clearCookie('pci_admin',{path:'/',sameSite:'strict',secure:config.NODE_ENV==='production'});await audit(res.locals.admin.id,'admin.logout',res.locals.admin.id);res.json({data:{ok:true}});
 }));
 adminAuthRoutes.get('/me',requireAdmin,handler(async(_req,res)=>{
- const a=res.locals.admin as AdminIdentity;res.json({data:{id:a.id,email:a.email,role:a.role,csrfToken:a.csrf}});
+ const a=res.locals.admin as AdminIdentity;res.json({data:{id:a.id,email:a.email,role:a.role,csrfToken:a.csrf,session:sessionInfo(Math.floor(Date.now()/1000),a.exp,config.ADMIN_IDLE_MINUTES*60)}});
 }));
 
 wallAuthRoutes.post('/guest',handler(async(req,res)=>{

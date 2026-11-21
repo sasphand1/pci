@@ -28,7 +28,7 @@ export default function PipelinePage(){
  const running=(status.data?.refresh??[]).some(r=>r.status==='queued'||r.status==='running')||(status.data?.pipeline??[]).some(p=>p.status==='running');
 
  // While something is running, look again every few seconds. No browser storage involved.
- useEffect(()=>{if(!running)return;const t=setInterval(()=>{status.reload();},4000);return()=>clearInterval(t);},[running]);
+ useEffect(()=>{if(!running)return;const t=setInterval(()=>{status.reload(true);},4000);return()=>clearInterval(t);},[running]);
 
  async function act<T>(name:string,f:()=>Promise<T>,done:(r:T)=>string){
   setBusy(name);setError('');setOk('');

@@ -5,10 +5,10 @@ import {join,resolve} from 'node:path';
 const root=resolve('.');
 const read=(p)=>readFileSync(join(root,p),'utf8');
 
-test('Bucket and Pipeline screens exist and are in the navigation for owner and editor',()=>{
+test('People (the bucket) and Pipeline screens exist and are in the navigation for owner and editor',()=>{
  for(const p of ['bucket','pipeline'])assert.ok(existsSync(join(root,`src/app/${p}/page.tsx`)),p);
  const nav=read('src/lib/nav.ts');
- assert.match(nav,/title:'Bucket',href:'\/bucket',roles:\['owner','editor'\]/);assert.match(nav,/title:'Pipeline',href:'\/pipeline',roles:\['owner','editor'\]/);
+ assert.match(nav,/title:'People',href:'\/bucket',icon:'people',roles:\['owner','editor'\]/);assert.match(nav,/title:'Pipeline',href:'\/pipeline',icon:'pipeline',roles:\['owner','editor'\]/);
 });
 test('the old creator, Instagram, unified, cross-platform, ranking and sync screens left the navigation (files stay until the cutover)',()=>{
  const nav=read('src/lib/nav.ts');

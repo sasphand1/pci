@@ -6,9 +6,10 @@ import { requireAdmin, roles, type AdminIdentity } from '../auth/auth.js';
 import { startPipeline } from './pipeline.js';
 import { buildBatch, getBatch, getPublication, latestBatchId, listPublications, publishBatch, rollbackScope } from './service.js';
 import { getPipelineStatus } from './status.js';
+import { getOverview } from './overview.js';
 
 export const publishAdminRoutes = Router();
-publishAdminRoutes.use(['/rank', '/pipeline', '/publications'], requireAdmin);
+publishAdminRoutes.use(['/rank', '/pipeline', '/publications', '/overview'], requireAdmin);
 
 const actor = (res: { locals: Record<string, unknown> }) => (res.locals.admin as AdminIdentity | undefined)?.id ?? null;
 const uuid = z.string().uuid();
@@ -28,6 +29,8 @@ publishAdminRoutes.post('/rank/:batchId/publish', roles('owner', 'editor'), hand
 
 // Pipeline: refresh, rank, publish in one go.
 publishAdminRoutes.post('/pipeline/run', roles('owner', 'editor'), handler(async (_req, res) => { res.status(202).json({ data: await startPipeline('manual', actor(res)) }); }));
+// Overview: one read-only call for the home page (all roles).
+publishAdminRoutes.get('/overview', handler(async (_req, res) => { res.json({ data: await getOverview() }); }));
 publishAdminRoutes.get('/pipeline/status', handler(async (_req, res) => { res.json({ data: await getPipelineStatus() }); }));
 publishAdminRoutes.post('/pipeline/alerts/:id/ack', roles('owner', 'editor'), handler(async (req, res) => {
   const id = z.coerce.number().int().positive().safeParse(req.params.id);
