@@ -1,4 +1,4 @@
-/* Landing stage and dark header. Everything below the stage stays light (beige with a pink tinge, see public-glass.css).
+﻿/* Landing stage and dark header. Everything below the stage stays light (beige with a pink tinge, see public-glass.css).
    Sizes inside the stage are in container units (cqw), so the whole scene scales like the artwork it was drawn from. */
 .site-shell{--gold:#F2C46B;--gold-deep:#B9822B;--emerald:#14B89A;--night:#04141A;--night-2:#0A2A2C}
 
@@ -27,7 +27,7 @@
 .pci-stage::after{content:"";position:absolute;inset:auto 0 0 0;height:72px;background:linear-gradient(180deg,rgba(251,244,236,0),#FBF4EC);pointer-events:none;z-index:3}
 .stage-inner{position:relative;z-index:2;width:min(1440px,100%);margin:0 auto;padding:28px clamp(16px,3vw,40px) 0;container-type:inline-size}
 .stage-scene{position:absolute;inset:0;z-index:0;pointer-events:none}
-.stage-art{position:absolute;inset:0;background:url('/images/hero-stage.webp') center top/cover no-repeat}
+.stage-art{position:absolute;inset:0;background:url('/images/hero-stage.png') center top/cover no-repeat}
 .stage-lights i{position:absolute;top:8%;width:12%;height:30%;background:radial-gradient(ellipse at 50% 0,rgba(255,236,190,.35),rgba(255,236,190,.05) 45%,transparent 70%);filter:blur(2px)}
 .stage-lights i[data-side=left]{left:-2%;transform:rotate(-24deg)}
 .stage-lights i[data-side=right]{right:-2%;transform:rotate(24deg)}
@@ -156,3 +156,4 @@
  .stage-flag{display:none}
  .stage-kicker{letter-spacing:.2em;font-size:.68rem}
 }
+
