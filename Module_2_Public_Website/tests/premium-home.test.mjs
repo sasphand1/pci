@@ -8,7 +8,7 @@ const entry=read('packages/ui/src/styles.css');
 
 test('home page is built only from published rankings',()=>{
  for(const p of ["'/wheel'","'/rows'","'/status'","'/categories'","/rankings/${scope}?limit=100"])assert.ok(page.includes(p),p);
- assert.match(page,/<PublishedWheel sorts=\{wheel\?\.sorts\?\?\[\]\}\/>/);
+ assert.match(page,/<PublishedWheel sorts=\{wheel\?\.sorts\?\?\[\]\} stats=\{stats\}\/>/);
  assert.match(page,/<PublishedRows platforms=/);
  assert.match(page,/<PublishedTop100 initial=\{initial\}/);
  assert.match(page,/<SnapshotStatus publishedAt=\{status\?\.publishedAt\}\/>/);

@@ -1,5 +1,7 @@
 import type {Metadata} from 'next';
 import '@pci/ui/styles.css';
+import './public-glass.css';
+import './public-stage.css';
 import {SiteHeader} from '@/components/SiteHeader';
 import {SiteFooter} from '@/components/SiteFooter';
 const site=process.env.NEXT_PUBLIC_SITE_URL||'http://localhost:3000';
