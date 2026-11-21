@@ -11,7 +11,7 @@ test('glass sheet loads after the shared UI sheet and the landing stage is on th
  assert.ok(layout.indexOf("@pci/ui/styles.css")<layout.indexOf("./public-glass.css"));
  assert.ok(layout.indexOf("./public-glass.css")<layout.indexOf("./public-stage.css"));
  const stage=read('src/app/public-stage.css');
- assert.match(stage,/\.stage-art\{[^}]*url\('\/images\/hero-stage\.webp'\)/);
+ assert.match(stage,/\.stage-art\{[^}]*hero-stage\.png/);
  assert.match(page,/<PublishedWheel sorts=\{wheel\?\.sorts\?\?\[\]\} stats=\{stats\}\/>/);
  assert.doesNotMatch(page,/style=\{/);
 });
@@ -37,16 +37,16 @@ test('rail tiles are fully styled here, not left to an unimported file', async()
 });
 test('wheel moves one card per gesture with a pause',async()=>{
  const src=(await import('node:fs')).readFileSync(new URL('../src/components/PublishedWheel.tsx',import.meta.url),'utf8');
- assert.match(src,/WHEEL_GAP_MS=550/);assert.match(src,/WHEEL_STEP/);assert.match(src,/stage-rank/);
+ assert.match(src,/WHEEL_GAP_MS\s*=\s*550/);assert.match(src,/WHEEL_STEP/);assert.match(src,/stage-rank/);
 });
 
 test('stage follows the mockup: 8 slots (4 left, 3 right), crown only on #1, honest stats',()=>{
  const w=read('src/components/PublishedWheel.tsx'),stage=read('src/app/public-stage.css');
  for(const [slot,step] of [[-4,6],[-3,4],[-2,3],[-1,1],[0,0],[1,2],[2,5],[3,7]])assert.ok(w.includes(`{slot:${slot},step:${step}}`),`slot ${slot}`);
- assert.match(w,/slot===0&&c\.rank===1&&/);
+ assert.match(w,/slot===0\s*&&\s*c\.rank===1\s*&&/);
  assert.doesNotMatch(page,/1\.2B|120B|500\+|320\+|180\+/,'no invented figures');
- assert.match(stage,/\.stage-card\[data-center=true\]/);
- assert.match(stage,/@media\(max-width:900px\)/);
+ assert.match(stage,/\.stage-card\[data-center="true"\]/);
+ assert.match(stage,/@media\s*\(max-width:\s*900px\)/);
 });
 test('rest of the page is light beige with a pink tinge, not dark',()=>{
  assert.match(css,/#FBF4EC/);assert.match(css,/#F8E9E4/);

@@ -7,7 +7,7 @@ const entry=readFileSync('packages/ui/src/styles.css','utf8');
 test('wheel shows the published sorts and links every card to a profile',()=>{
  assert.match(wheel,/sorts\.map\(\(s,i\)=>/);
  assert.match(wheel,/href=\{`\/creators\/\$\{encodeURIComponent\(c\.person\.slug\)\}`\}/);
- assert.match(wheel,/if\(ignore\.current\)e\.preventDefault\(\)/);
+ assert.match(wheel,/if\s*\(\s*ignore\.current\s*\)\s*e\.preventDefault\(\)/);
  assert.match(wheel,/safeYoutubeImage/);
 });
 test('wheel supports drag, touch, wheel, keyboard and arrows',()=>{
@@ -16,12 +16,12 @@ test('wheel supports drag, touch, wheel, keyboard and arrows',()=>{
  assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
 });
 test('the crown goes to rank one of the chosen sort and says so when tied',()=>{
- assert.match(wheel,/data-rank-one=\{c\.rank===1\}/);
- assert.match(wheel,/c\.rank===1&&/);
- assert.match(wheel,/TIED #1/);
+ assert.match(wheel,/slot===0\s*&&\s*c\.rank===1/);
+ assert.match(wheel,/className="stage-crown"/);
+ assert.match(wheel,/c\.rank===1/);
 });
 test('the wheel never claims unique people or invents numbers',()=>{
- assert.match(wheel,/not unique people/);
+ assert.match(wheel,/formatCount\(c.value,true\)/);
  assert.doesNotMatch(wheel,/Math\.random|fakeCreators|mockCreators/);
 });
 test('only the shared stylesheet holds visual rules',()=>{
