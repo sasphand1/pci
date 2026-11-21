@@ -1,11 +1,18 @@
 import type {Metadata} from 'next';
-import {Card,PageHeading,Notice} from '@pci/ui';
-import {adapterGet} from '@/lib/api';
-import type {Creator,CreatorList} from '@/lib/types';
-import {formatCount,displayDate} from '@/lib/format.mjs';
-import {ComparisonPicker} from '@/components/ComparisonPicker';
+import {Card,EmptyState,PageHeading} from '@pci/ui';
+import {formatCount} from '@/lib/format.mjs';
+import {pubGet,pubList,platformName,type PubPerson,type PubPersonDetail} from '@/lib/public';
 export const metadata:Metadata={title:'Compare creators'};
-export default async function Compare({searchParams}:{searchParams:Promise<{left?:string;right?:string}>}){const {left='',right=''}=await searchParams;const valid=(x:string)=>/^[a-z0-9-]{2,100}$/.test(x);const list=await adapterGet<CreatorList>('/api/v1/creators?limit=100&sort=subscribers');const available=list?.data||[];
- const [a,b]=await Promise.all([valid(left)?adapterGet<{data:Creator}>(`/api/v1/creators/${left}`):null,valid(right)?adapterGet<{data:Creator}>(`/api/v1/creators/${right}`):null]);
- const rows=[['Subscribers',a?.data.subscriberHidden?'Hidden':formatCount(a?.data.subscriberCount),b?.data.subscriberHidden?'Hidden':formatCount(b?.data.subscriberCount)],['Lifetime channel views',formatCount(a?.data.viewCount),formatCount(b?.data.viewCount)],['Public videos',formatCount(a?.data.videoCount),formatCount(b?.data.videoCount)],['Last fetched',displayDate(a?.data.fetchedAt),displayDate(b?.data.fetchedAt)]];
- return <div className="container"><PageHeading eyebrow="Side by side" title="Compare creators" description="Compare reported YouTube numbers. This is not an evaluation of content quality, news accuracy or influence."/><Card><ComparisonPicker creators={available} left={left} right={right}/></Card><section className="section">{a?.data&&b?.data?<Card><div className="compare-row"><span className="compare-label">Metric</span><strong>{a.data.displayName}</strong><strong>{b.data.displayName}</strong></div>{rows.map(([metric,av,bv])=><div key={metric} className="compare-row"><span className="compare-label">{metric}</span><strong>{av}</strong><strong>{bv}</strong></div>)}<p className="fineprint">Counts may be rounded or unavailable. Values reflect independent channel totals; shared audiences are not deduplicated.</p></Card>:<Notice>Choose two different creators above to see a side-by-side comparison. No score is assigned.</Notice>}</section></div>}
+const valid=(x:string)=>/^[a-z0-9-]{2,60}$/.test(x);
+function total(p:PubPersonDetail,key:'followers'|'views'|'posts30d'){const xs=p.accounts.map(a=>a[key]).filter((x):x is number=>x!==null);return xs.length?xs.reduce((a,b)=>a+b,0):null;}
+export default async function Compare({searchParams}:{searchParams:Promise<{left?:string;right?:string}>}){
+ const {left='',right=''}=await searchParams;
+ const [list,a,b]=await Promise.all([pubList<PubPerson>('/people?limit=100'),valid(left)?pubGet<PubPersonDetail>(`/people/${left}`):null,valid(right)?pubGet<PubPersonDetail>(`/people/${right}`):null]);
+ const people=list?.data??[];
+ const rows:[string,(p:PubPersonDetail)=>string][]=[
+  ['Followers across accounts',p=>formatCount(total(p,'followers'),true)],['YouTube lifetime views',p=>formatCount(total(p,'views'),true)],['Posts in the last 30 days',p=>formatCount(total(p,'posts30d'),true)],
+  ['Accounts',p=>p.accounts.map(x=>platformName(x.platform)).join(', ')||'—'],['Most Subscribed rank',p=>{const x=p.positions.find(y=>y.scope==='wheel.subscribed');return x?`#${x.rank}`:'Not ranked';}]];
+ return <div className="container"><PageHeading eyebrow="Compare" title="Compare two creators" description="Side by side, from the latest published numbers."/>
+  <Card><form className="filters" method="get" action="/compare">{(['left','right'] as const).map(side=><div className="field" key={side}><label htmlFor={`cmp-${side}`}>{side==='left'?'First creator':'Second creator'}</label><select id={`cmp-${side}`} name={side} defaultValue={side==='left'?left:right}><option value="">Choose…</option>{people.map(p=><option key={p.slug} value={p.slug}>{p.displayName}</option>)}</select></div>)}<button className="btn btn-primary" type="submit">Compare</button></form></Card>
+  <section className="section">{a&&b?<div className="table-wrap"><table className="data-table"><thead><tr><th scope="col"> </th><th scope="col">{a.displayName}</th><th scope="col">{b.displayName}</th></tr></thead><tbody>{rows.map(([label,f])=><tr key={label}><th scope="row">{label}</th><td>{f(a)}</td><td>{f(b)}</td></tr>)}</tbody></table></div>:<EmptyState title="Choose two creators" message="Pick a creator on each side to see them next to each other."/>}</section></div>;
+}

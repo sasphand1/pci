@@ -42,3 +42,9 @@ test('new screens use no browser storage, inline styles or direct backend access
 test('api client allows PUT for the niche editor and still sends CSRF on every write',()=>{
  const s=read('src/lib/api.ts');assert.match(s,/'PUT'/);assert.match(s,/X-CSRF-Token/);
 });
+
+test('pipeline page offers a read-only comparison with the old YouTube ranking',()=>{
+ const s=read('src/app/pipeline/page.tsx');
+ assert.match(s,/\/admin\/shadow\/youtube/);assert.match(s,/Compare with the old site/);assert.match(s,/Only in the old list/);
+ assert.doesNotMatch(s,/shadow[^;]*method:'(POST|PUT|DELETE)'/);
+});

@@ -56,3 +56,7 @@ export interface LivePublication {
  entries:{slot:number;rank:number;personId:string;displayName:string;value:number;counted:number;linked:number}[];
  unranked:{personId:string;displayName:string;reason:string;linked:number}[];
 }
+
+export interface ShadowRow {key:string;name:string}
+export interface ShadowCompare {topN:number;legacyCount:number;newCount:number;overlap:number;overlapPct:number;sameOrder:boolean;onlyLegacy:ShadowRow[];onlyNew:ShadowRow[];moved:{key:string;name:string;legacy:number;published:number}[]}
+export type ShadowResult={available:false;reason:string}|{available:true;top15:ShadowCompare;top100:ShadowCompare;note:string};

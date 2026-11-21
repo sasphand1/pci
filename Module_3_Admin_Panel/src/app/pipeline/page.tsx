@@ -4,7 +4,7 @@ import {Card,Badge,Notice,MetricCard} from '@pci/ui';
 import {AdminPage,DataBlock,Status,TableWrap,useData,RoleGate} from '@/components/Shared';
 import {api,errorText,fmtDate,fmtNum} from '@/lib/api';
 import {useAuth} from '@/components/AuthProvider';
-import type {LivePublication,PipelineStatus,PublishOutcome,RankBatch,RefreshResultRow,RefreshRun,ScopeDraft,StartedRun} from '@/lib/types';
+import type {LivePublication,ShadowCompare,ShadowResult,PipelineStatus,PublishOutcome,RankBatch,RefreshResultRow,RefreshRun,ScopeDraft,StartedRun} from '@/lib/types';
 
 const SCOPE_LABEL:Record<string,string>={
  'wheel.subscribed':'Wheel: Combined followers across platforms','wheel.viewed':'Wheel: YouTube lifetime views','wheel.active':'Wheel: Posts in the last 30 days',
@@ -20,6 +20,8 @@ export default function PipelinePage(){
  const [runId,setRunId]=useState('');
  const results=useData<RefreshRun&{results:RefreshResultRow[]}>(`/admin/refresh/${runId||'none'}`,!!runId);
  const [scopeView,setScopeView]=useState('');
+ const [showShadow,setShowShadow]=useState(false);
+ const shadow=useData<ShadowResult>('/admin/shadow/youtube',showShadow);
  const live=useData<LivePublication>(`/admin/publications/${scopeView||'wheel.subscribed'}?limit=100`,!!scopeView);
  const [busy,setBusy]=useState(''),[error,setError]=useState(''),[ok,setOk]=useState('');
  const csrf=identity?.csrfToken;
@@ -98,6 +100,19 @@ export default function PipelinePage(){
      {d.diff.entered.slice(0,5).map(x=><li key={`e${x.personId}`}>{x.displayName} enters at {x.to}</li>)}
      {d.diff.left.slice(0,5).map(x=><li key={`l${x.personId}`}>{x.displayName} leaves (was {x.from})</li>)}
      {d.diff.moved.slice(0,5).map(x=><li key={`m${x.personId}`}>{x.displayName}: {x.from} to {x.to}</li>)}</ul></div>)}
+   </DataBlock>
+  </Card>
+
+  <Card><h2 className="admin-box-title">Compare with the old site (YouTube)</h2>
+   <p className="fineprint">Before switching over, check that the new YouTube ranking agrees with the old one. Differences are expected when the bucket holds different people than the old list.</p>
+   <button type="button" className="btn btn-secondary" onClick={()=>setShowShadow(true)} disabled={showShadow&&shadow.loading}>{showShadow?'Refresh comparison':'Compare now'}</button>
+   <DataBlock loading={showShadow&&shadow.loading} error={shadow.error} empty={!showShadow||!shadow.data}>
+    {shadow.data&&shadow.data.available===false&&<Notice>{shadow.data.reason}</Notice>}
+    {shadow.data&&shadow.data.available&&<>{[['Top 15',shadow.data.top15],['Top 100',shadow.data.top100]].map(([name,c])=>{const x=c as ShadowCompare;return <div key={name as string}><h3>{name as string}: {x.overlapPct}% the same people{x.sameOrder?', same order':''}</h3>
+     <p>{x.overlap} people appear in both lists. {x.moved.length} are in a different position.</p>
+     {x.onlyLegacy.length>0&&<p>Only in the old list: {x.onlyLegacy.map(r=>r.name).join(', ')}</p>}
+     {x.onlyNew.length>0&&<p>Only in the new list: {x.onlyNew.map(r=>r.name).join(', ')}</p>}
+     {x.moved.length>0&&<ul>{x.moved.slice(0,10).map(m=><li key={m.key}>{m.name}: old {m.legacy}, new {m.published}</li>)}</ul>}</div>;})}<p className="fineprint">{shadow.data.note}</p></>}
    </DataBlock>
   </Card>
 

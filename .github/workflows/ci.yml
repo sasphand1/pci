@@ -36,7 +36,7 @@ jobs:
           MFA_ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
           LOG_HMAC_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
         run: node --import tsx src/cli/migrate.ts
-      - name: Database tests (bucket, refresh, publish)
+      - name: Database tests (bucket, refresh, publish, public)
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://pci:pci@localhost:5432/pci_test
@@ -46,4 +46,42 @@ jobs:
           APP_PUBLIC_URL: http://localhost:3000
           MFA_ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
           LOG_HMAC_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
-        run: node --import tsx --test --test-concurrency=1 tests/integration/bucket.test.ts tests/integration/refresh.test.ts tests/integration/publish.test.ts
+        run: node --import tsx --test --test-concurrency=1 tests/integration/bucket.test.ts tests/integration/refresh.test.ts tests/integration/publish.test.ts tests/integration/public.test.ts
+
+  public-site:
+    name: Module 2 (public website) type-check, tests, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Module_2_Public_Website
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm, cache-dependency-path: Module_2_Public_Website/package-lock.json }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Build
+        env:
+          NEXT_PUBLIC_ADAPTER_API_URL: http://localhost:8080
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+        run: npm run build
+
+  admin-panel:
+    name: Module 3 (admin panel) type-check, tests, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Module_3_Admin_Panel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm, cache-dependency-path: Module_3_Admin_Panel/package-lock.json }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Build
+        env:
+          NEXT_PUBLIC_ADAPTER_API_URL: http://localhost:8080
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+        run: npm run build

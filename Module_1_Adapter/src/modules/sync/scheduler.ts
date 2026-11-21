@@ -22,7 +22,9 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
  const tasks:Array<{stop:()=>unknown}>=[];
  const timers:NodeJS.Timeout[]=[];
  let running=false,stopped=false;
- const syncOn=()=>config.YOUTUBE_SYNC_ENABLED==='true';
+ // PCI_ZIP_4: the old sync feeds nothing any more. It runs only if PCI_LEGACY_SYNC=true (rollback).
+ const legacySync=()=>process.env.PCI_LEGACY_SYNC==='true';
+ const syncOn=()=>legacySync()&&config.YOUTUBE_SYNC_ENABLED==='true';
  const scheduleEnabled=async()=>(await query("SELECT value FROM app_settings WHERE key='sync_schedule_enabled'")).rows[0]?.value!==false;
 
  async function processQueue(){
@@ -77,7 +79,7 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
  tasks.push(cron.schedule('0 4 * * *',()=>cleanupRetention().catch(e=>logger.error({err:e},'retention failed')),{timezone:'Asia/Karachi'}));
  // Instagram sync is independent of YouTube's enable switch and schedule.
  tasks.push(cron.schedule('0 9,21 * * *',async()=>{
-   if(process.env.INSTAGRAM_SYNC_ENABLED!=='true')return;
+   if(!legacySync()||process.env.INSTAGRAM_SYNC_ENABLED!=='true')return;
    try{await syncInstagramProfiles();await bustPublicCache();}
    catch(err){logger.error({err},'Instagram sync failed');}
  },{timezone:'Asia/Karachi'}));

@@ -1,11 +1,10 @@
 import {PageHeading} from '@pci/ui';
-import {adapterGet} from '@/lib/api';
-import {UnifiedTop100,type UnifiedPerson,type UnifiedRankingResponse} from '@/components/UnifiedCreatorExperience';
 import type {Metadata} from 'next';
+import {pubGet,WHEEL_SCOPES,type PubCategory,type PubRanking} from '@/lib/public';
+import {PublishedTop100} from '@/components/PublishedTop100';
 export const metadata:Metadata={title:'Top 100 Creators'};
-type Metric='views'|'subscribers'|'videos';
-export default async function Rankings(){const metrics:Metric[]=['views','subscribers','videos'];
- const responses=await Promise.all(metrics.map(metric=>adapterGet<UnifiedRankingResponse>(`/api/v1/unified/rankings?metric=${metric}&platform=all&limit=100`)));
- const rankings=Object.fromEntries(metrics.map((m,i)=>[m,responses[i]?.data??[]])) as Record<Metric,UnifiedPerson[]>;
- return <div className="container"><PageHeading eyebrow="Pakistan Creator Index" title="Top 100 Creators" description="Individual human creators across linked YouTube and Instagram accounts. TikTok integration is reserved for later."/><UnifiedTop100 rankings={rankings}/></div>;
+export default async function Rankings(){
+ const [categories,...top]=await Promise.all([pubGet<PubCategory[]>('/categories'),...WHEEL_SCOPES.map(s=>pubGet<PubRanking>(`/rankings/${s}?limit=100`))]);
+ const initial=Object.fromEntries(WHEEL_SCOPES.map((s,i)=>[s,top[i]??null]));
+ return <div className="container"><PageHeading eyebrow="Pakistan Creator Index" title="Top 100 Creators" description="Individual creators across YouTube and Instagram, from the latest published rankings. TikTok is not included."/><PublishedTop100 initial={initial} categories={(categories??[]).filter(c=>c.hasRanking).map(c=>({slug:c.slug,label:c.label}))}/></div>;
 }

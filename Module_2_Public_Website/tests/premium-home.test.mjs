@@ -3,47 +3,34 @@ import assert from 'node:assert/strict';
 import {readFileSync,existsSync} from 'node:fs';
 const read=p=>readFileSync(p,'utf8');
 const page=read('src/app/page.tsx');
-const unified=read('src/components/UnifiedCreatorExperience.tsx');
-const legacyWheel=read('src/components/RankingWheel.tsx');
 const snapshot=read('src/components/SnapshotStatus.tsx');
 const entry=read('packages/ui/src/styles.css');
-const premium=read('packages/ui/src/styles/premium-home.css');
 
-test('hero uses three live raw metrics from the existing unified API',()=>{
- assert.match(page,/const metrics:Metric\[\]=\['views','subscribers','videos'\]/);
- assert.match(page,/\/api\/v1\/unified\/rankings\?metric=\$\{metric\}&platform=all&limit=100/);
- assert.match(page,/<UnifiedRankingWheel rankings=\{rankings\}\/>/);
- assert.match(unified,/href=\{`\/creators\/\$\{encodeURIComponent\(c.slug\)\}`\}/);
- assert.match(unified,/c\.rank===1/);
- // PCI_WHEEL_THREE_METRIC_TEST_V2
- assert.match(unified,/const wheelModes=displayModes/);
- assert.doesNotMatch(page,/unified\/all-rounders/);
- assert.doesNotMatch(page,/hardcodedCreators|mockCreators|fakeCreators/);
+test('home page is built only from published rankings',()=>{
+ for(const p of ["'/wheel'","'/rows'","'/status'","'/categories'","/rankings/${scope}?limit=100"])assert.ok(page.includes(p),p);
+ assert.match(page,/<PublishedWheel sorts=\{wheel\?\.sorts\?\?\[\]\}\/>/);
+ assert.match(page,/<PublishedRows platforms=/);
+ assert.match(page,/<PublishedTop100 initial=\{initial\}/);
+ assert.match(page,/<SnapshotStatus publishedAt=\{status\?\.publishedAt\}\/>/);
+ assert.doesNotMatch(page,/hardcodedCreators|mockCreators|fakeCreators|placeholderViews|fabricatedMetrics/);
 });
-
-test('Top 100 receives server-fetched ranking data and keeps the legacy fallback',()=>{
- assert.match(page,/<UnifiedTop100 rankings=\{rankings\}\/>/);
- assert.match(page,/<CreatorTable creators=\{legacy\.subscribers\.filter\(c=>c\.rank!==null\)\.slice\(0,100\)\}\/>/);
- assert.match(page,/\/api\/v1\/rankings\?sort=\$\{metric\}&limit=100/);
- assert.match(unified,/const rows=\(platform==='all'\?rankings\[metric\]:remote\?\?\[\]\)\.slice\(0,100\)/);
- assert.match(unified,/encodeURIComponent\(c.slug\)/);
- assert.match(page,/<SnapshotStatus publishedAt=\{status\?\.data\.publishedAt\}\/>/);
- assert.match(snapshot,/Last updated:/);
+test('the three wheel sorts and the 100 rows are the published scopes',()=>{
+ const lib=read('src/lib/public.ts');
+ for(const s of ['wheel.subscribed','wheel.viewed','wheel.active'])assert.ok(lib.includes(s),s);
+ assert.match(read('src/components/PublishedTop100.tsx'),/\/api\/v1\/public\/rankings\//);
 });
-
+test('top 100 offers wheel sorts, both platforms and categories, and checks the scope before fetching',()=>{
+ const t=read('src/components/PublishedTop100.tsx');
+ for(const s of ['wheel.subscribed','wheel.viewed','wheel.active','youtube.subscribed','instagram.followers','category.'])assert.ok(t.includes(s),s);
+ assert.match(t,/SCOPE_PATTERN\.test\(scope\)/);
+});
 test('cinematic style stays under the shared UI stylesheet',()=>{
  assert.match(page,/className="pci-cinematic pci-explore-hero"/);
  assert.match(page,/className="pci-home-white"/);
  assert.match(entry,/premium-home\.css/);
  assert.ok(existsSync('packages/ui/src/styles/pci-reference-adaptation.css'));
- for(const source of [page,unified,legacyWheel]){
-  assert.doesNotMatch(source,/style=\{/);
-  assert.doesNotMatch(source,/<style\b/);
+ for(const f of ['src/app/page.tsx','src/components/PublishedWheel.tsx','src/components/PublishedRows.tsx','src/components/PublishedTop100.tsx','src/components/RankingTable.tsx']){
+  assert.doesNotMatch(read(f),/style=\{/,f);assert.doesNotMatch(read(f),/<style\b/,f);
  }
 });
-
-test('updated-at display uses the existing snapshot component',()=>{
- assert.match(page,/<SnapshotStatus publishedAt=/);
- assert.match(snapshot,/Last updated:/);
- assert.doesNotMatch(page,/placeholderViews|fabricatedMetrics/);
-});
+test('updated-at display uses the snapshot component',()=>{assert.match(snapshot,/Last updated:/);});

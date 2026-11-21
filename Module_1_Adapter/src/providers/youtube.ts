@@ -1,4 +1,5 @@
 import type { YoutubeChannel, YoutubeClient } from '../modules/youtube/client.js';
+import { pickAvatar } from './avatar.js';
 import { classifyProviderError, mapYoutubeStatistics, windowCount } from './map.js';
 import type { AccountRef, FetchResult, Provider } from './types.js';
 
@@ -37,6 +38,7 @@ export function makeYoutubeProvider(client: Client, now: () => Date = () => new 
           const base = mapYoutubeStatistics(ch);
           const result: FetchResult = { accountId: a.id, ...base, metrics: [...base.metrics] };
           if (ch && result.outcome === 'ok') {
+            const avatar = pickAvatar(ch.snippet?.thumbnails); if (avatar) result.avatarUrl = avatar;
             // Channel statistics are already safe in `result`; a failure here only loses posts_30d.
             try { const p = await postsLast30Days(client, ch, now().getTime()); result.metrics.push({ metric: 'posts_30d', value: p.value, accuracy: 'exact', ...(p.capped ? { capped: true } : {}) }); if (p.capped) result.detail = [result.detail, 'posts_capped'].filter(Boolean).join(','); }
             catch (e) { result.detail = [result.detail, `posts_unavailable:${classifyProviderError(e).detail}`].filter(Boolean).join(','); }

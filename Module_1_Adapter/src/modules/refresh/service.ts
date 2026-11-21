@@ -57,6 +57,7 @@ async function persist(runId: string, result: FetchResult, attempts: number, obs
     if (result.outcome === 'ok') for (const m of result.metrics)
       await c.query('INSERT INTO metric_observations(account_id,metric,value,accuracy,capped,observed_at,run_id) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (account_id,metric,run_id) DO NOTHING',
         [result.accountId, m.metric, m.value, m.accuracy, m.capped === true, observedAt.toISOString(), runId]);
+    if (result.outcome === 'ok' && result.avatarUrl) await c.query('UPDATE accounts SET avatar_url=$1 WHERE id=$2', [result.avatarUrl, result.accountId]);
     if (result.resolvedExternalId && String(alive.rows[0].external_id).startsWith('pending:')) {
       await c.query('SAVEPOINT resolve');
       try { await c.query("UPDATE accounts SET external_id=$1 WHERE id=$2 AND external_id LIKE 'pending:%'", [result.resolvedExternalId, result.accountId]); await c.query('RELEASE SAVEPOINT resolve'); }

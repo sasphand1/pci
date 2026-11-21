@@ -15,6 +15,11 @@ import {ensureObservationsSchema} from './lib/observations-schema.js';
 import {refreshAdminRoutes} from './modules/refresh/routes.js';
 import {ensurePublicationSchema} from './lib/publication-schema.js';
 import {publishAdminRoutes} from './modules/publish/routes.js';
+import {ensurePublicSchema} from './lib/public-schema.js';
+import {publicRankingRoutes} from './modules/public/routes.js';
+import {docsRoutes} from './modules/public/docs.js';
+import {shadowAdminRoutes} from './modules/public/shadow-routes.js';
+import {legacyGate} from './modules/public/legacy-gate.js';
 import {startScheduler,type SchedulerHandle} from './modules/sync/scheduler.js';
 import { pool } from './lib/db.js';
 import { redis, ensureRedis } from './lib/redis.js';
@@ -75,6 +80,10 @@ export function makeApp() {
     await pool.query('SELECT 1');await redis.ping();
     res.json({status:'ready'});
   }));
+  // PCI_ZIP_4: the public site reads only published rankings. Old ranking endpoints answer 410 unless PCI_LEGACY_PUBLIC=true.
+  app.use('/api/v1',legacyGate());
+  app.use(docsRoutes);
+  app.use('/api/v1/public',publicRankingRoutes);
   app.use('/api/v1',publicRoutes);
   app.use('/api/v1',unifiedPublicRoutes);
   app.use('/api/v1',instagramPublicRoutes);
@@ -86,6 +95,7 @@ export function makeApp() {
   app.use('/api/v1/admin',bucketAdminRoutes);
   app.use('/api/v1/admin',refreshAdminRoutes);
   app.use('/api/v1/admin',publishAdminRoutes);
+  app.use('/api/v1/admin',shadowAdminRoutes);
   app.use('/api/v1/admin',unifiedAdminRoutes);
   app.use('/api/v1/admin',instagramAdminRoutes);
   app.use('/api/v1/admin',crossAdminRoutes);
@@ -143,6 +153,7 @@ async function main(){
         }
         try {
           await ensurePublicationSchema();
+          await ensurePublicSchema();
           logger.info('Publication schema verified');
         } catch(err) {
           logger.error({err},'Publication schema verification failed');

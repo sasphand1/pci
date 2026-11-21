@@ -29,3 +29,15 @@ Full TypeScript build, all DB integration tests (`npm run test:db`, concurrency 
 
 ## Navigation
 Bucket and Pipeline replace the old creator, unified, Instagram, sync and ranking entries. Old page files remain until the cutover in Zip 4.
+
+## Commit exactly these files
+`git add -u` skips new files and `git add -A` picks up every leftover script. This adds exactly what is in the zip (change the path if needed):
+```powershell
+cd "C:\Users\sasph\Documents\PCI_Clean"
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zip = "$HOME\Downloads\PCI_Zip3_Publish_And_Console.zip"
+$files = [IO.Compression.ZipFile]::OpenRead($zip).Entries | Where-Object { $_.Name } | ForEach-Object { $_.FullName }
+git add -- $files
+git diff --cached --name-only
+```
+Check the list, then `git commit -m "PCI Zip 3: publish and console"` and `git push origin main`.
