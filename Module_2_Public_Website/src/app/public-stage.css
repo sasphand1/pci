@@ -1,4 +1,4 @@
-﻿/* Landing screen only: dark cinematic header + stadium hero */
+/* Landing screen only: dark cinematic header + stadium hero */
 .site-shell{
   --gold:#E7B95C;
   --gold-soft:#F3D48A;
@@ -336,7 +336,7 @@
   --cc:15.1cqw;
   --cch:21.6cqw;
   --gap:.9cqw;
-  --shift:calc((var(--cw) + var(--gap))/2);
+  --shift:0px;
   --s1:calc(var(--cc)/2 + var(--cw)/2 + var(--gap));
   --s2:calc(var(--s1) + var(--cw) + var(--gap));
   --s3:calc(var(--s2) + var(--cw) + var(--gap));
