@@ -122,3 +122,21 @@ test('Module 1 provides what the new screens call',()=>{
  const s=readFileSync(routes,'utf8');assert.ok(s.includes("'/overview'"));
  const auth=readFileSync(join(root,'../Module_1_Adapter/src/modules/auth/auth.ts'),'utf8');assert.match(auth,/x-pci-background/);assert.match(auth,/sessionInfo\(/);
 });
+
+test('deploy overlap: a quiet request refused by an older API retries once without the header; normal requests and real errors do not',async()=>{
+ const {api,isApiUpdating,ApiError}=await load('src/lib/api.ts');
+ const seen=[];const real=globalThis.fetch;
+ const ok=()=>new Response(JSON.stringify({data:{fine:true}}),{status:200});
+ try{
+  // Old API: the browser blocks the request because of the extra header (a network failure), but allows it without.
+  globalThis.fetch=async(_u,i)=>{seen.push(Boolean(i.headers['X-Pci-Background']));if(i.headers['X-Pci-Background'])throw new TypeError('Failed to fetch');return ok();};
+  assert.deepEqual(await api('/x',{background:true}),{fine:true});assert.deepEqual(seen,[true,false]);
+  // A normal (non-quiet) request is never retried: a real outage must show.
+  seen.length=0;globalThis.fetch=async(_u,i)=>{seen.push(false);throw new TypeError('Failed to fetch');};
+  await assert.rejects(api('/x'),e=>e instanceof ApiError&&e.code==='NETWORK');assert.equal(seen.length,1);
+  // A quiet request that fails on the server (not the network) is not retried.
+  seen.length=0;globalThis.fetch=async()=>{seen.push(true);return new Response(JSON.stringify({error:{code:'X',message:'bad'}}),{status:500});};
+  await assert.rejects(api('/x',{background:true}),e=>e.status===500);assert.equal(seen.length,1);
+ }finally{globalThis.fetch=real;}
+ assert.equal(isApiUpdating(new ApiError(404,'NOT_FOUND','x')),true);assert.equal(isApiUpdating(new ApiError(500,'X','x')),false);assert.equal(isApiUpdating(new Error('x')),false);
+});

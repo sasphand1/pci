@@ -22,11 +22,13 @@ test.beforeEach(clean);
 test.after(async () => { await clean(); await pool.end(); });
 
 let seq = 0;
-async function person(followers: number | null, o: { category?: boolean; ageHours?: number } = {}) {
+async function person(followers: number | null, o: { category?: boolean; ageHours?: number; allMetrics?: boolean } = {}) {
   const k = ++seq;
   const id = (await query('INSERT INTO people(slug,display_name) VALUES($1,$2) RETURNING id', [`ov-${k}`, `Overview ${k}`])).rows[0].id;
   const acc = (await query(`INSERT INTO accounts(person_id,platform,external_id,handle) VALUES($1,'youtube',$2,$3) RETURNING id`, [id, 'UC' + String(k).padStart(22, '0'), `ov${k}`])).rows[0].id;
   if (followers !== null) await query(`INSERT INTO metric_observations(account_id,metric,value,observed_at) VALUES($1,'followers',$2, now() - make_interval(hours => $3))`, [acc, followers, o.ageHours ?? 1]);
+  // Every ranking (subscribed, viewed, active) needs fresh data or its coverage gate rightly rejects it and raises an alert.
+  if (o.allMetrics) for (const m of ['views', 'posts_30d']) await query(`INSERT INTO metric_observations(account_id,metric,value,observed_at) VALUES($1,$2,$3, now() - interval '1 hour')`, [acc, m, (followers ?? 0) + 1]);
   if (o.category) await query(`INSERT INTO person_categories(person_id,category_id,is_primary) SELECT $1,id,true FROM categories WHERE slug='gamer'`, [id]);
   return { id, acc };
 }
@@ -49,7 +51,7 @@ test('counts, audience from fresh readings only, and attention items', async () 
 });
 
 test('a live worker heartbeat and a published ranking make the system ok; the top list is the published wheel', async () => {
-  for (let i = 1; i <= 7; i++) await person(i * 1000, { category: true });
+  for (let i = 1; i <= 7; i++) await person(i * 1000, { category: true, allMetrics: true });
   await query(`INSERT INTO worker_heartbeats(worker_id,kind,last_seen_at) VALUES('t','worker',now())`);
   const b = await buildBatch('manual', null); await publishBatch(b.batchId, null);
   const o = await getOverview();
@@ -58,7 +60,7 @@ test('a live worker heartbeat and a published ranking make the system ok; the to
 });
 
 test('hard delete leaves no trace in the overview', async () => {
-  const keep = await person(5000, { category: true }); const gone = await person(8000, { category: true });
+  const keep = await person(5000, { category: true, allMetrics: true }); const gone = await person(8000, { category: true, allMetrics: true });
   await query(`INSERT INTO worker_heartbeats(worker_id,kind,last_seen_at) VALUES('t','worker',now())`);
   const b = await buildBatch('manual', null); await publishBatch(b.batchId, null);
   await deletePerson(gone.id, null);

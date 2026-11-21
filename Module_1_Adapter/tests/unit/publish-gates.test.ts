@@ -90,3 +90,8 @@ test('D3 helper: removing a person closes slots, recomputes ranks, keeps everyon
   assert.deepEqual(gone.entries.map(e => [e.personId, e.slot, e.rank]), [['p1', 1, 1], ['p4', 2, 1], ['p2', 3, 3], ['p6', 4, 4]]);
   assert.equal(gone.population, r.population - 1);
 });
+
+test('a ranking with data for nobody (0 of 7) is rejected: every wheel needs its own fresh metric, or an alert is raised', () => {
+  const none = clone(good()); none.population = 7; none.covered = 0; none.entries = []; none.unranked = [];
+  assert.ok(names(none).includes('coverage'));
+});

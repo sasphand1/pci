@@ -54,3 +54,8 @@ git commit -m "Glass management console, overview and session handling"
 git push
 ```
 Check `git status --short` shows only these files before you commit.
+
+## Hotfix notes (added after first CI run)
+- **Deploy overlap on Hostinger:** the two modules may finish deploying in any order. The panel now copes with an older API: a quiet (polling) request that the browser blocks because of the `X-Pci-Background` header repeats once without it, and a 404 from `/admin/overview` shows "Module 1 is still updating" instead of an error. The old API only lacks the idle timeout until it finishes deploying. Ordinary requests are never retried, so real outages still show.
+- **CI test fix:** the overview test's people only had follower numbers, so the Most Viewed and Most Active rankings failed their coverage gate and raised 2 alerts (correct behaviour). The test people now have all three metrics.
+- **`onClick={x.reload}` type error:** `reload` takes `unknown`, only `true` means quiet.

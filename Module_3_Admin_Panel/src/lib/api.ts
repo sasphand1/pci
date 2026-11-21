@@ -2,7 +2,8 @@ export const ADAPTER_API=(process.env.NEXT_PUBLIC_ADAPTER_API_URL || 'http://loc
 export const SESSION_EXPIRED_EVENT='pci:session-expired';
 export class ApiError extends Error {constructor(public status:number, public code:string,message:string){super(message);this.name='ApiError';}}
 export type ApiResponse<T>={data:T;meta?:Record<string,unknown>};
-export async function api<T>(path:string, options:{method?:'GET'|'POST'|'PUT'|'PATCH'|'DELETE';body?:unknown;csrf?:string;timeoutMs?:number;background?:boolean}={}):Promise<T>{
+type ApiOptions={method?:'GET'|'POST'|'PUT'|'PATCH'|'DELETE';body?:unknown;csrf?:string;timeoutMs?:number;background?:boolean};
+async function call<T>(path:string, options:ApiOptions):Promise<T>{
  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),options.timeoutMs??15000);
  try{
    const headers:Record<string,string>={Accept:'application/json'};
@@ -26,6 +27,14 @@ export async function api<T>(path:string, options:{method?:'GET'|'POST'|'PUT'|'P
  }catch(e){if(e instanceof ApiError)throw e;if(e instanceof Error&&e.name==='AbortError')throw new ApiError(408,'TIMEOUT','Request timed out.');throw new ApiError(0,'NETWORK','Cannot reach Module 1. Check port 8080, allowed ADMIN_ORIGIN and backend health.');}
  finally{clearTimeout(timer);}
 }
+/** During a deploy the panel can be newer than the API. An older API refuses the X-Pci-Background header at the browser's
+ * pre-flight check, which looks like a network failure. A quiet request then repeats once without the header: the old API
+ * simply treats it as normal activity, so nothing breaks while the two modules finish deploying. */
+export async function api<T>(path:string, options:ApiOptions={}):Promise<T>{
+ try{return await call<T>(path,options);}
+ catch(e){if(options.background&&e instanceof ApiError&&e.code==='NETWORK')return call<T>(path,{...options,background:false});throw e;}
+}
+export const isApiUpdating=(e:unknown)=>e instanceof ApiError&&e.status===404;
 export function errorText(e:unknown){
  if(e instanceof ApiError){
   if(e.code==='RATE_LIMIT'||e.status===429)return 'Too many attempts. Wait a few minutes and try again.';

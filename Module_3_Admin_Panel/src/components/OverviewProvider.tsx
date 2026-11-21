@@ -1,6 +1,6 @@
 'use client';
 import {createContext,useCallback,useContext,useEffect,useMemo,useState,type ReactNode} from 'react';
-import {api,errorText} from '@/lib/api';
+import {api,errorText,isApiUpdating} from '@/lib/api';
 import {useAuth} from './AuthProvider';
 import type {Overview} from '@/lib/types';
 
@@ -16,7 +16,7 @@ export function OverviewProvider({children}:{children:ReactNode}){
   if(!signedIn)return;
   if(!background)setLoading(true);
   try{setData(await api<Overview>('/admin/overview',{background}));setError('');}
-  catch(e){setError(errorText(e));}
+  catch(e){setError(isApiUpdating(e)?'Module 1 is still updating. This page refreshes itself every minute.':errorText(e));}
   finally{setLoading(false);}
  },[signedIn]);
  useEffect(()=>{
