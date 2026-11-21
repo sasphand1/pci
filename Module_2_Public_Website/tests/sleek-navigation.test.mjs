@@ -9,7 +9,7 @@ const css=read('packages/ui/src/styles/sleek-rails.css');
 const entry=read('packages/ui/src/styles.css');
 
 test('compact navigation keeps the homepage and rankings accessible',()=>{
- assert.match(head,/label:'Explore'/);assert.match(head,/label:'Top 100'/);assert.match(head,/label:'Live Wall'/);
+ assert.match(head,/label:'Home'/);assert.match(head,/label:'Rankings'/);assert.match(head,/label:'Creators'/);
  assert.match(page,/id="top-100"/);
  assert.match(css,/grid-template-columns:minmax\(0,1fr\) auto minmax\(0,1fr\)/);
 });
