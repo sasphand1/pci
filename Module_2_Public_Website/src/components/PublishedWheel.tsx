@@ -140,13 +140,6 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
           ))}
         </div>
 
-        <div className="stage-regions" aria-hidden="true">
-          <span><i/>PUNJAB <b>LAHORE</b></span>
-          <span><i/>SINDH <b>KARACHI</b></span>
-          <span><i/>KHYBER PAKHTUNKHWA <b>PESHAWAR</b></span>
-          <span><i/>BALOCHISTAN <b>QUETTA</b></span>
-        </div>
-
         <div
           className="stage-wheel"
           onPointerDown={pointerDown}
@@ -263,3 +256,4 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
     </section>
   );
 }
+
