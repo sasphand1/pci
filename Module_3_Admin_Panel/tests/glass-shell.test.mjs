@@ -82,9 +82,37 @@ test('sign-in clears the password and code after a failure, and shows why a sess
  const s=read('src/components/AdminShell.tsx');assert.match(s,/setPassword\(''\);setTotp\(''\)/);assert.match(s,/\{notice&&<Notice tone="warning">/);
 });
 
-test('error messages are human: rate limit, CSRF, role and server errors',async()=>{
- const s=read('src/lib/api.ts');
- for(const t of ['Too many attempts','Reload the page and try again','Your role cannot do this','The server had a problem'])assert.ok(s.includes(t),t);
+test('error messages are human and say where a server problem comes from',async()=>{
+ const {errorText,ApiError}=await load('src/lib/api.ts');
+ assert.match(errorText(new ApiError(429,'RATE_LIMIT','x')),/Too many attempts/);
+ assert.match(errorText(new ApiError(403,'FORBIDDEN','x')),/Your role cannot do this/);
+ assert.match(errorText(new ApiError(400,'CSRF','x')),/Reload the page/);
+ // Hosting gateway page (not Module 1's JSON): says Module 1 is not answering and gives the status
+ const gw=errorText(new ApiError(503,'BAD_RESPONSE','x'));assert.match(gw,/Module 1 is not answering \(HTTP 503\)/);assert.match(gw,/runtime log/);
+ // Module 1's own failure: code and a short reference to search for in its log
+ const own=errorText(new ApiError(500,'INTERNAL_ERROR','x','abcdef12-0000-0000'));assert.match(own,/INTERNAL_ERROR/);assert.match(own,/Reference abcdef12\./);assert.match(own,/PCI_API_FAILURE/);
+ assert.ok(!own.includes('0000-0000'),'only a short reference is shown');
+});
+
+test('bulk add: a chosen category fills only lines without one; comments and blanks stay; select-all on a page',async()=>{
+ const {applyDefaultNiche,togglePage}=await load('src/lib/bulk.ts');
+ const out=applyDefaultNiche('@a\n@b, Bee\n@c, Cee, tech\n# note\n\n@d, Dee, ','gamer').split('\n');
+ assert.deepEqual(out,['@a, , gamer','@b, Bee, gamer','@c, Cee, tech','# note','','@d, Dee, gamer']);
+ assert.equal(applyDefaultNiche('@a',''),'@a');
+ assert.deepEqual(togglePage(['x','1'],['1','2'],true),['x','1','2']);assert.deepEqual(togglePage(['x','1','2'],['1','2'],false),['x']);
+ const page=read('src/app/bucket/page.tsx');
+ assert.match(page,/applyDefaultNiche\(bulk,bulkNiche\)/);assert.match(page,/Category for every line without one/);
+ assert.match(page,/window\.confirm\(`Set \$\{cat\.label\}/);assert.match(page,/canEdit=identity\?\.role==='owner'\|\|identity\?\.role==='editor'/);
+});
+
+test('compact Microsoft-style scale and a visible menu: rules beat the public-site stylesheet',()=>{
+ const css=read('src/app/glass.css');
+ // @pci/ui sets .admin-nav a{color:#d4e0e8} for a dark sidebar; our glass sidebar is pale, so the menu rule must be at least as specific.
+ assert.match(css,/\.admin-nav a\.nav-link\{[^}]*color:var\(--ink\)/);
+ assert.match(css,/body\{font-size:14px/);
+ assert.match(css,/\.admin-app \.btn,\.admin-login-shell \.btn\{min-height:32px/);
+ assert.match(css,/\.admin-app h1,\.admin-login-shell h1\{font-size:1\.45rem/);
+ assert.ok(!/fonts\.googleapis|@import url/.test(css),'no external fonts (CSP)');
 });
 
 test('Overview page reads the live endpoint, confirms before running the pipeline, and hides actions from moderators',()=>{

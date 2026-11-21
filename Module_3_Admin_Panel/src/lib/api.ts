@@ -1,6 +1,6 @@
 export const ADAPTER_API=(process.env.NEXT_PUBLIC_ADAPTER_API_URL || 'http://localhost:8080').replace(/\/$/,'');
 export const SESSION_EXPIRED_EVENT='pci:session-expired';
-export class ApiError extends Error {constructor(public status:number, public code:string,message:string){super(message);this.name='ApiError';}}
+export class ApiError extends Error {constructor(public status:number, public code:string,message:string,public requestId:string=''){super(message);this.name='ApiError';}}
 export type ApiResponse<T>={data:T;meta?:Record<string,unknown>};
 type ApiOptions={method?:'GET'|'POST'|'PUT'|'PATCH'|'DELETE';body?:unknown;csrf?:string;timeoutMs?:number;background?:boolean};
 async function call<T>(path:string, options:ApiOptions):Promise<T>{
@@ -15,12 +15,13 @@ async function call<T>(path:string, options:ApiOptions):Promise<T>{
      body:options.body===undefined?undefined:JSON.stringify(options.body),signal:controller.signal
    });
    const raw=await response.text();let payload:unknown=null;
-   try{payload=raw?JSON.parse(raw):null;}catch{throw new ApiError(response.status,'BAD_RESPONSE','Backend returned an invalid response.');}
+   const headerId=response.headers.get('X-Request-ID')??'';
+   try{payload=raw?JSON.parse(raw):null;}catch{throw new ApiError(response.status,'BAD_RESPONSE','Backend returned an invalid response.',headerId);}
    if(!response.ok){
       if(response.status===401&&path!=='/admin/auth/login'&&path!=='/admin/auth/me'&&typeof window!=='undefined')window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
       const record=payload&&typeof payload==='object'?payload as Record<string,unknown>:{};
       const err=record.error&&typeof record.error==='object'?record.error as Record<string,unknown>:record;
-      throw new ApiError(response.status,String(err.code||'HTTP_ERROR'),String(err.message||`Request failed (HTTP ${response.status}).`));
+      throw new ApiError(response.status,String(err.code||'HTTP_ERROR'),String(err.message||`Request failed (HTTP ${response.status}).`),String(record.requestId||headerId));
    }
    if(!payload || typeof payload!=='object' || !('data' in payload))throw new ApiError(response.status,'BAD_RESPONSE','Backend response lacks a data object.');
    return (payload as ApiResponse<T>).data;
@@ -35,12 +36,20 @@ export async function api<T>(path:string, options:ApiOptions={}):Promise<T>{
  catch(e){if(options.background&&e instanceof ApiError&&e.code==='NETWORK')return call<T>(path,{...options,background:false});throw e;}
 }
 export const isApiUpdating=(e:unknown)=>e instanceof ApiError&&e.status===404;
+/** 502/503/504, or any 5xx page that is not Module 1's own JSON, comes from the hosting gateway: Module 1 is down, starting or crashed.
+ * Module 1's own failure is JSON with a code and a reference that is also written to its runtime log as [PCI_API_FAILURE]. */
+export function serverProblemText(e:ApiError){
+  const fromModule1=e.code!=='BAD_RESPONSE';
+  const ref=e.requestId?` Reference ${e.requestId.slice(0,8)}.`:'';
+  if(!fromModule1)return `Module 1 is not answering (HTTP ${e.status}). It may be restarting after a deploy: wait a minute and reload. If it stays, open the Module 1 runtime log on Hostinger.${ref}`;
+  return `Module 1 reported an internal error (HTTP ${e.status}, ${e.code}).${ref} Search the Module 1 runtime log for PCI_API_FAILURE and this reference.`;
+}
 export function errorText(e:unknown){
  if(e instanceof ApiError){
   if(e.code==='RATE_LIMIT'||e.status===429)return 'Too many attempts. Wait a few minutes and try again.';
   if(e.code==='CSRF')return 'Your session changed. Reload the page and try again.';
   if(e.status===403)return 'Your role cannot do this.';
-  if(e.status>=500)return 'The server had a problem. Try again in a moment. If it keeps happening, check System health.';
+  if(e.status>=500)return serverProblemText(e);
  }
  return e instanceof Error?e.message:'An unexpected error occurred.';
 }

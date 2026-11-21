@@ -13,10 +13,11 @@ export function errorMiddleware(err:unknown,req:Request,res:Response,_next:NextF
   if (err instanceof ZodError) return res.status(400).json({error:{code:'VALIDATION_ERROR',message:'Invalid request',details:err.flatten().fieldErrors},requestId:rid});
   if (err instanceof HttpError) return res.status(err.status).json({error:{code:err.code,message:err.message},requestId:rid});
   // PCI_DIAGNOSTIC_V1: plain text survives Hostinger log UI, without SQL values or secrets.
-  const failure=err&&typeof err==='object'?err as {code?:unknown;name?:unknown}:{};
+  const failure=err&&typeof err==='object'?err as {code?:unknown;name?:unknown;table?:unknown;column?:unknown;constraint?:unknown;routine?:unknown}:{};
+  const meta=(k:'table'|'column'|'constraint'|'routine')=>typeof failure[k]==='string'&&/^[A-Za-z0-9_]{1,63}$/.test(failure[k] as string)?String(failure[k]):'-';
   const sqlstate=typeof failure.code==='string' && /^[A-Z0-9]{5}$/.test(failure.code)?failure.code:'none';
   const kind=typeof failure.name==='string'?failure.name:'UnknownError';
-  console.error(`[PCI_API_FAILURE] method=${req.method} path=${req.path} requestId=${rid} type=${kind} sqlstate=${sqlstate}`);
+  console.error(`[PCI_API_FAILURE] method=${req.method} path=${req.path} requestId=${rid} type=${kind} sqlstate=${sqlstate} table=${meta('table')} column=${meta('column')} constraint=${meta('constraint')} routine=${meta('routine')}`);
   logger.error({err,requestId:rid,route:req.path},'request failed');
   return res.status(500).json({error:{code:'INTERNAL_ERROR',message:'Internal server error'},requestId:rid});
 }

@@ -59,3 +59,9 @@ Check `git status --short` shows only these files before you commit.
 - **Deploy overlap on Hostinger:** the two modules may finish deploying in any order. The panel now copes with an older API: a quiet (polling) request that the browser blocks because of the `X-Pci-Background` header repeats once without it, and a 404 from `/admin/overview` shows "Module 1 is still updating" instead of an error. The old API only lacks the idle timeout until it finishes deploying. Ordinary requests are never retried, so real outages still show.
 - **CI test fix:** the overview test's people only had follower numbers, so the Most Viewed and Most Active rankings failed their coverage gate and raised 2 alerts (correct behaviour). The test people now have all three metrics.
 - **`onClick={x.reload}` type error:** `reload` takes `unknown`, only `true` means quiet.
+
+## Update 3: compact look, bulk category, clearer errors
+- **Look:** Microsoft-style scale: 14px text, 32px buttons and fields, 6 to 8px corners, Segoe UI Variable font. Menu text was invisible because the shared stylesheet sets light grey menu text for a dark sidebar; the glass sidebar is pale. Menu rules now win and the active item has an accent bar.
+- **Bulk add:** "Category for every line without one". A niche typed on a line always wins.
+- **People table:** select all on the page, "Set category" for the selected people (owner and editor), delete stays owner only.
+- **Errors:** a 5xx from the hosting gateway reads "Module 1 is not answering (HTTP 503)". Module 1's own failure shows its code and a short reference. Module 1's log line `[PCI_API_FAILURE]` now also carries table, column, constraint and routine names (never values).
