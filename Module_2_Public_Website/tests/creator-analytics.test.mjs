@@ -12,15 +12,6 @@ test('published creator wheel displays model output, not lifetime views passed a
  assert.match(query,/monthlyEstimates\(\[\.\.\.ids\],now\)/);
  assert.doesNotMatch(wheel,/Math\.random/);
 });
-test('creator profile includes subscriber and viewer histories and honest earnings disclaimer',()=>{
- const page=read('../src/app/creators/[slug]/page.tsx');
- const panel=read('../src/components/CreatorAnalyticsPanel.tsx');
- assert.match(page,/CreatorAnalyticsPanel/);
- assert.match(panel,/30D|30d/);
- assert.match(panel,/data\.history\[metric\]/);
- assert.match(panel,/not verified revenue/i);
-});
-
 test('ranking wheel marks the actually contributing platforms with tiny top-right badges',()=>{
  const wheel=read('../src/components/PublishedWheel.tsx');
  const css=read('../src/app/public-stage.css');

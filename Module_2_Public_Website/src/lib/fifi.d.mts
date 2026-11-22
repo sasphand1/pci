@@ -1,0 +1,18 @@
+import type {PubRanking, PubRows, PubStatus} from './public';
+export const BRAND: Readonly<{wordmark: string; name: string; product: string; tagline: string}>;
+export const NAV: ReadonlyArray<Readonly<{label: string; href: string}>>;
+export function isActivePath(pathname: string | null | undefined, href: string): boolean;
+export function growthPercent(current: number | null | undefined, gain: number | null | undefined): number | null;
+export function formatPercent(value: number | null | undefined): string;
+export function formatCompact(value: number | string | null | undefined): string;
+export function initials(name: string | null | undefined): string;
+export function platformLabel(platform: string): string;
+export type CreatorCard = {slug: string; name: string; avatarUrl: string | null; rank: number; tied: boolean; value: number | null; unit: string; category: string | null; platforms: string[]};
+export function toCreatorCards(ranking: PubRanking | null | undefined, limit?: number): CreatorCard[];
+export type HomeStat = {key: string; label: string; value: number | null};
+export function buildHomeStats(input: {status: PubStatus | null | undefined; rows: PubRows | null | undefined; eventsUpcoming: number | null | undefined}): HomeStat[];
+export function topMovers(items: {slug: string; name: string; subscribers: number | null; analytics?: {growth?: {subscribers?: Record<string, number | null>}} | null}[], window?: '24h' | '7d' | '30d', limit?: number): {slug: string; name: string; gain: number | null; pct: number | null}[];
+export function freshness(publishedAt: string | null | undefined, now?: number, staleHours?: number): {state: 'fresh' | 'stale' | 'unknown'; label: string};
+export function safeSearchParam(value: unknown, max?: number): string;
+export function safePage(value: string | undefined): number;
+export function safeSlug(value: unknown): string;

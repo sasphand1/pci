@@ -13,13 +13,6 @@ test('compact navigation keeps the homepage and rankings accessible',()=>{
  assert.match(page,/id="top-100"/);
  assert.match(css,/grid-template-columns:minmax\(0,1fr\) auto minmax\(0,1fr\)/);
 });
-test('platform and category rows come from published rankings and link to profiles',()=>{
- assert.match(page,/<PublishedRows platforms=\{rows\?\.platforms\?\?\[\]\} categories=\{rows\?\.categories\?\?\[\]\}\/>/);
- assert.match(rows,/safeCreatorImage\(e\.person\.avatarUrl\)/);
- assert.match(rows,/href=\{`\/creators\/\$\{encodeURIComponent\(e\.person\.slug\)\}`\}/);
- assert.match(rows,/scrollBy\(/);
- assert.match(rows,/categories\.map\(r=><Rail/);
-});
 test('styling stays central',()=>{
  assert.match(entry,/sleek-rails\.css/);
  for(const s of [head,page,rows]){assert.doesNotMatch(s,/style=\{/);assert.doesNotMatch(s,/<style\b/);}

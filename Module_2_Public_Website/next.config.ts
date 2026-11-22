@@ -10,7 +10,7 @@ const nextConfig: NextConfig={
     {key:'X-Permitted-Cross-Domain-Policies',value:'none'}
   ]},
   {source:'/:path(events-radar.html|satellite-map.html)',headers:[{key:'X-Robots-Tag',value:'noindex, follow'}]},
-  {source:'/:path(account|wall|verify-email|reset-password)',headers:[{key:'X-Robots-Tag',value:'noindex, nofollow'}]},
+  {source:'/:path(account|wall|verify-email|reset-password|admin)',headers:[{key:'X-Robots-Tag',value:'noindex, nofollow'}]},
   {source:'/(.*)',headers:[{key:'Strict-Transport-Security',value:'max-age=31536000'}]}];}
 };
 export default nextConfig;

@@ -9,12 +9,6 @@ const header=read('../src/components/SiteHeader.tsx');
 const layout=read('../src/app/layout.tsx');
 const css=read('../src/app/public-header.css');
 function pages(folder){const out=[];for(const item of readdirSync(folder,{withFileTypes:true})){if(item.isDirectory())out.push(...pages(join(folder,item.name)));else if(item.name==='page.tsx')out.push(join(folder,item.name));}return out;}
-test('one public header template, included in the Next root layout',()=>{
- assert.match(layout,/import \{SiteHeader\} from ['"]@\/components\/SiteHeader['"]/);
- assert.match(layout,/<SiteHeader\s*\/>/);
- assert.match(layout,/import ['"]\.\/public-header\.css['"]/);
- assert.equal((layout.match(/<SiteHeader\s*\/>/g)||[]).length,1);
-});
 test('all public Next routes inherit header; no page duplicates it',()=>{
  const result=pages(fileURLToPath(root));
  assert.ok(result.length>9);

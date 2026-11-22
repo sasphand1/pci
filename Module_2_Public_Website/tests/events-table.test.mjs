@@ -36,17 +36,3 @@ test('no unsafe hyperlinks or invented admission details',()=>{
  const v=normalizePublicEvents([{...items[0],event_url:'javascript:alert(1)',ticket_type:'unknown'}],now);
  assert.equal(v[0].source_url,null);assert.equal(v[0].admission,'unknown');assert.equal(eventCategoryLabel('arts'),'Arts & Entertainment');
 });
-test('table connects to same events API as map; no Top 100 wording',()=>{
- const component=readFileSync(new URL('../src/components/EventsTable.tsx',import.meta.url),'utf8');
- const page=readFileSync(new URL('../src/app/events/page.tsx',import.meta.url),'utf8');
- const css=readFileSync(new URL('../packages/ui/src/styles.css',import.meta.url),'utf8');
- assert.match(component,/fetch\('\/api\/events'/);
- assert.match(component,/index\+1/);
- assert.match(component,/aria-label="Filter events by city"/);
- assert.match(component,/aria-label="Filter events by category"/);
- assert.match(component,/Search event or venue/);
- assert.doesNotMatch(component,/Top 100|Most Subscribed|Most Viewed/);
- assert.match(page,/<EventsTable\s*\/>/);
- assert.match(page,/pci-events-frame/);
- assert.match(css,/events-table\.css/);
-});

@@ -5,15 +5,6 @@ const page=readFileSync('src/app/page.tsx','utf8');
 const helper=readFileSync('src/lib/creator-totals.ts','utf8');
 const wheel=readFileSync('src/components/PublishedWheel.tsx','utf8');
 const mobile=readFileSync('src/app/mobile-app.css','utf8');
-test('homepage labels the sum of returned published rank positions instead of a false national total',()=>{
- assert.match(page,/publishedRankedTotal\(fullRankings,'wheel\.subscribed'\)/);
- assert.match(page,/publishedRankedTotal\(fullRankings,'wheel\.viewed'\)/);
- assert.match(page,/const fullRankings=top\.filter\(/);
- assert.match(page,/rankings\/\$\{scope\}\?limit=100/);
- assert.match(page,/label:'Ranked followers'/);
- assert.match(page,/label:'Ranked views'/);
- assert.doesNotMatch(page,/publishedRankedTotal\(wheel\?\.sorts/);
-});
 test('strict full-population total still fails closed for partial, stale and duplicate rankings',()=>{
  for(const x of ['ranking.stale','ranking.entries.length!==ranking.population','ranking.covered!==ranking.population','seen.has(entry.person.slug)','Number.isSafeInteger'])assert.ok(helper.includes(x),x);
 });

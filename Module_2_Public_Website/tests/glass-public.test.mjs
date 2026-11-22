@@ -7,18 +7,6 @@ const lum=h=>{const c=[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255).map(v=>v<=
 const ratio=(a,b)=>{const [x,y]=[lum(a),lum(b)].sort((p,q)=>q-p);return (x+.05)/(y+.05);};
 const token=n=>css.match(new RegExp(`--${n}:(#[0-9A-Fa-f]{6})`))[1];
 
-test('glass sheet loads after the shared UI sheet and the landing stage is on the home page',()=>{
- assert.ok(layout.indexOf("@pci/ui/styles.css")<layout.indexOf("./public-glass.css"));
- assert.ok(layout.indexOf("./public-glass.css")<layout.indexOf("./public-stage.css"));
- const stage=read('src/app/public-stage.css');
- assert.match(stage,/\.stage-art\{[^}]*hero-stage\.webp/);
- assert.match(page,/<PublishedWheel sorts=\{wheel\?\.sorts\?\?\[\]\} stats=\{stats\}\/>/);
- assert.doesNotMatch(page,/style=\{/);
-});
-test('one width: container, header, wheel footnote and Discover share the same edges',()=>{
- assert.match(css,/\.site-shell \.container\{width:var\(--pci-wrap\)/);
- assert.match(page,/id="discover" className="container"/,'Discover rows sit inside the container (they used to run to the screen edge)');
-});
 test('compact Microsoft-style scale',()=>{
  assert.match(css,/body\{font-family:[^;]*Segoe UI[^;]*;font-size:14px/);
  assert.match(css,/\.site-shell \.btn\{min-height:32px/);

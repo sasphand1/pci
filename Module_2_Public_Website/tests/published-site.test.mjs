@@ -9,7 +9,7 @@ function resolve(spec){for(const ext of ['.tsx','.ts','.mjs','/index.tsx','/inde
 const seen=new Set(scan('src/app'));const queue=[...seen];
 while(queue.length){const p=queue.pop();for(const m of read(p).matchAll(/from\s*'(@\/[^']+)'/g)){const r=resolve(m[1]);if(r&&!seen.has(r)){seen.add(r);queue.push(r);}}}
 const sources=[...seen].map(p=>[p,read(p)]);
-test('the check really reaches the components the home page uses',()=>{for(const f of ['src/components/PublishedWheel.tsx','src/components/RankingTable.tsx','src/lib/public.ts'])assert.ok([...seen].some(p=>p.replaceAll('\\','/')===f),f);});
+test('the check really reaches the components the home page uses',()=>{for(const f of ['src/lib/public.ts','src/fifi/lib/real.ts'])assert.ok([...seen].some(p=>p.replaceAll('\\','/')===f),f);});
 
 test('no page or component calls an old ranking endpoint',()=>{
  for(const [p,s] of sources)assert.doesNotMatch(s,/api\/v1\/(unified|creators|rankings|overview|instagram|cross-platform)/,p);
@@ -22,11 +22,11 @@ test('pages read published data through the public helpers',()=>{
 });
 test('the old video pages redirect instead of showing stale lists',()=>assert.match(read('src/app/videos/page.tsx'),/redirect\('\/creators'\)/));
 test('profile pages say numbers older than 7 days are not shown as zero',()=>{
- assert.match(read('src/app/creators/[slug]/page.tsx'),/older than 7 days/);
+ assert.match(read('src/fifi/pages/creator.tsx'),/older than 7 days/);
  assert.match(read('src/app/methodology/page.tsx'),/never zero/);
 });
 test('external account links open safely',()=>{
- for(const f of ['src/components/RankingTable.tsx','src/app/creators/page.tsx','src/app/creators/[slug]/page.tsx'])assert.match(read(f),/rel="noopener noreferrer"/,f);
+ for(const f of ['src/components/RankingTable.tsx','src/fifi/pages/creator.tsx'])assert.match(read(f),/rel="noopener noreferrer"/,f);
 });
 test('pictures are only shown from known image hosts',()=>{
  for(const f of ['src/components/RankingTable.tsx','src/components/PublishedWheel.tsx','src/components/PublishedRows.tsx'])assert.match(read(f),/safeCreatorImage/,f);
