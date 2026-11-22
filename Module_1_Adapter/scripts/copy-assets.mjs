@@ -1,3 +1,15 @@
+﻿import { mkdirSync as pciMkdirSync, copyFileSync as pciCopyFileSync } from 'node:fs';
+
+// PCI_INSTAGRAM_DIAGNOSTICS_ASSET_FIX
+pciMkdirSync(
+  new URL('../dist/modules/bucket/', import.meta.url),
+  { recursive: true }
+);
+
+pciCopyFileSync(
+  new URL('../src/modules/bucket/instagram-error.mjs', import.meta.url),
+  new URL('../dist/modules/bucket/instagram-error.mjs', import.meta.url)
+);
 import { cp, mkdir, access, readFile, readdir } from 'node:fs/promises';
 import { dirname, extname, resolve } from 'node:path';
 
@@ -51,3 +63,4 @@ for(const file of await listCodeFiles('dist')){
 }
 if(missing.length)throw new Error(`Unresolved production .mjs imports:\n${missing.join('\n')}`);
 console.info('Verified production .mjs dependencies');
+
