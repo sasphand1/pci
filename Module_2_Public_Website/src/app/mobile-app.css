@@ -38,7 +38,7 @@
   .site-shell .pci-site-header .pci-header-actions { min-width: 0; gap: 5px; }
   .site-shell .pci-site-header .pci-header-cta,
   .site-shell .pci-site-header .pci-header-ghost { display: none; }
-  .site-shell .pci-site-header .pci-nav-toggle { min-width: 44px; min-height: 40px; padding-inline: 9px; border-radius: 6px; }
+  .site-shell .pci-site-header .pci-nav-toggle { min-width: 44px; min-height: 40px; padding-inline: 12px; border-radius: 999px; }
   .site-shell .pci-site-header .pci-primary-nav { padding-inline: 14px; }
   .site-shell .pci-site-header .pci-primary-nav a { min-height: 44px; display: flex; align-items: center; }
   .site-shell .ranking-wheel-heading { padding-inline: 14px; }
