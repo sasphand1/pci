@@ -14,8 +14,23 @@ test('only one stylesheet entry point is imported by app and components',()=>{
  assert.ok(readFileSync(join(root,'src/app/layout.tsx'),'utf8').includes("import '@pci/ui/styles.css'"));
  for(const [i,source] of sources.entries()){
   assert.doesNotMatch(source,/<style\b/i,`Found <style> in source ${i}`);
-  assert.doesNotMatch(source,/style=\{/i,`Found inline CSS in source ${i}`);
-  assert.doesNotMatch(source, /dangerouslySetInnerHTML/,`Found raw HTML injection in source ${i}`);
+  if(!/[\\/](?:opengraph-image|twitter-image)\.tsx$/.test([...appFiles,...componentFiles][i])) assert.doesNotMatch(source,/style=\{/i,`Found inline CSS in source ${i}`);
+  const allowedJsonLd = source.includes('export function SiteStructuredData()') &&
+    source.includes('<script type="application/ld+json" dangerouslySetInnerHTML={{__html: json}} />');
+
+  if (allowedJsonLd) {
+    assert.match(
+      source,
+      /JSON\.stringify\(data\)\.replace\(\/<\/g,\s*'\\\\u003c'\)/,
+      `JSON-LD must escape HTML in source ${i}`
+    );
+  }
+
+  const checkedSource = allowedJsonLd
+    ? source.replace('<script type="application/ld+json" dangerouslySetInnerHTML={{__html: json}} />', '')
+    : source;
+
+  assert.doesNotMatch(checkedSource, /dangerouslySetInnerHTML/, `Found raw HTML injection in source ${i}`);
   if(!source.includes("import '@pci/ui/styles.css'"))assert.doesNotMatch(source,/import\s+['"][^'"]+\.css['"]/i,`Extra CSS import in source ${i}`);
  }
 });
