@@ -2,6 +2,7 @@
 // nowhere else in the bucket, so the rest is testable with a fake Resolver.
 import { YoutubeClient } from '../youtube/client.js';
 import { fetchInstagramProfile } from '../instagram/service.js';
+import { classifyInstagramLookupError } from './instagram-error.mjs';
 import type { Parsed, Platform } from './parse.js';
 import type { ResolveResult } from './classify.js';
 
@@ -24,9 +25,7 @@ export function makeResolver(): Resolver {
         if (!p.id || !/^[0-9]+$/.test(p.id)) return { ok: false, reason: 'unsupported_account_type' };
         return { ok: true, externalId: p.id, handle: parsed.value };
       } catch (e) {
-        const m = e instanceof Error ? e.message : '';
-        // The Graph API gives one error for "missing", "private" and "not a professional account".
-        if (m.startsWith('INSTAGRAM_GRAPH_ERROR_')) return { ok: false, reason: 'unsupported_account_type' };
+        if (platform === 'instagram') return { ok: false, ...classifyInstagramLookupError(e) };
         return { ok: false, reason: 'resolve_error' };
       }
     }

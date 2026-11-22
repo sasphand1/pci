@@ -5,7 +5,7 @@ import { normalizeName, parseAccountInput, slugify, uniqueSlug, type BulkRow, ty
 
 export type ResolveResult =
   | { ok: true; externalId: string; handle: string; displayName?: string }
-  | { ok: false; reason: 'not_found' | 'unsupported_account_type' | 'resolve_error' };
+  | { ok: false; reason: 'not_found' | 'unsupported_account_type' | 'resolve_error'; hint?: string };
 
 export type RowStatus =
   | 'resolved' | 'invalid_format' | 'not_found' | 'unsupported_account_type' | 'resolve_error'
@@ -55,7 +55,7 @@ export function classifyBatch(rows: BulkRow[], ctx: ClassifyContext): RowResult[
 
     const res = ctx.resolutions.get(row.index);
     if (!res) { out.push(fail('resolve_error', 'Could not be checked, try again')); continue; }
-    if (!res.ok) { out.push(fail(res.reason, RESOLVE_HINTS[res.reason])); continue; }
+    if (!res.ok) { out.push(fail(res.reason, res.hint ?? RESOLVE_HINTS[res.reason])); continue; }
 
     const key = `${ctx.platform}:${res.externalId}`;
     const withIds = { ...base, externalId: res.externalId, handle: res.handle };
