@@ -12,7 +12,7 @@ export async function readAndParse(source:EventSource){
   const value=normalizeEvent(event,source);
   if(!value.ok){rejected++;continue;}
   const item=value.item;
-  if(seen.has(item.external_id))continue;
+  if (!item) continue;  if(seen.has(item.external_id))continue;
   seen.add(item.external_id);accepted.push(item);
  }
  return {accepted,rejected,inspected:raw.length};

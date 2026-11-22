@@ -32,7 +32,7 @@ function SourceEditor({source,onSave,onCancel,busy}:{source:Partial<Source>;onSa
   <div className="pci-ef-actions"><button disabled={busy} className="btn btn-primary">{busy?'Saving…':'Save source'}</button><button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button></div>
  </form>;
 }
-function EventReview({item,busy,onReview}:{item:EventItem;busy:boolean;onReview:(item:EventItem,approved:boolean,latitude:number|null,longitude:number|null)=>Promise<void>}){
+function EventReview({item,busy,onReview}:{item:EventItem;busy:boolean;onReview:(item:EventItem,approved:boolean,latitude:number|null,longitude:number|null)=>Promise<void|boolean>}){
  const [lat,setLat]=useState(item.latitude===null?'':String(item.latitude));const [lng,setLng]=useState(item.longitude===null?'':String(item.longitude));
  useEffect(()=>{setLat(item.latitude===null?'':String(item.latitude));setLng(item.longitude===null?'':String(item.longitude));},[item.latitude,item.longitude]);
  const apply=(approved:boolean)=>onReview(item,approved,lat.trim()===''?null:Number(lat),lng.trim()===''?null:Number(lng));
