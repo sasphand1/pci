@@ -35,15 +35,23 @@ function PlatformChips({entry}:{entry:PubEntry}){
 }
 
 function glanceTone(label:string,index:number){
-  const key = label.toLowerCase();
-  if (key.includes('tracked')) return 'tracked';
-  if (key.includes('youtube')) return 'youtube';
-  if (key.includes('instagram')) return 'instagram';
-  if (key.includes('view')) return 'views';
-  if (key.includes('sub')) return 'subscribers';
-  return index % 2 === 0 ? 'tracked' : 'views';
+  const key=label.toLowerCase();
+  if(key.includes('youtube')) return 'youtube';
+  if(key.includes('instagram')) return 'instagram';
+  if(key.includes('view')) return 'views';
+  if(key.includes('sub')) return 'subscribers';
+  if(key.includes('published')) return 'published';
+  return 'tracked';
 }
 
+function GlanceIcon({tone}:{tone:string}){
+  if(tone==='youtube') return <svg viewBox="0 0 24 24" aria-hidden="true" className="glance-icon glance-icon-youtube"><path fill="#FF0033" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.6 3.6 12 3.6 12 3.6s-7.6 0-9.4.5A3 3 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.8.5 9.4.5 9.4.5s7.6 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8Z"/><path fill="#fff" d="m9.6 16.3 6.3-4.3-6.3-4.3z"/></svg>;
+  if(tone==='instagram') return <svg viewBox="0 0 24 24" aria-hidden="true" className="glance-icon glance-icon-instagram"><defs><linearGradient id="pci-instagram-glance" x1="0" x2="1" y1="1" y2="0"><stop offset="0" stopColor="#FEDA75"/><stop offset=".3" stopColor="#FA7E1E"/><stop offset=".56" stopColor="#D62976"/><stop offset=".78" stopColor="#962FBF"/><stop offset="1" stopColor="#4F5BD5"/></linearGradient></defs><rect x="1" y="1" width="22" height="22" rx="6" fill="url(#pci-instagram-glance)"/><rect x="5.5" y="5.5" width="13" height="13" rx="4" fill="none" stroke="white" strokeWidth="1.8"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="white" strokeWidth="1.8"/><circle cx="17.5" cy="6.7" r="1.2" fill="white"/></svg>;
+  if(tone==='views') return <svg viewBox="0 0 24 24" aria-hidden="true" className="glance-icon"><path d="M2 12s3.7-6 10-6 10 6 10 6-3.7 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="3"/></svg>;
+  if(tone==='subscribers') return <svg viewBox="0 0 24 24" aria-hidden="true" className="glance-icon"><path d="m3 17 6-6 4 4 8-9M15 6h6v6"/></svg>;
+  if(tone==='published') return <svg viewBox="0 0 24 24" aria-hidden="true" className="glance-icon"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6M17 2v6M3 10h18"/></svg>;
+  return <svg viewBox="0 0 24 24" aria-hidden="true" className="glance-icon"><circle cx="9" cy="8" r="3"/><path d="M2 21v-2a7 7 0 0 1 14 0v2M16 6a3 3 0 0 1 0 6M18 15a5 5 0 0 1 4 5v1"/></svg>;
+}
 export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:string;value:string}[]}){
   const [sort,setSort]=useState(0);
   const [active,setActive]=useState(0);
@@ -231,13 +239,12 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
         </div>
 
         {stats && stats.length > 0 && (
-          <div className="stage-glance">
-            <strong>At a glance</strong>
+          <div className="stage-glance" aria-label="Creator statistics">
+            <strong className="stage-glance-title"><svg viewBox="0 0 24 24" className="glance-icon" aria-hidden="true"><path d="M4 13v7M10 9v11M16 4v16M22 11v9"/></svg>At a glance</strong>
             {stats.slice(0,5).map((s,i)=>(
-              <span key={s.label} data-tone={glanceTone(s.label,i)}>
-                <i aria-hidden="true"/>
-                <em>{s.value}</em>
-                <small>{s.label}</small>
+              <span className="stage-glance-stat" key={s.label} data-tone={glanceTone(s.label,i)}>
+                <GlanceIcon tone={glanceTone(s.label,i)}/>
+                <span className="stage-glance-data"><em>{s.value}</em><small>{s.label}</small></span>
               </span>
             ))}
           </div>
