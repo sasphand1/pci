@@ -181,7 +181,7 @@
   inset:0;
   background:
     linear-gradient(180deg,rgba(2,9,13,.12),rgba(2,9,13,.28)),
-    url('/images/hero-stage.png') center top / 100% auto no-repeat;
+    url('/images/hero-stage.webp') center top / 100% auto no-repeat;
 }
 .stage-vignette{
   position:absolute;

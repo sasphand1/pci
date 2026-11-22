@@ -50,6 +50,8 @@ export function makeApp() {
     crossOriginResourcePolicy: {policy:'cross-origin'},
     referrerPolicy: {policy:'no-referrer'}
   }));
+  // The API is for the PCI websites, not for search results: keep every API URL out of Google.
+  app.use((_req, res, next) => { res.setHeader('X-Robots-Tag', 'noindex, nofollow'); next(); });
   const origins = new Set([config.PUBLIC_ORIGIN,config.ADMIN_ORIGIN]);
   app.use(cors((req,callback)=>{
     // Public satellite reads may be consumed by external Pakistan-focused applications.

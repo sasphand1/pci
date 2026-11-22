@@ -11,7 +11,7 @@ test('glass sheet loads after the shared UI sheet and the landing stage is on th
  assert.ok(layout.indexOf("@pci/ui/styles.css")<layout.indexOf("./public-glass.css"));
  assert.ok(layout.indexOf("./public-glass.css")<layout.indexOf("./public-stage.css"));
  const stage=read('src/app/public-stage.css');
- assert.match(stage,/\.stage-art\{[^}]*hero-stage\.png/);
+ assert.match(stage,/\.stage-art\{[^}]*hero-stage\.webp/);
  assert.match(page,/<PublishedWheel sorts=\{wheel\?\.sorts\?\?\[\]\} stats=\{stats\}\/>/);
  assert.doesNotMatch(page,/style=\{/);
 });
