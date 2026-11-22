@@ -145,72 +145,63 @@ body{font-family:'Segoe UI Variable Text','Segoe UI Variable','Segoe UI',system-
  .site-shell .pci-home-white{padding:var(--sp-5) 0}
 }
 
-
-
-/* PCI footer: preserve the established deep-teal palette and site typography. */
-.site-shell .pci-corporate-footer .footer-grid {
-  grid-template-columns: minmax(0, 1.75fr) minmax(0, .85fr) minmax(0, .8fr) minmax(0, 1.45fr);
-  column-gap: clamp(20px, 3.2vw, 44px);
-  row-gap: 28px;
-  padding: 32px 0 30px;
-  align-items: start;
-}
-.site-shell .pci-corporate-footer .footer-grid > * { min-width: 0; }
-.site-shell .pci-corporate-footer h3 {
+/* PCI panel footer: scoped; does not change the header or other teams' screens. */
+.site-shell .pci-panel-footer {
+  background: #0b2a2a;
+  color: #e9f2ed;
   font-family: inherit;
-  font-size: .88rem;
-  font-weight: 650;
-  line-height: 1.3;
-  letter-spacing: 0;
-  margin: 0 0 13px;
+  font-size: .875rem;
+  margin-top: var(--sp-6);
 }
-.site-shell .pci-corporate-footer .pci-footer-column > a,
-.site-shell .pci-corporate-footer .pci-footer-contact {
-  display: block;
-  width: fit-content;
-  max-width: 100%;
-  padding: 0;
-  margin: 0 0 9px;
-  font-size: .8rem;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
+.site-shell .pci-panel-footer .pci-panel-footer-inner {
+  padding-top: clamp(28px, 3.4vw, 48px);
+  padding-bottom: 24px;
 }
-.site-shell .pci-corporate-footer .pci-footer-intro p,
-.site-shell .pci-corporate-footer .pci-footer-company p {
-  max-width: 330px;
-  margin: 0 0 12px;
-  font-size: .8rem;
-  line-height: 1.6;
-}
-.site-shell .pci-corporate-footer .pci-footer-intro .pci-footer-disclaimer {
-  font-size: .73rem;
-  opacity: .84;
-  margin-top: 14px;
-}
-.site-shell .pci-corporate-footer .pci-footer-bottom-inner {
-  display: flex;
+.site-shell .pci-panel-footer .pci-footer-hero {
+  display: grid;
+  grid-template-columns: minmax(220px, .94fr) minmax(0, 1.7fr);
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px 24px;
+  gap: clamp(24px, 3.5vw, 54px);
+  padding: 4px 4px 30px;
 }
-.site-shell .pci-corporate-footer .footer-bottom { padding: 15px 0; }
-.site-shell .pci-corporate-footer .footer-bottom a { display: inline; padding: 0; color: inherit; font-weight: 600; }
-.site-shell .pci-corporate-footer a:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
-@media (max-width: 950px) {
-  .site-shell .pci-corporate-footer .footer-grid {
-    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-    gap: 26px 32px;
-  }
-  .site-shell .pci-corporate-footer .footer-grid > :first-child { grid-column: auto; }
+.site-shell .pci-panel-footer .pci-footer-identity {display: flex;align-items:center;gap:14px;min-width:0}
+.site-shell .pci-panel-footer .pci-footer-identity strong {font-size:clamp(1.1rem,1.65vw,1.5rem);line-height:1.14;letter-spacing:-.015em;color:#fff;font-weight:700}
+.site-shell .pci-panel-footer .pci-footer-brand-mark {width:48px;height:48px;flex:none;display:grid;place-items:center;background:linear-gradient(145deg,#0ed8b5,#087a66);color:#06332d;clip-path:polygon(0 0,70% 0,100% 18%,100% 78%,48% 78%,48% 55%,78% 55%,78% 35%,35% 35%,35% 100%,0 100%)}
+.site-shell .pci-panel-footer .pci-footer-brand-mark span {position:absolute;opacity:0}
+.site-shell .pci-panel-footer .pci-footer-hero p {margin:0;padding-left:clamp(18px,2.4vw,36px);border-left:1px solid rgba(200,232,216,.3);color:#d5e2da;max-width:640px;font-size:clamp(.84rem,1vw,1rem);line-height:1.55}
+.site-shell .pci-panel-footer .pci-footer-cards {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:16px}
+.site-shell .pci-panel-footer .pci-footer-panel {min-width:0;border:1px solid rgba(92,194,157,.26);border-radius:19px;padding:24px clamp(18px,2.2vw,30px);background:linear-gradient(145deg,rgba(24,88,76,.28),rgba(3,35,34,.28));box-shadow:none}
+.site-shell .pci-panel-footer .pci-footer-panel h3 {display:flex;align-items:center;gap:12px;margin:0 0 20px;font-size:1rem;font-weight:650;color:#fff;line-height:1.35;letter-spacing:0}
+.site-shell .pci-panel-footer .pci-footer-panel h3 svg {flex:none;color:#a9e8bb;width:23px;height:23px}
+.site-shell .pci-panel-footer .pci-footer-links {display:flex;flex-direction:column;align-items:flex-start;gap:9px}
+.site-shell .pci-panel-footer .pci-footer-links a {display:block;padding:0;color:#e2eee6;font-size:.85rem;line-height:1.45;text-decoration:none}
+.site-shell .pci-panel-footer a:hover {color:#b5f3c3}
+.site-shell .pci-panel-footer .pci-footer-rackelto p {margin:0 0 24px;color:#c7d8cd;font-size:.84rem;line-height:1.5}
+.site-shell .pci-panel-footer .pci-footer-socials {display:flex;flex-wrap:wrap;gap:12px;margin:0 0 18px}
+.site-shell .pci-panel-footer .pci-footer-socials a,.site-shell .pci-panel-footer .pci-footer-social-placeholder {height:48px;width:48px;display:grid;place-items:center;padding:0;border-radius:13px;border:1px solid rgba(124,220,171,.3);color:#a8ebbd;background:rgba(0,36,33,.28)}
+.site-shell .pci-panel-footer .pci-footer-socials a:hover {background:rgba(60,160,109,.2);border-color:rgba(160,242,192,.64);color:#ecfff2}
+.site-shell .pci-panel-footer .pci-footer-location {display:block;color:#c5d6cb;font-size:.8rem}
+.site-shell .pci-panel-footer .pci-footer-legal {display:flex;flex-wrap:wrap;align-items:center;gap:8px 0;border:1px solid rgba(92,194,157,.26);border-radius:17px;background:rgba(16,83,72,.25);padding:15px 20px}
+.site-shell .pci-panel-footer .pci-footer-legal a {display:inline-flex;align-items:center;gap:10px;min-height:30px;padding:2px 22px;color:#e1ece5;font-size:.82rem;line-height:1.4;text-decoration:none;border-right:1px solid rgba(189,231,208,.25)}
+.site-shell .pci-panel-footer .pci-footer-legal a:first-child {padding-left:0}
+.site-shell .pci-panel-footer .pci-footer-legal a:last-child {border-right:0}
+.site-shell .pci-panel-footer .pci-footer-legal svg {color:#d3eadd;flex:none}
+.site-shell .pci-panel-footer .pci-footer-fineprint {display:flex;align-items:center;justify-content:space-between;gap:14px 28px;flex-wrap:wrap;border-top:1px solid rgba(196,230,207,.2);margin-top:24px;padding-top:20px;color:#bfcfc3;font-size:.78rem}
+.site-shell .pci-panel-footer .pci-footer-fineprint a {display:inline;padding:0;color:#a4eea8;font-weight:650;text-decoration:none}
+.site-shell .pci-panel-footer .pci-footer-disclaimer {max-width:none;margin:12px 0 0;color:#a8bbb0;font-size:.72rem;line-height:1.5}
+.site-shell .pci-panel-footer a:focus-visible {outline:2px solid #a4eea8;outline-offset:4px;border-radius:4px}
+@media(max-width:900px) {
+  .site-shell .pci-panel-footer .pci-footer-hero {grid-template-columns:1fr;gap:14px}
+  .site-shell .pci-panel-footer .pci-footer-hero p {border-left:0;padding-left:0}
+  .site-shell .pci-panel-footer .pci-footer-cards {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .site-shell .pci-panel-footer .pci-footer-rackelto {grid-column:1/-1}
 }
-@media (max-width: 560px) {
-  .site-shell .pci-corporate-footer .footer-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 24px 20px;
-    padding: 28px 0;
-  }
-  .site-shell .pci-corporate-footer .pci-footer-intro,
-  .site-shell .pci-corporate-footer .pci-footer-company { grid-column: 1 / -1; }
-  .site-shell .pci-corporate-footer .pci-footer-bottom-inner { align-items: flex-start; flex-direction: column; }
+@media(max-width:580px) {
+  .site-shell .pci-panel-footer .pci-footer-cards {grid-template-columns:1fr;gap:12px}
+  .site-shell .pci-panel-footer .pci-footer-rackelto {grid-column:auto}
+  .site-shell .pci-panel-footer .pci-footer-panel {padding:20px}
+  .site-shell .pci-panel-footer .pci-footer-panel h3 {margin-bottom:14px}
+  .site-shell .pci-panel-footer .pci-footer-legal {padding:12px;gap:4px}
+  .site-shell .pci-panel-footer .pci-footer-legal a {padding:6px 12px;border:0;width:50%}
+  .site-shell .pci-panel-footer .pci-footer-fineprint {align-items:flex-start;flex-direction:column}
 }

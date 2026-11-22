@@ -1,0 +1,5 @@
+import type {Metadata} from 'next';
+import Link from 'next/link';
+import {PageHeading} from '@pci/ui';
+export const metadata:Metadata = {title:'Data & content licensing'};
+export default function LicensePage(){return <div className="container"><PageHeading eyebrow="Information" title="Data & content licensing"/><article className="card readable"><h2>Third-party source data</h2><p>Pakistan Creator Index presents information gathered from third-party public data sources. The availability of data on this platform does not transfer ownership or grant a new license to the underlying source material.</p><h2>Use and attribution</h2><p>Use of YouTube statistics, satellite observations, and other third-party information remains subject to the relevant providers&apos; terms, attribution requirements and applicable rights. See our <Link href="/methodology">methodology</Link> for source information.</p><h2>Platform content</h2><p>Unless separately stated, this page does not grant permission to redistribute the PCI website&apos;s original design, software or editorial content. For licensing questions, <Link href="/contact">contact us</Link>.</p></article></div>}
