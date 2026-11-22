@@ -342,7 +342,7 @@
   --s3:calc(var(--s2) + var(--cw) + var(--gap));
   --s4:calc(var(--s3) + var(--cw) + var(--gap));
   position:relative;
-  margin-top:14px;
+  margin-top:84px;
   height:calc(var(--cch) + 5.5cqw);
   touch-action:pan-y;
   user-select:none;
