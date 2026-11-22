@@ -1,4 +1,4 @@
-import { safeAvatarUrl } from './avatar.js';
+import { inspectProfileAvatar } from './avatar.js';
 // Pure mapping from provider API payloads to results. No network, no config: unit-tested with fixtures.
 import type { FetchResult, MetricValue } from './types.js';
 
@@ -67,7 +67,9 @@ export function mapInstagram(body: IgBody | null, httpStatus: number, username: 
     if (capped) detail = 'posts_capped';
   } else detail = 'media_unavailable';
   const id = typeof r.id === 'string' && /^[0-9]+$/.test(r.id) ? r.id : undefined;
-  return { outcome: 'ok', metrics, detail, resolvedExternalId: id, avatarUrl: safeAvatarUrl(r.profile_picture_url) ?? undefined };
+  const avatar = inspectProfileAvatar(r.profile_picture_url);
+  detail = [detail, avatar.issue].filter(Boolean).join(',') || undefined;
+  return { outcome: 'ok', metrics, detail, resolvedExternalId: id, avatarUrl: avatar.avatarUrl };
 }
 
 /** Turns a thrown error into a per-account outcome. Messages from our clients are codes, never secrets. */

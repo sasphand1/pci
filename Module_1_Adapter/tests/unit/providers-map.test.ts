@@ -41,7 +41,7 @@ test('Instagram: followers exact, posts counted in 30 days, id learned', () => {
 test('Instagram: page cap hit with every item inside the window is flagged capped; fewer than the cap is not', () => {
   const full = Array.from({ length: 50 }, (_, i) => ago(i * 0.1));
   const r = mapInstagram(body({}, full), 200, 'someone', NOW, 50);
-  assert.deepEqual(r.metrics[1], { metric: 'posts_30d', value: 50, accuracy: 'exact', capped: true }); assert.equal(r.detail, 'posts_capped');
+  assert.deepEqual(r.metrics[1], { metric: 'posts_30d', value: 50, accuracy: 'exact', capped: true }); assert.equal(r.detail, 'posts_capped,avatar_missing');
   assert.equal((mapInstagram(body({}, full.slice(0, 49)), 200, 'someone', NOW, 50).metrics[1] as any).capped, undefined);
   // 50 items but the 50th is older than 30 days: window fully covered, not capped
   assert.equal((mapInstagram(body({}, [...full.slice(0, 49), ago(45)]), 200, 'someone', NOW, 50).metrics[1] as any).capped, undefined);
@@ -60,7 +60,7 @@ test('Instagram: wrong username, missing or invalid followers are never turned i
 });
 test('Instagram: no media field means no posts metric, not zero', () => {
   const r = mapInstagram(body(), 200, 'someone', NOW, 50);
-  assert.deepEqual(r.metrics.map(m => m.metric), ['followers']); assert.equal(r.detail, 'media_unavailable');
+  assert.deepEqual(r.metrics.map(m => m.metric), ['followers']); assert.equal(r.detail, 'media_unavailable,avatar_missing');
 });
 test('errors are classified: quota and rate limits are retryable rate_limited; config problems are labelled; others are errors', () => {
   assert.equal(classifyProviderError(new Error('YOUTUBE_SOFT_QUOTA_LIMIT')).outcome, 'rate_limited');

@@ -13,6 +13,15 @@ export function safeAvatarUrl(url: unknown): string | null {
   } catch { return null; }
 }
 
+/** Shared avatar intake result for platform adapters. Never log the returned CDN URL:
+ * signed image links can contain credentials and may expire. A new provider
+ * (e.g. TikTok) must explicitly extend the host policy before enabling images. */
+export function inspectProfileAvatar(source: unknown): { avatarUrl?: string; issue?: 'avatar_missing' | 'avatar_rejected' } {
+  if (source === undefined || source === null || source === '') return { issue: 'avatar_missing' };
+  const avatarUrl = safeAvatarUrl(source);
+  return avatarUrl ? { avatarUrl } : { issue: 'avatar_rejected' };
+}
+
 /** Prefers a medium picture (about 240 px) and falls back to the others. */
 export function pickAvatar(thumbs: Record<string, { url?: string }> | undefined): string | null {
   if (!thumbs) return null;
