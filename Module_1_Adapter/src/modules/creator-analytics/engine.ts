@@ -70,6 +70,18 @@ export function estimateMonthlyEarnings(samples: ObservationPoint[], now = new D
   return {usd, measuredDays: Math.round(elapsedDays * 10) / 10, assumedRpmUsd: ASSUMED_RPM_USD, equivalent30DayViews};
 }
 
+/** A provisional, lower-bound model using views on new uploads ONLY.
+ * Because the uploads were published in the past 30 days, all their current
+ * cumulative views happened in that window. Older video views are excluded.
+ */
+export function estimateRecentUploadsFloor(views:number):MonthlyEstimate {
+  if(!Number.isSafeInteger(views)||views<0)return null;
+  const usd=Math.round(views/1000*ASSUMED_RPM_USD);
+  return Number.isSafeInteger(usd)?{
+    usd,measuredDays:30,assumedRpmUsd:ASSUMED_RPM_USD,equivalent30DayViews:views
+  }:null;
+}
+
 /** Requires a sample close to the requested lookback, not a fabricated data point. */
 export function gainAtPeriod(samples: ObservationPoint[], days: 1 | 7 | 30, now = new Date()): number | null {
   const all = validPoints(samples);

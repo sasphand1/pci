@@ -57,7 +57,7 @@ test('creator profile exposes video-age milestones, velocity, breakout and hones
 
 test('earning-status labels distinguish missing, stale, and pending data',async()=>{
  const {earningsStatusLabel}=await import('../src/lib/earnings-status.mjs');
- assert.equal(earningsStatusLabel('needs_history'),'Awaiting 24h');
+ assert.equal(earningsStatusLabel('needs_history'),'New tracking');
  assert.equal(earningsStatusLabel('no_view_data'),'No view data');
  assert.equal(earningsStatusLabel('stale'),'Data delayed');
  assert.equal(earningsStatusLabel('no_youtube'),'YT only');
@@ -67,4 +67,24 @@ test('earning-status labels distinguish missing, stale, and pending data',async(
  assert.match(wheel,/c\.person\.earningsStatus/);
  const backend=read('../../Module_1_Adapter/src/modules/creator-analytics/data.ts');
  assert.match(backend,/aggregateEarningsStatus/);
+});
+
+test('provisional earnings are explicitly distinguished from measured monthly growth',()=>{
+ const back=read('../../Module_1_Adapter/src/modules/creator-analytics/data.ts');
+ const front=read('../src/components/PublishedWheel.tsx');
+ const scheduler=read('../../Module_1_Adapter/src/modules/sync/scheduler.ts');
+ assert.match(back,/recentUploadFloors/);
+ assert.match(back,/published_at >= \$2::timestamptz - interval '30 days'/);
+ assert.match(back,/recent_uploads_floor/);
+ assert.match(front,/Est\. monthly\*/);
+ assert.match(front,/older uploads/);
+ assert.match(scheduler,/collectCreatorVideoSnapshots\(\)/);
+});
+
+test('partial creator video sample coverage remains retryable without invented history',()=>{
+ const data=read('../../Module_1_Adapter/src/modules/creator-analytics/data.ts');
+ const scheduler=read('../../Module_1_Adapter/src/modules/sync/scheduler.ts');
+ assert.match(data,/floors\.length/);
+ assert.match(scheduler,/pendingAccounts/);
+ assert.match(scheduler,/refreshCreatorVideoSamples/);
 });

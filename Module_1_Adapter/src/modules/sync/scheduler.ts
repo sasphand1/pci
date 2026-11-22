@@ -11,6 +11,7 @@ import {logger} from '../../lib/errors.js';
 import {recoverStalledRuns} from '../refresh/service.js';
 import {runRetention} from '../refresh/retention.js';
 import {startPipeline} from '../publish/pipeline.js';
+import {collectCreatorVideoSnapshots} from '../creator-analytics/videos.js';
 import {pruneRankRuns} from '../publish/service.js';
 import {cleanupRetention,enqueueSync,ensureFreshness,recoverStalledJobs,takeNextJob,performSync} from './service.js';
 
@@ -57,6 +58,23 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
  try{await query("DELETE FROM worker_heartbeats WHERE last_seen_at<now()-interval '7 days'");}catch{/* table may not exist yet */}
  await heartbeat();
  await freshness();
+ // Bootstrap the newly enabled video catalogue immediately after deployment,
+ // rather than requiring a full day to elapse before a provisional estimate exists.
+ // The database freshness check prevents repeated high-quota video collection on restarts.
+ async function refreshCreatorVideoSamples(){
+   try{
+     // Refresh when ANY tracked YouTube account has no recent sample, not merely
+     // when the entire catalogue is empty. Keeps partial failures visible/retryable.
+     const pending=await query<{missing:number}>(`SELECT count(*)::int AS missing FROM accounts a
+       WHERE a.platform='youtube' AND a.external_id ~ '^UC[A-Za-z0-9_-]{22}$'
+         AND NOT EXISTS(SELECT 1 FROM creator_video_catalogue v WHERE v.account_id=a.id
+           AND v.last_observed_at>now()-interval '20 hours')`);
+     if(!(Number(pending.rows[0]?.missing)>0))return;
+     const result=await collectCreatorVideoSnapshots();
+     logger.info({...result,pendingAccounts:pending.rows[0].missing},'Creator earnings video sample refresh');
+   }catch(err){logger.warn({err},'Creator video sample refresh unavailable');}
+ }
+ void refreshCreatorVideoSamples();
  logger.info({workerId,syncEnabled:syncOn()},'Scheduler started');
  if(!syncOn())logger.warn('YOUTUBE_SYNC_ENABLED is not true: queued syncs will NOT be processed');
 
@@ -82,6 +100,7 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
  tasks.push(cron.schedule('*/10 * * * *',()=>recoverStalledJobs().catch(e=>logger.error({err:e},'stalled job recovery failed'))));
  tasks.push(cron.schedule('*/10 * * * *',()=>recoverStalledRuns().catch(e=>logger.error({err:e},'stalled refresh recovery failed'))));
  tasks.push(cron.schedule('*/15 * * * *',()=>void freshness()));
+ tasks.push(cron.schedule('15 */6 * * *',()=>{void refreshCreatorVideoSamples();},{timezone:'Asia/Karachi'}));
  tasks.push(cron.schedule('30 4 * * *',()=>runRetention().then(r=>logger.info(r,'Observation retention done')).then(()=>pruneRankRuns()).catch(e=>logger.error({err:e},'observation retention failed')),{timezone:'Asia/Karachi'}));
  // PCI_ZIP_3: the daily pipeline (refresh, rank, publish) with no approval step. Set PCI_PIPELINE_DAILY=false to switch it off.
  tasks.push(cron.schedule('0 9 * * *',async()=>{

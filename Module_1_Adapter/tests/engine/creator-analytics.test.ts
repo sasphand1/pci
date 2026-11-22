@@ -75,3 +75,15 @@ test('no samples, not-yet-24h, and stale samples have distinct states',()=>{
   assert.equal(aggregateEarningsStatus(['ready','needs_history']),'needs_history');
   assert.equal(aggregateEarningsStatus(['ready','stale']),'stale');
 });
+
+import {estimateRecentUploadsFloor} from '../../src/modules/creator-analytics/engine.js';
+
+test('provisional model uses only real views from last 30-day uploads',()=>{
+  assert.deepEqual(estimateRecentUploadsFloor(1_000_000),{
+    usd:2125,measuredDays:30,assumedRpmUsd:2.125,equivalent30DayViews:1_000_000
+  });
+  assert.deepEqual(estimateRecentUploadsFloor(0),{
+    usd:0,measuredDays:30,assumedRpmUsd:2.125,equivalent30DayViews:0
+  });
+  for(const input of [-1,1.2,Number.NaN,Number.MAX_SAFE_INTEGER+1])assert.equal(estimateRecentUploadsFloor(input),null);
+});
