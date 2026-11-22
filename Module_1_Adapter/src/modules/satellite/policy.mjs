@@ -7,7 +7,12 @@ export const SATELLITE_MIN_INTERVAL_MINUTES = Object.freeze({
   gpm:360,
   sentinel1:1440,
   sentinel2:1440,
-  sentinel5p:1440
+  sentinel5p:1440,
+  usgs:60,
+  landsat:1440,
+  ecostress:1440,
+  smap:1440,
+  blackmarble:1440
 });
 export function minimumIntervalMinutes(id){
   const value=SATELLITE_MIN_INTERVAL_MINUTES[id];

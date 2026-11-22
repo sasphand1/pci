@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {PROVIDERS} from '../src/modules/satellite/catalog.mjs';
+import {usgsUrl,parseUsgs} from '../src/modules/satellite/feeds.mjs';
+import {minimumIntervalMinutes} from '../src/modules/satellite/policy.mjs';
+import {buildObservationBatch} from '../src/modules/satellite/bulk.mjs';
+const src=p=>readFileSync(new URL(p,import.meta.url),'utf8');
+test('USGS is supported and four raster providers fail closed',()=>{assert.equal(PROVIDERS.usgs.implemented,true);for(const id of ['landsat','ecostress','smap','blackmarble'])assert.equal(PROVIDERS[id].implemented,false);assert.equal(minimumIntervalMinutes('usgs'),60);});
+test('USGS upstream query is strictly constrained',()=>{const x=new URL(usgsUrl(new Date('2026-11-22T00:00:00Z')));assert.equal(x.hostname,'earthquake.usgs.gov');assert.equal(x.searchParams.get('minlongitude'),'60');assert.equal(x.searchParams.get('minmagnitude'),'2.5');assert.equal(x.searchParams.get('limit'),'200');});
+test('USGS parser accepts reported local earthquakes only, not invented alerts',()=>{const body={type:'FeatureCollection',features:[{type:'Feature',id:'us7000abc',geometry:{type:'Point',coordinates:[74,32,18]},properties:{mag:4.6,time:1795262400000,place:'Kashmir region',type:'earthquake',status:'automatic'}},{type:'Feature',id:'outside',geometry:{type:'Point',coordinates:[5,5,10]},properties:{mag:5,time:1795262400000,type:'earthquake'}}]};const out=parseUsgs(body);assert.equal(out.length,1);assert.equal(out[0].payload.magnitude,4.6);assert.equal(out[0].payload.status,'reported_earthquake_not_early_warning');assert.equal(out[0].payload.reviewed,false);});
+test('USGS rejects malformed, missing and fabricated data',()=>{assert.throws(()=>parseUsgs({}));assert.deepEqual(parseUsgs({type:'FeatureCollection',features:[{id:'x',geometry:{type:'Point',coordinates:[70,30,10]},properties:{mag:null,time:1795262400000,type:'earthquake'}}]}),[]);});
+test('Earthquake batch is parameterized',()=>{const b=buildObservationBatch('usgs',[{metric:'earthquake',location:'bounding-box',observationKey:'us7000abc',observedAt:'2026-11-20T00:00:00Z',payload:{magnitude:4.2}}]);assert.equal(b.values[0],'usgs');assert.match(b.sql,/ON CONFLICT DO NOTHING/);});
+test('new provider migration and runtime bootstrap are wired',()=>{assert.match(src('../database/migrations/099_earth_science_sources.sql'),/blackmarble/);assert.match(src('../src/lib/satellite-schema.ts'),/099_earth_science_sources.sql/);assert.match(src('../src/modules/satellite/routes.ts'),/earthquakes\/latest/);assert.match(src('../../Module_2_Public_Website/src/app/api/satellite/route.ts'),/earthquakes/);});

@@ -59,3 +59,27 @@ export function gpmWmsURL(day,templated=false){
  url.searchParams.set('BBOX',templated?'{bbox-epsg-3857}':'7347086,2753408,8595584,4001906');
  return templated?url.toString().replace('%7Bbbox-epsg-3857%7D','{bbox-epsg-3857}'):url.toString();
 }
+
+/** Official USGS FDSN catalog, bounded to Pakistan-region box. Reports arrive AFTER events. */
+export function usgsUrl(now=new Date()) {
+ const url=new URL('https://earthquake.usgs.gov/fdsnws/event/1/query');
+ const start=new Date(now.valueOf()-7*86400000).toISOString();
+ for(const [k,v] of Object.entries({format:'geojson',starttime:start,minlatitude:'23',maxlatitude:'38',minlongitude:'60',maxlongitude:'78',minmagnitude:'2.5',limit:'200',orderby:'time'}))url.searchParams.set(k,v);
+ return url.toString();
+}
+export function parseUsgs(body) {
+ if(!body||body.type!=='FeatureCollection'||!Array.isArray(body.features))throw Error('Malformed USGS GeoJSON');
+ const result=[];
+ for(const feature of body.features.slice(0,200)){
+  const id=feature?.id, prop=feature?.properties, geometry=feature?.geometry;
+  if(typeof id!=='string'||!/^[-_a-zA-Z0-9]{1,80}$/.test(id)||geometry?.type!=='Point'||!Array.isArray(geometry.coordinates))continue;
+  const [longitude,latitude,depthKm]=geometry.coordinates;
+  const magnitude=prop?.mag,time=prop?.time;
+  if(!inRegion(longitude,latitude)||typeof magnitude!=='number'||!Number.isFinite(magnitude)||magnitude<0||magnitude>10||typeof depthKm!=='number'||!Number.isFinite(depthKm)||depthKm< -5||depthKm>800||typeof time!=='number'||!Number.isFinite(time)||time<0||time>Date.now()+3600000)continue;
+  if(typeof prop?.type==='string'&&prop.type!=='earthquake')continue;
+  const observedAt=new Date(time).toISOString();
+  const place=typeof prop?.place==='string'?prop.place.slice(0,180):'Location not specified';
+  result.push({metric:'earthquake',location:'bounding-box',observationKey:id,observedAt,payload:{eventId:id,magnitude,latitude,longitude,depthKm,place,source:'USGS ComCat',reviewed:prop?.status==='reviewed',status:'reported_earthquake_not_early_warning',sourceUrl:'https://earthquake.usgs.gov/earthquakes/eventpage/'+id}});
+ }
+ return result;
+}

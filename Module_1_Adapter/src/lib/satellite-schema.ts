@@ -8,7 +8,7 @@ export async function ensureSatelliteSchema():Promise<void>{
   await client.query('SELECT pg_advisory_lock(710331)');locked=true;
   await client.query('BEGIN');
   try{
-   for(const version of ['096_satellite.sql','098_satellite_feeds.sql']){
+   for(const version of ['096_satellite.sql','098_satellite_feeds.sql','099_earth_science_sources.sql']){
     const filename=fileURLToPath(new URL(`../../database/migrations/${version}`,import.meta.url));
     await client.query(await readFile(filename,'utf8'));
    }

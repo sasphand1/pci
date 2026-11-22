@@ -5,14 +5,14 @@ import {query} from '../../lib/db.js';
 import {logger} from '../../lib/errors.js';
 import {redis} from '../../lib/redis.js';
 import {PROVIDERS,CITIES,parseFirmsCsv,parsePower} from './catalog.mjs';
-import {COPERNICUS_IDS,eonetUrl,copernicusUrl,parseEonet,parseCopernicus,gibsTileURL,gpmWmsURL} from './feeds.mjs';
+import {COPERNICUS_IDS,eonetUrl,copernicusUrl,parseEonet,parseCopernicus,gibsTileURL,gpmWmsURL,usgsUrl,parseUsgs} from './feeds.mjs';
 const allowed=PROVIDERS as Record<string,{label:string;implemented:boolean;auth:string|null;minMinutes:number;kind:string}>;
 type ProviderRow={id:string;enabled:boolean;refresh_minutes:number;last_attempt_at:string|null;last_success_at:string|null;last_error:string|null;refresh_requested_at:string|null};
 let running=false;
 export function configured(id:string){return id==='firms'?Boolean(process.env.NASA_FIRMS_MAP_KEY):Boolean(allowed[id]?.implemented);}
 export async function providers(){const rows=await query<ProviderRow>('SELECT id,enabled,refresh_minutes,last_attempt_at,last_success_at,last_error,refresh_requested_at FROM satellite.providers ORDER BY id');return rows.rows.map(p=>({...p,minRefreshMinutes:minimumIntervalMinutes(p.id),effectiveRefreshMinutes:effectiveIntervalMinutes(p.id,p.refresh_minutes),label:allowed[p.id]?.label,kind:allowed[p.id]?.kind,implemented:Boolean(allowed[p.id]?.implemented),configured:configured(p.id),authLocation:allowed[p.id]?.auth?'server environment':'not required'}));}
 async function fetchText(url:string){const response=await fetch(url,{signal:AbortSignal.timeout(20000),headers:{Accept:'text/csv, application/json'}});return readLimitedText(response);}
-async function storeBatch(provider:'firms'|'power'|'eonet'|'gibs'|'gpm'|'sentinel1'|'sentinel2'|'sentinel5p',observations:Array<{metric:'fire'|'rainfall'|'solar'|'natural_event'|'scene'|'imagery';location:string;observationKey:string;observedAt:string;payload:Record<string,unknown>}>) {
+async function storeBatch(provider:'firms'|'power'|'eonet'|'gibs'|'gpm'|'sentinel1'|'sentinel2'|'sentinel5p'|'usgs',observations:Array<{metric:'fire'|'rainfall'|'solar'|'natural_event'|'scene'|'imagery'|'earthquake';location:string;observationKey:string;observedAt:string;payload:Record<string,unknown>}>) {
  let written=0;
  for(let i=0;i<observations.length;i+=SATELLITE_BATCH_SIZE){
   const batch=buildObservationBatch(provider,observations.slice(i,i+SATELLITE_BATCH_SIZE));
@@ -66,6 +66,10 @@ async function ingestPower(){let inserted=0;let successfulCities=0;const failure
  return inserted;
 }
 
+async function ingestUsgs(){
+ const body=JSON.parse(await fetchText(usgsUrl()));
+ return storeBatch('usgs',parseUsgs(body));
+}
 async function ingestEonet(){
  const body=JSON.parse(await fetchText(eonetUrl()));
  return storeBatch('eonet',parseEonet(body));
@@ -106,7 +110,7 @@ async function ingestGpm(){
  throw Error('NASA GPM IMERG visualization unavailable for recent dates');
 }
 export async function ingest(id:string){if(!allowed[id]?.implemented)throw Error('Provider connector has not been implemented');if(!configured(id))throw Error('Provider server credentials are not configured');
- try{const count=id==='firms'?await ingestFirms():id==='power'?await ingestPower():id==='eonet'?await ingestEonet():id==='gibs'?await ingestGibs():id==='gpm'?await ingestGpm():id in COPERNICUS_IDS?await ingestCopernicus(id as 'sentinel1'|'sentinel2'|'sentinel5p'):(()=>{throw Error('Unsupported connector')})();await query('UPDATE satellite.providers SET last_attempt_at=now(),last_success_at=now(),refresh_requested_at=NULL,last_error=NULL WHERE id=$1',[id]);await redis.incr('satellite:epoch').catch(()=>undefined);return count;}
+ try{const count=id==='firms'?await ingestFirms():id==='power'?await ingestPower():id==='eonet'?await ingestEonet():id==='usgs'?await ingestUsgs():id==='gibs'?await ingestGibs():id==='gpm'?await ingestGpm():id in COPERNICUS_IDS?await ingestCopernicus(id as 'sentinel1'|'sentinel2'|'sentinel5p'):(()=>{throw Error('Unsupported connector')})();await query('UPDATE satellite.providers SET last_attempt_at=now(),last_success_at=now(),refresh_requested_at=NULL,last_error=NULL WHERE id=$1',[id]);await redis.incr('satellite:epoch').catch(()=>undefined);return count;}
  catch(e){const message=e instanceof Error?e.message:'Unknown provider error';await query('UPDATE satellite.providers SET last_attempt_at=now(),refresh_requested_at=NULL,last_error=$2 WHERE id=$1',[id,message.slice(0,200)]);throw e;}
 }
 // Database claim prevents concurrent API/worker refresh, even across processes.

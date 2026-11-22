@@ -10,3 +10,6 @@ export declare function parseCopernicus(body:unknown,id:'sentinel1'|'sentinel2'|
 export declare function gibsTileURL(day:string):string;
 export declare function gibsDisplayTemplate(day:string):string;
 export declare function gpmWmsURL(day:string,templated?:boolean):string;
+
+export declare function usgsUrl(now?:Date):string;
+export declare function parseUsgs(body:unknown):Array<{metric:'earthquake';location:string;observationKey:string;observedAt:string;payload:Record<string,unknown>}>;

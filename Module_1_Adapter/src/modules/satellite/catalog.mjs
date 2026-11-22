@@ -7,7 +7,12 @@ export const PROVIDERS = Object.freeze({
  gpm:{label:'NASA GPM IMERG (rainfall imagery only)',kind:'rainfall imagery',implemented:true,auth:null,minMinutes:360},
  sentinel1:{label:'Copernicus Sentinel-1 (scene catalogue)',kind:'scene',implemented:true,auth:null,minMinutes:1440},
  sentinel2:{label:'Copernicus Sentinel-2 (scene catalogue)',kind:'scene',implemented:true,auth:null,minMinutes:1440},
- sentinel5p:{label:'Copernicus Sentinel-5P (scene catalogue)',kind:'scene',implemented:true,auth:null,minMinutes:1440}
+ sentinel5p:{label:'Copernicus Sentinel-5P (scene catalogue)',kind:'scene',implemented:true,auth:null,minMinutes:1440},
+ usgs:{label:'USGS Earthquake Reports (not early warning)',kind:'earthquake',implemented:true,auth:null,minMinutes:60},
+ landsat:{label:'USGS Landsat Surface Temperature (analysis not implemented)',kind:'thermal raster',implemented:false,auth:null,minMinutes:1440},
+ ecostress:{label:'NASA ECOSTRESS Water Stress (analysis not implemented)',kind:'evapotranspiration raster',implemented:false,auth:'NASA_EARTHDATA_TOKEN',minMinutes:1440},
+ smap:{label:'NASA SMAP Regional Soil Moisture (analysis not implemented)',kind:'soil moisture raster',implemented:false,auth:'NASA_EARTHDATA_TOKEN',minMinutes:1440},
+ blackmarble:{label:'NASA VIIRS Black Marble Night Lights (analysis not implemented)',kind:'night lights raster',implemented:false,auth:'NASA_EARTHDATA_TOKEN',minMinutes:1440}
 });
 export const CITIES=Object.freeze({lahore:[74.3587,31.5204],karachi:[67.0099,24.8615],islamabad:[73.0479,33.6844],peshawar:[71.5249,34.0151],quetta:[67.0011,30.1798],multan:[71.5249,30.1575],faisalabad:[73.1350,31.4504],hyderabad:[68.3578,25.3960]});
 export function validateProvider(id){return Object.hasOwn(PROVIDERS,id)}
