@@ -8,3 +8,16 @@
 .satellite-feed-details{display:grid;gap:.8rem}.satellite-feed-details ul{margin:0;padding-left:1.5rem}.satellite-feed-details li{line-height:1.6}.satellite-scene-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.8rem}.satellite-scene-grid>div{display:grid;gap:.35rem;border:1px solid #c3d1db;border-radius:.7rem;padding:.85rem}.satellite-scene-grid h3{font-size:1rem;margin:0}.satellite-scene-grid small{opacity:.75}.satellite-map-frame{width:100%;height:480px;border:0;border-radius:.7rem}
 
 .satellite-notice{padding:1rem 1.25rem;border:1px solid #cfa963;border-radius:.65rem;background:#fff7e6;color:#45371d;font-size:.94rem;line-height:1.55}
+
+/* PCI Earth Intelligence: category navigation and server-grounded findings */
+.pci-science-tabs{display:flex;flex-wrap:nowrap;gap:.55rem;overflow-x:auto;padding:.7rem 0 1rem;scrollbar-width:thin}
+.pci-science-tab{flex:1 0 auto;min-width:112px;background:#10273b;color:#deeff9;border:1px solid #3d6780;border-radius:12px;padding:1rem .8rem;font-weight:750;font-size:.92rem;cursor:pointer}
+.pci-science-tab:hover,.pci-science-tab:focus-visible{outline:2px solid #63d3f6;outline-offset:1px}
+.pci-science-tab.is-active{background:#165875;border-color:#4acdf4;color:white}
+.pci-science-intro{display:grid;gap:.6rem}.pci-science-intro h2,.pci-science-analysis h2{font-size:1.4rem;margin:0}.pci-science-intro p{margin:0}
+.pci-science-analysis{display:grid;gap:1rem}.pci-science-finding-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1rem}
+.pci-science-finding{border:1px solid #bfd3df;border-radius:12px;padding:1rem;display:grid;gap:.55rem;background:#f1f8fc;color:#122637}
+.pci-science-finding h3{font-size:1rem;margin:0}.pci-science-finding strong{font-size:1.05rem}.pci-science-finding p{margin:0;line-height:1.5}.pci-science-finding small{opacity:.7}
+.pci-science-chips{display:flex;gap:.6rem;flex-wrap:wrap}.pci-science-chips span{padding:.5rem .8rem;background:#e6f3f9;border-radius:6px;color:#163246;font-size:.86rem}
+.satellite-geo{order:0}.satellite-map-frame{height:min(65vw,700px);min-height:410px}
+@media(max-width:650px){.pci-science-tab{min-width:105px;padding:.85rem .6rem}.satellite-map-frame{height:460px;min-height:330px}}

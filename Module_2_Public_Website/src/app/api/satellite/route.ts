@@ -9,6 +9,7 @@ export async function GET(req:NextRequest){
  const mission=req.nextUrl.searchParams.get('mission')||'';
  let path:string;
  if((metric==='rainfall'||metric==='solar')&&cities.has(city))path=`${metric}/latest?city=${encodeURIComponent(city)}`;
+ else if((metric==='rainfall-history'||metric==='solar-history')&&cities.has(city))path=`${metric==='rainfall-history'?'rainfall':'solar'}/history?city=${encodeURIComponent(city)}&days=30`;
  else if(metric==='natural-events'&&!city&&!mission)path='natural-events/latest';
  else if(metric==='imagery'&&!city&&!mission)path='imagery/latest';
  else if(metric==='gpm-imagery'&&!city&&!mission)path='gpm/imagery/latest';

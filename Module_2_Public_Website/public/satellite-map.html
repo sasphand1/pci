@@ -6,20 +6,45 @@
 html,body,#map{height:100%;width:100%;margin:0;background:#061322;font-family:system-ui,sans-serif}
 #map{position:absolute;inset:0}#status{position:absolute;left:14px;bottom:20px;z-index:2;background:#071522e8;color:#d4edf8;border:1px solid #31647c;border-radius:7px;padding:9px 11px;font-size:12px;max-width:75%;pointer-events:none}
 #source{position:absolute;top:12px;left:12px;z-index:2;background:#071522e8;color:#b2d8e9;border:1px solid #31647c;border-radius:7px;padding:8px 10px;font-size:11px;pointer-events:none}
-#gpm-toggle{position:absolute;right:50px;top:53px;z-index:5;border:1px solid #29627b;border-radius:7px;background:#071522ee;color:#e0f4fd;padding:9px 12px;font-weight:600;cursor:pointer}#gpm-toggle:disabled{opacity:.45;cursor:not-allowed}#imagery-toggle{position:absolute;right:50px;top:10px;z-index:5;border:1px solid #29627b;border-radius:7px;background:#071522ee;color:#e0f4fd;padding:9px 12px;font-weight:600;cursor:pointer}#imagery-toggle:disabled{opacity:.45;cursor:not-allowed}
-</style></head><body><div id="map" role="region" aria-label="Interactive Pakistan satellite map"></div><div id="source">NASA FIRMS · Thermal detections (not confirmed fires)</div><div id="status" role="status">Waiting for observations…</div>
+#gpm-toggle{display:none;position:absolute;right:50px;top:53px;z-index:5;border:1px solid #29627b;border-radius:7px;background:#071522ee;color:#e0f4fd;padding:9px 12px;font-weight:600;cursor:pointer}#gpm-toggle:disabled{opacity:.45;cursor:not-allowed}#imagery-toggle{display:none;position:absolute;right:50px;top:10px;z-index:5;border:1px solid #29627b;border-radius:7px;background:#071522ee;color:#e0f4fd;padding:9px 12px;font-weight:600;cursor:pointer}#imagery-toggle:disabled{opacity:.45;cursor:not-allowed}
+</style></head><body><div id="map" role="region" aria-label="Fixed Pakistan satellite science map"></div><div id="source">PCI Earth Intelligence · Verified observations</div><div id="status" role="status">Waiting for observations…</div>
 <button id="imagery-toggle" type="button" disabled aria-pressed="false">NASA imagery: unavailable</button><button id="gpm-toggle" type="button" disabled aria-pressed="false">IMERG rain: unavailable</button><script src="https://unpkg.com/maplibre-gl@5.21.0/dist/maplibre-gl.js"></script>
 <script>
 'use strict';
 (function(){
   const status=document.getElementById('status');
   if(!window.maplibregl){status.textContent='Map library unavailable';return;}
-  let points=[];let events=[];let loaded=false;let imageryUrl=null;let imageryVisible=false;let gpmUrl=null;let gpmVisible=false;
+  let points=[];let events=[];let loaded=false;let category='agriculture';let imageryUrl=null;let imageryVisible=false;let gpmUrl=null;let gpmVisible=false;
   const toggle=document.getElementById('imagery-toggle');const gpmToggle=document.getElementById('gpm-toggle');
-  const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/dark',center:[69.3,30.3],zoom:4.5,attributionControl:true,maxZoom:15});
-  map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
+  // Pakistan is the fixed geographic focal point. No visitor interaction can move/zoom the map.
+  const PAKISTAN_VIEW=[[60.6,23.3],[77.7,37.3]];
+  const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/dark',center:[69.3,30.3],zoom:4.5,
+   attributionControl:true,interactive:false,scrollZoom:false,boxZoom:false,dragRotate:false,dragPan:false,
+   keyboard:false,doubleClickZoom:false,touchZoomRotate:false,pitchWithRotate:false});
+  function fitPakistan(){map.fitBounds(PAKISTAN_VIEW,{padding:{top:30,bottom:30,left:30,right:30},animate:false});}
+
   const eventData=()=>({type:'FeatureCollection',features:events.map(e=>({type:'Feature',geometry:{type:'Point',coordinates:[e.longitude,e.latitude]},properties:{title:e.title}}))});
   const data=()=>({type:'FeatureCollection',features:points.map(p=>({type:'Feature',geometry:{type:'Point',coordinates:[p.longitude,p.latitude]},properties:{observedAt:p.observedAt||''}}))});
+  const layerSets={
+   agriculture:{hotspots:true,events:false,imagery:false,gpm:true},
+   land:{hotspots:false,events:false,imagery:true,gpm:false},
+   water:{hotspots:false,events:false,imagery:false,gpm:true},
+   energy:{hotspots:false,events:false,imagery:false,gpm:false},
+   environment:{hotspots:true,events:true,imagery:false,gpm:false},
+   cities:{hotspots:false,events:false,imagery:true,gpm:false},
+   disasters:{hotspots:true,events:true,imagery:false,gpm:true},
+   discover:{hotspots:true,events:true,imagery:true,gpm:false}
+  };
+  function updateLayers(){if(!loaded)return;
+   const desired=layerSets[category]||layerSets.agriculture;
+   for(const id of ['hotspots','hotspots-halo'])if(map.getLayer(id))map.setLayoutProperty(id,'visibility',desired.hotspots?'visible':'none');
+   if(map.getLayer('natural-events'))map.setLayoutProperty('natural-events','visibility',desired.events?'visible':'none');
+   if(map.getLayer('nasa-imagery'))map.setLayoutProperty('nasa-imagery','visibility',desired.imagery?'visible':'none');
+   if(map.getLayer('gpm-imagery'))map.setLayoutProperty('gpm-imagery','visibility',desired.gpm?'visible':'none');
+   imageryVisible=Boolean(desired.imagery&&map.getLayer('nasa-imagery'));
+   gpmVisible=Boolean(desired.gpm&&map.getLayer('gpm-imagery'));
+   status.textContent=`${category.toUpperCase()} · ${desired.hotspots?points.length+' thermal detections · ':''}${desired.events?events.length+' natural events · ':''}${desired.imagery?'NASA imagery · ':''}${desired.gpm?'IMERG visualization · ':''}Pakistan fixed view`;
+  }
   function render(){if(!loaded)return;
    const src=map.getSource('hotspots');if(src)src.setData(data());
    const eventSource=map.getSource('natural-events');if(eventSource)eventSource.setData(eventData());
@@ -34,14 +59,17 @@ html,body,#map{height:100%;width:100%;margin:0;background:#061322;font-family:sy
    }
    gpmToggle.disabled=!gpmUrl;gpmToggle.textContent=gpmUrl?'IMERG rain: '+(gpmVisible?'On':'Off'):'IMERG rain: unavailable';
    toggle.disabled=!imageryUrl;toggle.textContent=imageryUrl?'NASA imagery: '+(imageryVisible?'On':'Off'):'NASA imagery: unavailable';
+   updateLayers();
   }
-  map.on('load',()=>{loaded=true;map.addSource('hotspots',{type:'geojson',data:data()});map.addLayer({id:'hotspots-halo',type:'circle',source:'hotspots',paint:{'circle-radius':9,'circle-color':'#ff6347','circle-opacity':.2,'circle-stroke-width':0}});map.addLayer({id:'hotspots',type:'circle',source:'hotspots',paint:{'circle-radius':5,'circle-color':'#ff785c','circle-stroke-color':'#fff1dc','circle-stroke-width':1,'circle-opacity':.94}});
+  map.on('load',()=>{loaded=true;fitPakistan();map.addSource('hotspots',{type:'geojson',data:data()});map.addLayer({id:'hotspots-halo',type:'circle',source:'hotspots',paint:{'circle-radius':9,'circle-color':'#ff6347','circle-opacity':.2,'circle-stroke-width':0}});map.addLayer({id:'hotspots',type:'circle',source:'hotspots',paint:{'circle-radius':5,'circle-color':'#ff785c','circle-stroke-color':'#fff1dc','circle-stroke-width':1,'circle-opacity':.94}});
    map.addSource('natural-events',{type:'geojson',data:eventData()});map.addLayer({id:'natural-events',type:'circle',source:'natural-events',paint:{'circle-radius':6,'circle-color':'#66e0ff','circle-stroke-color':'#e4fbff','circle-stroke-width':2}});render();});
+  window.addEventListener('resize',()=>{if(loaded)fitPakistan();});
   map.on('error',()=>{if(!loaded)status.textContent='Map tiles unavailable. Check the connection.';});
   window.addEventListener('message',event=>{
     if(event.origin!==location.origin||event.source!==window.parent||event.data?.type!=='PCI_SATELLITE_POINTS_V1'||!Array.isArray(event.data.points))return;
     points=event.data.points.slice(0,200).filter(p=>typeof p.latitude==='number'&&typeof p.longitude==='number'&&Number.isFinite(p.latitude)&&Number.isFinite(p.longitude)&&p.latitude>=23&&p.latitude<=38&&p.longitude>=60&&p.longitude<=78).map(p=>({latitude:p.latitude,longitude:p.longitude,observedAt:typeof p.observedAt==='string'?p.observedAt:null}));
     events=(Array.isArray(event.data.events)?event.data.events:[]).slice(0,100).filter(p=>typeof p.latitude==='number'&&typeof p.longitude==='number'&&Number.isFinite(p.latitude)&&Number.isFinite(p.longitude)&&p.latitude>=23&&p.latitude<=38&&p.longitude>=60&&p.longitude<=78).map(p=>({latitude:p.latitude,longitude:p.longitude,title:String(p.title||'Natural event').slice(0,160)}));
+    if(typeof event.data.category==='string'&&Object.hasOwn(layerSets,event.data.category))category=event.data.category;
     const template=event.data.imagery;
     imageryUrl=(typeof template==='string'&&/^https:\/\/gibs\.earthdata\.nasa\.gov\/wmts\/epsg3857\/best\/MODIS_Terra_CorrectedReflectance_TrueColor\/default\/\d{4}-\d{2}-\d{2}\/GoogleMapsCompatible_Level9\/\{z\}\/\{y\}\/\{x\}\.jpg$/.test(template))?template:null;
     const gpm=event.data.gpmImagery;
