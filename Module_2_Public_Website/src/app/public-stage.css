@@ -159,7 +159,7 @@
     radial-gradient(120% 100% at 50% 30%, rgba(18,122,104,.28) 0%, rgba(4,20,26,0) 40%),
     linear-gradient(180deg,#041018 0%,#05161D 100%);
   padding:12px 0 18px;
-  min-height:690px;
+  min-height:max(690px, 56.19vw);
   font-family:'Segoe UI',system-ui,sans-serif;
 }
 .stage-inner{
@@ -181,7 +181,7 @@
   inset:0;
   background:
     linear-gradient(180deg,rgba(2,9,13,.12),rgba(2,9,13,.28)),
-    url('/images/hero-stage.png') center top / cover no-repeat;
+    url('/images/hero-stage.png') center top / 100% auto no-repeat;
 }
 .stage-vignette{
   position:absolute;
