@@ -27,8 +27,8 @@ test('ranking wheel marks the actually contributing platforms with tiny top-righ
  assert.match(wheel,/RankedPlatformBadges entry=\{c\} scope=\{current\.scope\}/);
  assert.match(wheel,/entry\.contributions\.map\(c=>c\.platform\)/);
  assert.match(css,/\.stage-platform-badges\{position:absolute;z-index:5;top:/);
- assert.match(wheel,/Collecting/);
- assert.match(wheel,/YT only/);
+ assert.match(wheel,/earningsStatusLabel/);
+ assert.match(wheel,/20\+ hours apart/);
 });
 
 test('video observations are collected by the modern pipeline independently of ranking publication',()=>{
@@ -53,4 +53,18 @@ test('creator profile exposes video-age milestones, velocity, breakout and hones
  assert.match(profile,/30d figures cannot be reconstructed retroactively/);
  assert.match(api,/PubVideoAnalytics/);
  assert.match(compare,/Modeled monthly earnings \(USD\)/);
+});
+
+test('earning-status labels distinguish missing, stale, and pending data',async()=>{
+ const {earningsStatusLabel}=await import('../src/lib/earnings-status.mjs');
+ assert.equal(earningsStatusLabel('needs_history'),'Awaiting 24h');
+ assert.equal(earningsStatusLabel('no_view_data'),'No view data');
+ assert.equal(earningsStatusLabel('stale'),'Data delayed');
+ assert.equal(earningsStatusLabel('no_youtube'),'YT only');
+ const api=read('../src/lib/public.ts');
+ assert.match(api,/PubEarningsStatus/);
+ const wheel=read('../src/components/PublishedWheel.tsx');
+ assert.match(wheel,/c\.person\.earningsStatus/);
+ const backend=read('../../Module_1_Adapter/src/modules/creator-analytics/data.ts');
+ assert.match(backend,/aggregateEarningsStatus/);
 });

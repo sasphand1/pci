@@ -4,6 +4,7 @@ import Link from 'next/link';
 import {useCallback, useEffect, useRef, useState} from 'react';
 import type {PointerEvent, WheelEvent} from 'react';
 import {formatCount, safeCreatorImage} from '@/lib/format.mjs';
+import {earningsStatusLabel} from '@/lib/earnings-status.mjs';
 import type {PubRanking, PubEntry} from '@/lib/public';
 import {StageScene} from './StageScene';
 
@@ -220,7 +221,7 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
                 </span>
                 <span className="stage-earnings" title="Illustrative monthly earnings, calculated from tracked YouTube view gains and Social Blade's $0.25–$4 RPM assumptions; not verified income.">
                   <small>Est. monthly</small>
-                  <b>{c.person.estimatedMonthlyEarningsUsd == null ? (c.person.accounts.some(a=>a.platform==='youtube')?'Collecting':'YT only') : new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(c.person.estimatedMonthlyEarningsUsd)}</b>
+                  <b>{c.person.estimatedMonthlyEarningsUsd == null ? earningsStatusLabel(c.person.earningsStatus??(c.person.accounts.some(a=>a.platform==='youtube')?'needs_history':'no_youtube')) : new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(c.person.estimatedMonthlyEarningsUsd)}</b>
                 </span>
               </span>
             </Link>
@@ -245,7 +246,7 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
           </button>
         </div>
 
-        <p className="stage-earnings-note">Earnings are modeled from tracked YouTube views using the $0.25–$4 RPM range midpoint; not verified income. Unavailable figures are collecting observations; Instagram-only profiles have no modeled YouTube earnings.</p>
+        <p className="stage-earnings-note">Earnings are modeled from tracked YouTube views using the $0.25–$4 RPM range midpoint; not verified income. A figure requires at least two valid channel-view snapshots 20+ hours apart. No view data or stale updates are labeled explicitly; Instagram-only profiles have no modeled YouTube earnings.</p>
         <div className="stage-dots" role="group" aria-label="Choose creator">
           {cards.map((c,i)=>(
             <button

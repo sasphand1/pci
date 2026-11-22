@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {ASSUMED_RPM_USD, estimateMonthlyEarnings, gainAtPeriod, dailyHistory} from '../../src/modules/creator-analytics/engine.js';
+import {ASSUMED_RPM_USD, estimateMonthlyEarnings, earningsSampleStatus, aggregateEarningsStatus, gainAtPeriod, dailyHistory} from '../../src/modules/creator-analytics/engine.js';
 
 const at=(days:number)=>new Date(Date.UTC(2026,10,22)-days*86_400_000).toISOString();
 const now=new Date(at(0));
@@ -19,7 +19,7 @@ test('seven-day tracked pace can be normalized without confusing lifetime and pe
 test('earnings fail closed for missing, stale, short, reset or future data',()=>{
   const cases=[
     [],[{at:at(0),value:10_000}],
-    [{at:at(1),value:500},{at:at(0),value:900}],
+    [{at:new Date(now.getTime()-2*3600000).toISOString(),value:500},{at:at(0),value:900}],
     [{at:at(12),value:900},{at:at(3),value:1000}],
     [{at:at(12),value:1100},{at:at(0),value:1000}],
     [{at:new Date(now.getTime()+3600000).toISOString(),value:200},{at:at(10),value:100}]
@@ -60,4 +60,18 @@ test('subscriber milestone projection requires observed positive 30-day growth',
   assert.deepEqual(subscriberMilestone(8500,3000),{target:10000,estimatedDays:15});
   assert.deepEqual(subscriberMilestone(8500,null),{target:10000,estimatedDays:null});
   assert.equal(subscriberMilestone(null,20),null);
+});
+
+test('a measured 24-hour channel view gain produces a labeled projected monthly figure',()=>{
+  const points=[{at:at(1),value:10_000_000},{at:at(0),value:10_010_000}];
+  assert.equal(earningsSampleStatus(points,now),'ready');
+  assert.equal(estimateMonthlyEarnings(points,now)?.equivalent30DayViews,300_000);
+});
+test('no samples, not-yet-24h, and stale samples have distinct states',()=>{
+  assert.equal(earningsSampleStatus([],now),'no_view_data');
+  assert.equal(earningsSampleStatus([{at:at(0),value:10}],now),'needs_history');
+  assert.equal(earningsSampleStatus([{at:at(5),value:100}],now),'stale');
+  assert.equal(aggregateEarningsStatus([]),'no_youtube');
+  assert.equal(aggregateEarningsStatus(['ready','needs_history']),'needs_history');
+  assert.equal(aggregateEarningsStatus(['ready','stale']),'stale');
 });

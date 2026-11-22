@@ -1,9 +1,10 @@
 import {query} from '../../lib/db.js';
-import {dailyHistory, estimateMonthlyEarnings, gainAtPeriod, subscriberMilestone, type ObservationPoint, type MonthlyEstimate} from './engine.js';
+import {dailyHistory, estimateMonthlyEarnings, gainAtPeriod, subscriberMilestone, earningsSampleStatus, aggregateEarningsStatus, type EarningsStatus, type ObservationPoint, type MonthlyEstimate} from './engine.js';
 import {creatorVideoSummary,type CreatorVideoSummary} from './videos.js';
 
 type MetricRow = {personId:string;accountId:string;metric:string;value:string|null;observedAt:Date|string|null};
-type PersonEstimates = Map<string, MonthlyEstimate>;
+export type EarningsResult = {estimate:MonthlyEstimate;status:EarningsStatus};
+type PersonEstimates = Map<string,EarningsResult>;
 
 function asPoint(row:MetricRow):ObservationPoint|null {
   if (row.value === null || row.observedAt === null) return null;
@@ -31,16 +32,18 @@ export async function monthlyEstimates(personIds:string[], now = new Date()):Pro
     accounts.set(row.accountId,points);people.set(row.personId,accounts);
   }
   for (const [personId,accounts] of people) {
-    const estimates=[...accounts.values()].map(points=>estimateMonthlyEarnings(points,now));
-    // All of a creator's YouTube accounts must have a valid estimate to avoid understating income.
-    if (estimates.every((e):e is NonNullable<MonthlyEstimate>=>e!==null)) {
+    const histories=[...accounts.values()];
+    const status=aggregateEarningsStatus(histories.map(points=>earningsSampleStatus(points,now)));
+    const estimates=histories.map(points=>estimateMonthlyEarnings(points,now));
+    // Every linked YouTube channel must have a valid estimate to avoid understating the figure.
+    if (status==='ready' && estimates.every((e):e is NonNullable<MonthlyEstimate>=>e!==null)) {
       const usd=estimates.reduce((sum,e)=>sum+e.usd,0);
-      out.set(personId,Number.isSafeInteger(usd) ? {
+      out.set(personId,{estimate:Number.isSafeInteger(usd) ? {
         usd,measuredDays:Math.min(...estimates.map(e=>e.measuredDays)),
         assumedRpmUsd:estimates[0].assumedRpmUsd,
         equivalent30DayViews:estimates.reduce((s,e)=>s+e.equivalent30DayViews,0)
-      }:null);
-    } else out.set(personId,null);
+      }:null,status:Number.isSafeInteger(usd)?'ready':'invalid'});
+    } else out.set(personId,{estimate:null,status:status==='ready'?'invalid':status});
   }
   return out;
 }
@@ -62,7 +65,8 @@ export async function personAnalytics(personId:string, now=new Date()) {
     accounts.set(row.accountId,a);
   }
   const all=[...accounts.values()];
-  const earnings=all.length && all.every(a=>estimateMonthlyEarnings(a.views,now)!==null)
+  const earningsStatus=aggregateEarningsStatus(all.map(a=>earningsSampleStatus(a.views,now)));
+  const earnings=earningsStatus==='ready'
     ? all.map(a=>estimateMonthlyEarnings(a.views,now)!).reduce((s,e)=>s+e.usd,0) : null;
   // Graph one linked YouTube account; do not sum asynchronous channel snapshots into a false series.
   const primary=all[0]??{followers:[],views:[]};
@@ -76,7 +80,8 @@ export async function personAnalytics(personId:string, now=new Date()) {
   return {
     video,milestone,
     estimatedMonthlyEarningsUsd:earnings,
-    earningsMethod:'Social Blade $0.25–$4 RPM midpoint; observed 2–31-day channel view pace normalized to 30 days',
+    earningsStatus,
+    earningsMethod:'Social Blade $0.25–$4 RPM midpoint; observed 20-hour–31-day channel view pace normalized to 30 days',
     growth:{subscribers:growth(primary.followers),views:growth(primary.views)},
     history:{subscribers:dailyHistory(primary.followers),views:dailyHistory(primary.views)},
     historyAccountCount:all.length

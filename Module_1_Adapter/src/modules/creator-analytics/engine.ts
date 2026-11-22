@@ -4,6 +4,36 @@ export const SOCIAL_BLADE_MAX_RPM_USD = 4;
 // PCI displays one figure: the arithmetic midpoint of Social Blade's assumptions.
 export const ASSUMED_RPM_USD = (SOCIAL_BLADE_MIN_RPM_USD + SOCIAL_BLADE_MAX_RPM_USD) / 2;
 const DAY_MS = 86_400_000;
+// A measured daily interval is sufficient for a clearly labeled monthly pace projection.
+// Intervals shorter than 20 hours are too noisy and are not treated as monthly earnings.
+const MIN_EARNINGS_INTERVAL_MS = 20 * 3_600_000;
+
+export type EarningsStatus = 'ready' | 'needs_history' | 'no_view_data' | 'stale' | 'invalid' | 'no_youtube';
+
+/** A reason for the empty value, rather than an indefinite "Collecting" indicator. */
+export function earningsSampleStatus(samples: ObservationPoint[], now = new Date()): EarningsStatus {
+  const all = validPoints(samples);
+  if (!all.length) return 'no_view_data';
+  const latest = all.at(-1)!;
+  const age = now.getTime() - Date.parse(latest.at);
+  if (age < -60_000) return 'invalid';
+  if (age > 2 * DAY_MS) return 'stale';
+  const candidates = all.filter(p => {
+    const interval = Date.parse(latest.at) - Date.parse(p.at);
+    return interval >= MIN_EARNINGS_INTERVAL_MS && interval <= 31 * DAY_MS;
+  });
+  if (!candidates.length) return 'needs_history';
+  return latest.value < candidates[0].value ? 'invalid' : 'ready';
+}
+
+export function aggregateEarningsStatus(states: EarningsStatus[]): EarningsStatus {
+  if (!states.length) return 'no_youtube';
+  if (states.every(s => s === 'ready')) return 'ready';
+  for (const state of ['stale', 'invalid', 'no_view_data', 'needs_history'] as const) {
+    if (states.includes(state)) return state;
+  }
+  return 'invalid';
+}
 
 export type ObservationPoint = { at: string; value: number };
 export type MonthlyEstimate = {
@@ -19,8 +49,8 @@ function validPoints(samples: ObservationPoint[]): ObservationPoint[] {
 }
 
 /**
- * Requires two fresh, real observations at least two days apart. Annualizes the
- * actual observed channel-view delta to a 30-day pace; never uses lifetime views as monthly views.
+ * Requires two fresh, real observations at least 20 hours apart. Projects the
+ * observed channel-view delta to a 30-day pace; never uses lifetime views as monthly views.
  * Return null on stale, missing, counter-reset or unsafe data.
  */
 export function estimateMonthlyEarnings(samples: ObservationPoint[], now = new Date()): MonthlyEstimate {
@@ -28,8 +58,8 @@ export function estimateMonthlyEarnings(samples: ObservationPoint[], now = new D
   const latest = all.at(-1);
   if (!latest || now.getTime() - Date.parse(latest.at) > 2 * DAY_MS || Date.parse(latest.at) > now.getTime() + 60_000) return null;
   const earlier = all.filter(s => {
-    const days = (Date.parse(latest.at) - Date.parse(s.at)) / DAY_MS;
-    return days >= 2 && days <= 31;
+    const elapsedMs = Date.parse(latest.at) - Date.parse(s.at);
+    return elapsedMs >= MIN_EARNINGS_INTERVAL_MS && elapsedMs <= 31 * DAY_MS;
   });
   const first = earlier[0];
   if (!first || latest.value < first.value) return null;
