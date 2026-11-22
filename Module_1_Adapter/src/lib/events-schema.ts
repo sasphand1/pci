@@ -14,5 +14,7 @@ export async function ensureEventsSchema(){
   await client.query(editorialSql);
   const intelligenceSql=await readFile(fileURLToPath(new URL('../../database/migrations/099_events_intelligence.sql',import.meta.url)),'utf8');
   await client.query(intelligenceSql);
+  const integrationsSql=await readFile(fileURLToPath(new URL('../../database/migrations/100_events_intelligence_integrations.sql',import.meta.url)),'utf8');
+  await client.query(integrationsSql);
  }finally{try{await client.query('SELECT pg_advisory_unlock(710329)');}finally{client.release();}}
 }

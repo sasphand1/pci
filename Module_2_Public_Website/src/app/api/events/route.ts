@@ -1,5 +1,5 @@
 import {NextResponse} from 'next/server';
-import {CURATED_EVENTS_CHECKED_AT,publishedCuratedEvents,mergePublicEvents} from '@/lib/curated-events.mjs';
+// Database-managed events never resurrect deleted notices.
 
 export const dynamic='force-dynamic';
 /**
@@ -36,15 +36,13 @@ export async function GET(){
       console.error('PCI Events adapter unavailable:',error instanceof Error?error.message:'unknown');
     }finally{clearTimeout(timeout);}
   }
-  const curated=publishedCuratedEvents();
-  const entries=mergePublicEvents(upstreamEvents);
+  const entries=upstreamEvents;
   const meta={
     ...upstreamMeta,
     backend_status:backendStatus,
     backend_approved:upstreamEvents.length,
-    editorial_verified:curated.length,
-    editorial_checked_at:CURATED_EVENTS_CHECKED_AT,
-    editorial_mode:'dated primary-source factual notices; not a live event feed',
+    editorial_verified:upstreamMeta.editorial_published??0,
+    editorial_mode:'database-managed source-linked records; deleted notices never resurrect',
   };
   // If neither backend nor curated notice is available, report the outage rather
   // than returning a misleading success with zero events.

@@ -42,13 +42,13 @@ export async function syncSource(source:EventSource,trigger:'manual'|'scheduled'
      venue=EXCLUDED.venue,latitude=COALESCE(EXCLUDED.latitude,pci_events.latitude),longitude=COALESCE(EXCLUDED.longitude,pci_events.longitude),
      description=EXCLUDED.description,event_url=EXCLUDED.event_url,organizer=EXCLUDED.organizer,
      ticket_type=EXCLUDED.ticket_type,price_text=EXCLUDED.price_text,
-     approved=CASE WHEN pci_events.fingerprint=EXCLUDED.fingerprint THEN pci_events.approved ELSE false END,
-     fingerprint=EXCLUDED.fingerprint,active=true,
+     approved=CASE WHEN pci_events.deleted_at IS NOT NULL THEN false WHEN pci_events.fingerprint=EXCLUDED.fingerprint THEN pci_events.approved ELSE false END,
+     fingerprint=EXCLUDED.fingerprint,active=(pci_events.deleted_at IS NULL),
      classification_category=CASE WHEN pci_events.classification_state='manual' AND pci_events.fingerprint=EXCLUDED.fingerprint THEN pci_events.classification_category ELSE EXCLUDED.classification_category END,
      classification_confidence=CASE WHEN pci_events.classification_state='manual' AND pci_events.fingerprint=EXCLUDED.fingerprint THEN pci_events.classification_confidence ELSE EXCLUDED.classification_confidence END,
      classification_reason=CASE WHEN pci_events.classification_state='manual' AND pci_events.fingerprint=EXCLUDED.fingerprint THEN pci_events.classification_reason ELSE EXCLUDED.classification_reason END,
      classification_state=CASE WHEN pci_events.classification_state='manual' AND pci_events.fingerprint=EXCLUDED.fingerprint THEN pci_events.classification_state ELSE EXCLUDED.classification_state END,
-     review_decision=CASE WHEN pci_events.fingerprint=EXCLUDED.fingerprint THEN pci_events.review_decision ELSE 'pending' END,
+     review_decision=CASE WHEN pci_events.deleted_at IS NOT NULL THEN 'rejected' WHEN pci_events.fingerprint=EXCLUDED.fingerprint THEN pci_events.review_decision ELSE 'pending' END,
      classified_at=now(),last_seen_at=now(),updated_at=now()`,
      [source.id,item.external_id,item.name,item.start_at,item.all_day,item.city,item.category,item.venue,item.latitude,item.longitude,item.description,item.event_url,item.organizer,item.ticket_type,item.price_text,item.fingerprint,item.classification_category,item.classification_confidence,item.classification_reason,item.classification_state]);
    }

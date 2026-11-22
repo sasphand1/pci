@@ -26,9 +26,10 @@ test('approved backend records take precedence when events overlap',()=>{
  assert.equal(combined.filter(x=>x.name===newer.name&&x.city===newer.city).length,1);
  assert.equal(combined.find(x=>x.name===newer.name)?.id,'verified-owner-version');
 });
-test('frontend fallback is server-side and preserves real backend data',()=>{
+test('frontend uses backend authority and cannot resurrect deleted notices',()=>{
  const api=source('Module_2_Public_Website/src/app/api/events/route.ts');
- assert.match(api,/mergePublicEvents/);
+ assert.match(api,/const entries=upstreamEvents/);
+ assert.doesNotMatch(api,/mergePublicEvents\(upstreamEvents\)/);
  assert.match(api,/backend_status/);
  assert.match(api,/approved/i);
  assert.ok(existsSync(resolve(root,'Module_1_Adapter/database/migrations/098_editorial_events.sql')));

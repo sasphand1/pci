@@ -1,6 +1,6 @@
 /** Pure, dependency-free filtering for approved public Events API rows. */
 export const EVENT_CITIES=Object.freeze(['Karachi','Lahore','Islamabad']);
-export const EVENT_CATEGORY_LABELS=Object.freeze({sports:'Sports',education:'Education & Learning',gaming:'Gaming & Esports',technology:'Technology & Innovation',business:'Business & Expos',arts:'Arts & Entertainment',community:'Community & Festivals'});
+export const EVENT_CATEGORY_LABELS=Object.freeze({sports:'Sports',education:'Education & Learning',gaming:'Gaming & Esports',technology:'Technology & Innovation',business:'Business & Expos',arts:'Arts & Entertainment',community:'Community & Festivals',fashion:'Fashion & Beauty',health:'Medical & Health',food:'Food & Dining'});
 
 function safeUrl(value){
   if(typeof value!=='string')return null;

@@ -12,7 +12,7 @@ export const publicEventsRoutes=Router();
 export const adminEventsRoutes=Router();
 const uuid=z.string().uuid();
 const city=z.enum(['Karachi','Lahore','Islamabad']);
-const category=z.enum(['sports','education','gaming','technology','business','arts','community','expos','conferences']);
+const category=z.enum(['sports','education','gaming','technology','business','arts','community','fashion','health','food','expos','conferences']);
 const input=z.object({
  name:z.string().trim().min(2).max(140),feed_type:z.enum(['rss','ics','json']),feed_url:z.string().trim().min(12).max(1900),category,
  city_hint:city.nullable(),enabled:z.boolean(),official_confirmed:z.boolean(),rights_confirmed:z.boolean()
@@ -37,7 +37,7 @@ const editorialInput=z.object({
 }).strict();
 adminEventsRoutes.get('/editorial',handler(async(_req,res)=>{
  const r=await query(`SELECT id,name,start_at,end_at,city,category,venue,latitude,longitude,source_url,organizer,approved,verified_at
- FROM pci_editorial_events WHERE end_at>=now()-interval '30 days' ORDER BY start_at LIMIT 200`);
+ FROM pci_editorial_events WHERE deleted_at IS NULL AND end_at>=now()-interval '30 days' ORDER BY start_at LIMIT 200`);
  res.json({data:r.rows});
 }));
 adminEventsRoutes.post('/editorial',roles('owner'),handler(async(req,res)=>{
@@ -56,14 +56,17 @@ adminEventsRoutes.post('/editorial',roles('owner'),handler(async(req,res)=>{
  ON CONFLICT(name,start_at,city) DO UPDATE SET end_at=EXCLUDED.end_at,category=EXCLUDED.category,venue=EXCLUDED.venue,
  latitude=EXCLUDED.latitude,longitude=EXCLUDED.longitude,source_url=EXCLUDED.source_url,organizer=EXCLUDED.organizer,
  description=EXCLUDED.description,approved=true,verified_at=now(),updated_at=now()
+ WHERE pci_editorial_events.deleted_at IS NULL
  RETURNING *`,[event.name,event.start_at,event.end_at,event.city,event.category,event.venue,event.latitude,event.longitude,event.source_url,event.organizer,event.description]);
+ if(!created.rows[0])throw new HttpError(409,'EVENT_DELETED','An event with this title/date was deleted; restore it explicitly through Events Intelligence');
  await audit(actor(res),'events.editorial.publish',created.rows[0].id,{sourceUrl:event.source_url,city:event.city});
  res.status(201).json({data:created.rows[0]});
 }));
 adminEventsRoutes.patch('/editorial/:id/visibility',roles('owner'),handler(async(req,res)=>{
  const id=uuid.parse(req.params.id);const {approved}=z.object({approved:z.boolean()}).strict().parse(req.body);
- const updated=await query('UPDATE pci_editorial_events SET approved=$2,updated_at=now() WHERE id=$1 RETURNING *',[id,approved]);
+ const updated=await query('UPDATE pci_editorial_events SET approved=$2,updated_at=now() WHERE id=$1 AND deleted_at IS NULL RETURNING *',[id,approved]);
  if(!updated.rows[0])throw new HttpError(404,'EDITORIAL_NOT_FOUND','Editorial event not found');
+ if(!updated.rows[0])throw new HttpError(404,'EVENT_NOT_FOUND','Event is missing or deleted');
  await audit(actor(res),'events.editorial.visibility',id,{approved});
  res.json({data:updated.rows[0]});
 }));
@@ -125,13 +128,13 @@ adminEventsRoutes.get('/list',handler(async(req,res)=>{
  const limit=z.coerce.number().int().min(1).max(300).default(100).parse(req.query.limit);
  const r=await query(`SELECT e.*,s.name AS source_name,s.feed_url AS source_feed_url,s.enabled AS source_enabled
  FROM pci_events e JOIN event_sources s ON s.id=e.source_id
- WHERE e.start_at>=now()-interval '1 day' ORDER BY e.approved ASC,e.start_at ASC LIMIT $1`,[limit]);
+ WHERE e.deleted_at IS NULL AND e.start_at>=now()-interval '1 day' ORDER BY e.approved ASC,e.start_at ASC LIMIT $1`,[limit]);
  res.json({data:r.rows});
 }));
 adminEventsRoutes.patch('/list/:id',roles('owner'),handler(async(req,res)=>{
  const id=uuid.parse(req.params.id);
  const b=z.object({approved:z.boolean(),latitude:z.number().min(23).max(35).nullable(),longitude:z.number().min(66).max(76).nullable()}).strict().parse(req.body);
- const current=await query(`SELECT e.*,s.official_confirmed,s.rights_confirmed,s.enabled FROM pci_events e JOIN event_sources s ON s.id=e.source_id WHERE e.id=$1`,[id]);
+ const current=await query(`SELECT e.*,s.official_confirmed,s.rights_confirmed,s.enabled FROM pci_events e JOIN event_sources s ON s.id=e.source_id WHERE e.id=$1 AND e.deleted_at IS NULL`,[id]);
  const e=current.rows[0];if(!e)throw new HttpError(404,'EVENT_NOT_FOUND','Event does not exist');
  const bounds:{[key:string]:[number,number,number,number]}={Karachi:[24.6,25.3,66.6,67.5],Lahore:[31.1,31.8,74.0,74.7],Islamabad:[33.4,33.9,72.7,73.5]};
  const box=bounds[e.city];
@@ -139,7 +142,8 @@ adminEventsRoutes.patch('/list/:id',roles('owner'),handler(async(req,res)=>{
   if(!e.enabled||!e.official_confirmed||!e.rights_confirmed)throw new HttpError(409,'SOURCE_NOT_APPROVED','Source is not verified and enabled');
   if(b.latitude===null||b.longitude===null||!box||b.latitude<box[0]||b.latitude>box[1]||b.longitude<box[2]||b.longitude>box[3])throw new HttpError(400,'COORDINATES_REQUIRED','Verified coordinates within this city are required to publish');
  }
- const result=await query('UPDATE pci_events SET approved=$2,latitude=$3,longitude=$4,updated_at=now() WHERE id=$1 RETURNING *',[id,b.approved,b.latitude,b.longitude]);
+ const result=await query('UPDATE pci_events SET approved=$2,latitude=$3,longitude=$4,updated_at=now() WHERE id=$1 AND deleted_at IS NULL RETURNING *',[id,b.approved,b.latitude,b.longitude]);
+ if(!result.rows[0])throw new HttpError(404,'EVENT_NOT_FOUND','Event is missing or deleted');
  await audit(actor(res),'events.item.review',id,{approved:b.approved,coordinatesEdited:b.latitude!==e.latitude||b.longitude!==e.longitude});
  res.json({data:result.rows[0]});
 }));
@@ -151,15 +155,15 @@ publicEventsRoutes.get('/events',handler(async(_req,res)=>{
  const [feed,editorial,status]=await Promise.all([
   query(`SELECT e.id,e.name,e.start_at,e.start_at AS end_at,e.all_day,e.city,COALESCE(e.classification_category,CASE e.category WHEN 'expos' THEN 'business' WHEN 'conferences' THEN 'education' ELSE e.category END) AS category,e.venue,e.latitude,e.longitude,e.description,e.event_url,e.organizer,e.ticket_type,e.price_text,s.name AS source_name
    FROM pci_events e JOIN event_sources s ON s.id=e.source_id
-   WHERE e.approved=true AND e.active=true AND e.start_at>=now() AND s.enabled=true AND s.official_confirmed=true AND s.rights_confirmed=true
+   WHERE e.approved=true AND e.active=true AND e.deleted_at IS NULL AND e.start_at>=now() AND s.enabled=true AND s.official_confirmed=true AND s.rights_confirmed=true
    AND e.latitude IS NOT NULL AND e.longitude IS NOT NULL ORDER BY e.start_at ASC LIMIT 400`),
-  query(`SELECT id,name,start_at,end_at,false AS all_day,city,CASE category WHEN 'expos' THEN 'business' WHEN 'conferences' THEN 'education' ELSE category END AS category,venue,latitude,longitude,description,
+  query(`SELECT id,name,start_at,end_at,all_day,city,CASE category WHEN 'expos' THEN 'business' WHEN 'conferences' THEN 'education' ELSE category END AS category,venue,latitude,longitude,description,
    source_url AS event_url,organizer,'unknown'::text AS ticket_type,''::text AS price_text,
    'PCI editorial · verified official source'::text AS source_name
-   FROM pci_editorial_events WHERE approved=true AND end_at>now() ORDER BY start_at ASC LIMIT 200`),
+   FROM pci_editorial_events WHERE approved=true AND deleted_at IS NULL AND end_at>now() ORDER BY start_at ASC LIMIT 200`),
   query(`SELECT (SELECT COUNT(*)::int FROM event_sources) AS sources_configured,
    (SELECT COUNT(*)::int FROM event_sources WHERE enabled AND official_confirmed AND rights_confirmed) AS sources_enabled,
-   (SELECT COUNT(*)::int FROM pci_events WHERE approved=false AND active AND start_at>=now()) AS awaiting_review`)
+   (SELECT COUNT(*)::int FROM pci_events WHERE approved=false AND deleted_at IS NULL AND active AND start_at>=now()) AS awaiting_review`)
  ]);
  const data=[...feed.rows,...editorial.rows].sort((a,b)=>new Date(a.start_at).valueOf()-new Date(b.start_at).valueOf());
  res.setHeader('Cache-Control','public, max-age=60');

@@ -7,7 +7,7 @@ test('new bucket management lives in existing admin layout',()=>{
  assert.match(page,/<AdminPage title="Events Intelligence"/);
  assert.match(page,/RoleGate roles=\{\['owner','editor'\]\}/);
  assert.match(page,/SourceCard/);assert.match(page,/BucketRow/);
- assert.match(page,/Events Bucket/);assert.match(page,/Seven Categories/);
+ assert.match(page,/Events Bucket/);assert.match(page,/Ten Categories/);
 });
 test('Admin role and CSRF protect publication and category changes',()=>{
  const page=read('../src/app/events/intelligence/page.tsx');

@@ -40,7 +40,7 @@ export function EventsTable(){
     void load();
     return()=>{clearTimeout(timeout);controller.abort();};
   },[]);
-  const categories=useMemo(()=>['sports','education','gaming','technology','business','arts','community'],[]);
+  const categories=useMemo(()=>['sports','education','gaming','technology','business','arts','community','fashion','health','food'],[]);
   const filtered=useMemo(()=>filterPublicEvents(events,{city,category,window:windowFilter,search},updatedAt),[events,city,category,windowFilter,search,updatedAt]);
   const clear=()=>{setCity('all');setCategory('all');setWindowFilter('all');setSearch('');};
 

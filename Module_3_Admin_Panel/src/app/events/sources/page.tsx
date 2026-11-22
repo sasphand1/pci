@@ -11,7 +11,7 @@ type Run={id:string;source_name:string;status:string;imported:number;rejected:nu
 type EditorialEvent={id:string;name:string;city:string;venue:string;start_at:string;source_url:string;approved:boolean};
 type ProviderPreset={key:string;name:string;feed_type:'json'|'ics'|'rss';category:string;feed_url:string;documentation:string;attribution:string;notes:string;verification:string};
 type FeedProbe={inspected:number;candidates:number;rejected:number;geolocated:number;published:number;note:string};
-const CATEGORY_OPTIONS=[['sports','Sports'],['education','Education & Learning'],['gaming','Gaming & Esports'],['technology','Technology & Innovation'],['business','Business & Expos'],['arts','Arts & Entertainment'],['community','Community & Festivals'],['expos','Legacy: Expos'],['conferences','Legacy: Conferences']];
+const CATEGORY_OPTIONS=[['sports','Sports'],['education','Education & Learning'],['gaming','Gaming & Esports'],['technology','Technology & Innovation'],['business','Business & Expos'],['arts','Arts & Entertainment'],['community','Community & Festivals'],['fashion','Fashion & Beauty'],['health','Medical & Health'],['food','Food & Dining'],['expos','Legacy: Expos'],['conferences','Legacy: Conferences']];
 const empty:Omit<Source,'id'|'last_status'|'last_sync_at'|'last_error'|'last_imported'|'total_events'|'reviewed_events'>={name:'',feed_type:'ics',feed_url:'',category:'community',city_hint:null,enabled:false,official_confirmed:false,rights_confirmed:false};
 const fresh=()=>({...empty});
 function SourceEditor({source,onSave,onCancel,busy}:{source:Partial<Source>;onSave:(draft:typeof empty)=>Promise<void>;onCancel:()=>void;busy:boolean}){

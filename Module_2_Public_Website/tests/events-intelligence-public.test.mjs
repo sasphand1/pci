@@ -14,7 +14,7 @@ test('events table uses canonical category labels without losing old source reco
  assert.match(helper,/rawCategory==='expos'\?'business'/);
  const table=read('../src/components/EventsTable.tsx');
  assert.match(table,/events-table-section/);
- assert.match(table,/\['sports','education','gaming','technology','business','arts','community'\]/);
+ assert.match(table,/\['sports','education','gaming','technology','business','arts','community','fashion','health','food'\]/);
 });
 test('events stay under global shared website header and retain map/table',()=>{
  const page=read('../src/app/events/page.tsx');

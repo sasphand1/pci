@@ -8,15 +8,15 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
 const src=p=>readFileSync(join(root,p),'utf8');
 const classify=name=>classifyEvent({name,sourceCategory:'community'});
 
-test('exactly seven distinct category IDs with stable ordering',()=>{
- assert.deepEqual(EVENT_CATEGORIES.map(c=>c.id),['sports','education','gaming','technology','business','arts','community']);
- assert.equal(new Set(EVENT_CATEGORIES.map(x=>x.id)).size,7);
- assert.equal(ENGINE_VERSION,'events-rules-1.0.0');
+test('exactly ten distinct category IDs with stable ordering',()=>{
+ assert.deepEqual(EVENT_CATEGORIES.map(c=>c.id),['sports','education','gaming','technology','business','arts','community','fashion','health','food']);
+ assert.equal(new Set(EVENT_CATEGORIES.map(x=>x.id)).size,10);
+ assert.equal(ENGINE_VERSION,'events-rules-2.0.0');
 });
 for(const [text,category] of [
  ['Pakistan Cricket Match','sports'],['University Scholarship Education Seminar','education'],
  ['Esports Gaming PUBG Tournament','gaming'],['AI Robotics Hackathon','technology'],
- ['Trade Fair Business Expo','business'],['Live Music Concert','arts'],['Community Food Festival','community']
+ ['Trade Fair Business Expo','business'],['Live Music Concert','arts'],['Community Volunteer Celebration','community'],['Fashion Week Runway Show','fashion'],['Medical Healthcare Conference','health'],['Lahore Food Festival','food']
 ])test('classification '+category,()=>{
  const r=classify(text);assert.equal(r.category,category);assert.ok(r.confidence>=60);assert.equal(r.state,'suggested');
 });
@@ -44,7 +44,7 @@ test('feed importer persists results, preserves manual override and never auto-a
  assert.match(src('Module_1_Adapter/scripts/copy-assets.mjs'),/modules\/events\/classifier\.mjs/);
  assert.match(s,/classification_state='manual'/);
  assert.match(s,/false,true,\$17/);
- assert.match(s,/approved=CASE WHEN pci_events\.fingerprint=EXCLUDED\.fingerprint/);
+ assert.match(s,/approved=CASE WHEN pci_events\.deleted_at IS NOT NULL THEN false WHEN pci_events\.fingerprint=EXCLUDED\.fingerprint/);
 });
 test('new database migration is additive with bounded checks and idempotence',()=>{
  const s=src('Module_1_Adapter/database/migrations/099_events_intelligence.sql');

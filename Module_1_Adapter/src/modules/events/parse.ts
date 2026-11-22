@@ -3,7 +3,7 @@
 import {createHash} from 'node:crypto';
 
 export const CITIES=['Karachi','Lahore','Islamabad'];
-export const CATEGORIES=['sports','education','gaming','technology','business','arts','community','expos','conferences'];
+export const CATEGORIES=['sports','education','gaming','technology','business','arts','community','fashion','health','food','expos','conferences'];
 export function validateHttpsUrl(value){
   if(typeof value!=='string'||value.length>1900)throw new Error('Invalid feed URL');
   let u;try{u=new URL(value);}catch{throw new Error('Invalid feed URL');}

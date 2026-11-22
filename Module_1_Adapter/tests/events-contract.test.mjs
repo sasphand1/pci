@@ -14,7 +14,7 @@ test('database is approval-gated and sources default disabled',()=>{
 });
 test('public route only returns approved sources and future events',()=>{
  const r=read('Module_1_Adapter/src/modules/events/routes.ts');
- assert.match(r,/e\.approved=true AND e\.active=true AND e\.start_at>=now\(\)/);
+ assert.match(r,/e\.approved=true AND e\.active=true AND e\.deleted_at IS NULL AND e\.start_at>=now\(\)/);
  assert.match(r,/s\.enabled=true AND s\.official_confirmed=true AND s\.rights_confirmed=true/);
  assert.match(r,/requireAdmin,roles\('owner','editor'\)/);
  assert.match(r,/roles\('owner'\)/);
