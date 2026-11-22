@@ -1,4 +1,6 @@
+import {SATELLITE_RATE_WINDOW_SECONDS,isPublicSatelliteRead,satellitePermission} from './modules/satellite/guard.mjs';
 import {instagramPublicRoutes,instagramAdminRoutes} from './modules/instagram/routes.js';
+import {satellitePublicRoutes,satelliteAdminRoutes} from './modules/satellite/routes.js';
 import {crossPublicRoutes,crossAdminRoutes} from './modules/cross-platform/routes.js';
 import {unifiedPublicRoutes,unifiedAdminRoutes} from './modules/unified/routes.js';
 import { createServer } from 'node:http';
@@ -45,7 +47,13 @@ export function makeApp() {
     referrerPolicy: {policy:'no-referrer'}
   }));
   const origins = new Set([config.PUBLIC_ORIGIN,config.ADMIN_ORIGIN]);
-  app.use(cors({origin(origin,cb){if(!origin || origins.has(origin)) cb(null,true);else cb(new HttpError(403,'ORIGIN_DENIED','Origin not allowed'));},credentials:true,allowedHeaders:['Content-Type','Authorization','X-CSRF-Token','X-Pci-Background'],methods:['GET','POST','PATCH','PUT','DELETE','OPTIONS']}));
+  app.use(cors((req,callback)=>{
+    // Public satellite reads may be consumed by external Pakistan-focused applications.
+    // Never permit cross-origin credentialed writes or admin management access.
+    if(req.path.startsWith('/api/v1/satellite/') && (req.method==='GET'||req.method==='OPTIONS'))
+      return callback(null,{origin:'*',credentials:false,methods:['GET','OPTIONS'],allowedHeaders:['Accept','Content-Type']});
+    return callback(null,{origin(origin,cb){if(!origin || origins.has(origin))cb(null,true);else cb(new HttpError(403,'ORIGIN_DENIED','Origin not allowed'));},credentials:true,allowedHeaders:['Content-Type','Authorization','X-CSRF-Token','X-Pci-Background'],methods:['GET','POST','PATCH','PUT','DELETE','OPTIONS']});
+  }));
   // Refuse cross-origin browser writes even if a future CORS proxy setting is relaxed.
   app.use((req,res,next)=>{
     if(!['GET','HEAD','OPTIONS'].includes(req.method)){
@@ -73,6 +81,23 @@ export function makeApp() {
     if(!allowed)throw new HttpError(429,'RATE_LIMIT','Request limit exceeded');
     next();
   }));
+  // Satellite-specific abuse guard. Unlike the legacy PCI global limiter, satellite
+  // public data reads fail closed if Redis becomes unavailable. Other PCI routes
+  // retain their existing availability policy, with no behavior change.
+  app.use('/api/v1/satellite',handler(async(req,res,next)=>{
+    if (!isPublicSatelliteRead(req.originalUrl.split('?')[0],req.method)) return next();
+    const key=`http:satellite:${pseudonym(req.ip??'unknown')}`;
+    const decision=await satellitePermission(boundedLimit,key);
+    if(decision==='rate_limited') {
+      res.setHeader('Retry-After',String(SATELLITE_RATE_WINDOW_SECONDS));
+      throw new HttpError(429,'SATELLITE_RATE_LIMIT','Satellite API request limit exceeded');
+    }
+    if(decision==='unavailable') {
+      logger.warn('Satellite rate limiter unavailable; protecting API and database');
+      throw new HttpError(503,'SATELLITE_UNAVAILABLE','Satellite API temporarily unavailable');
+    }
+    next();
+  }));
   app.use((req,res,next)=>{res.setHeader('Cache-Control','no-store');next();});
   app.get('/health/live',(_req,res)=>res.json({status:'alive'}));
   app.get('/health/ready',handler(async(_req,res)=>{
@@ -88,6 +113,8 @@ export function makeApp() {
   app.use('/api/v1',unifiedPublicRoutes);
   app.use('/api/v1',instagramPublicRoutes);
   app.use('/api/v1',crossPublicRoutes);
+  app.use('/api/v1/satellite',satellitePublicRoutes);
+  app.use('/api/v1/admin/satellite',satelliteAdminRoutes);
   app.use('/api/v1/wall/auth',wallAuthRoutes);
   app.use('/api/v1/wall',wallRoutes);
   app.use('/api/v1/admin/auth',adminAuthRoutes);

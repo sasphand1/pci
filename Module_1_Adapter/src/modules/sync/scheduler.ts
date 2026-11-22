@@ -1,4 +1,5 @@
 import cron from 'node-cron';
+import {satelliteTick} from '../satellite/service.js';
 import os from 'node:os';
 import {syncInstagramProfiles} from '../instagram/service.js';
 import {bustPublicCache} from '../../lib/redis.js';
@@ -66,6 +67,8 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
      if(values.sync_schedule_enabled!==false&&time===(values.sync_schedule_time??'09:00'))await enqueueSync('scheduled');
    }catch(e){logger.error({err:e},'schedule failed');}
  },{timezone:'Asia/Karachi'}));
+ tasks.push(cron.schedule('*/15 * * * *',()=>void satelliteTick()));
+ tasks.push(cron.schedule('20 4 * * *',()=>query("DELETE FROM satellite.observations WHERE observed_at<now()-interval '90 days'").catch(err=>logger.warn({err},'Satellite retention cleanup unavailable')),{timezone:'Asia/Karachi'}));
  tasks.push(cron.schedule('*/10 * * * *',()=>recoverStalledJobs().catch(e=>logger.error({err:e},'stalled job recovery failed'))));
  tasks.push(cron.schedule('*/10 * * * *',()=>recoverStalledRuns().catch(e=>logger.error({err:e},'stalled refresh recovery failed'))));
  tasks.push(cron.schedule('*/15 * * * *',()=>void freshness()));

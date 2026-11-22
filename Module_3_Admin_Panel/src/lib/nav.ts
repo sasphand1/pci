@@ -12,6 +12,7 @@ export const NAV_GROUPS:NavGroup[]=[
   {title:'Page content',href:'/content',icon:'edit',roles:['owner','editor']},
   {title:'Live wall',href:'/wall',icon:'chat',roles:['owner','moderator']}]},
  {label:'Administration',items:[
+  {title:'Satellite APIs',href:'/satellite',icon:'settings',roles:['owner']},
   {title:'System health',href:'/system',icon:'pulse',roles:['owner']},
   {title:'Audit log',href:'/audit',icon:'clock',roles:['owner']},
   {title:'Team',href:'/admins',icon:'team',roles:['owner']},
