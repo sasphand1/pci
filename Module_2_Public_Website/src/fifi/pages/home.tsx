@@ -37,7 +37,7 @@ export function HomePage({ creators, events, categoryRows, reach, eventsCount }:
 
   return (
     <main className="page-main pb-10 pt-5">
-      <div className="grid gap-5 lg:grid-cols-[1.58fr_1fr] lg:items-start">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.58fr_1fr] lg:items-start">
         <div className="space-y-5">
           <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-soft">
             <div className="flex flex-wrap items-center justify-between gap-3">

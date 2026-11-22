@@ -65,7 +65,7 @@ export function DramasPage() {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1.5fr_0.9fr]">
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1.5fr_0.9fr]">
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={comparisonData} margin={{ top: 10, right: 16, left: -8, bottom: 4 }}>
@@ -135,7 +135,7 @@ export function DramasPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {ranked.map((drama, index) => {
             const isSelected = selectedIds.includes(drama.id);
             return (

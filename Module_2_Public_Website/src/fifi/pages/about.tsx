@@ -37,7 +37,7 @@ export function AboutPage() {
         </section>
 
         <section className="rounded-2xl bg-gold-soft/65 p-6 sm:p-10">
-          <div className="grid gap-8 lg:grid-cols-3"><div><p className="eyebrow">Where we're going</p><h2 className="mt-3 font-display text-3xl text-gold-foreground">Built in thoughtful steps.</h2></div><div className="space-y-6 lg:col-span-2">{[
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3"><div><p className="eyebrow">Where we're going</p><h2 className="mt-3 font-display text-3xl text-gold-foreground">Built in thoughtful steps.</h2></div><div className="space-y-6 lg:col-span-2">{[
             ["01", "Discover", "A unified creator index, city calendar, local guide and editorial journal."],
             ["02", "Participate", "Community contributions, useful recommendations and better ways to support local voices."],
             ["03", "Ask Fifi", "Source-backed text and voice assistance in familiar languages, designed around real needs."],

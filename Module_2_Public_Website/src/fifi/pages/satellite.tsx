@@ -73,7 +73,7 @@ export function SatellitePage() {
         </div>
       </div>
 
-      <section className="grid gap-6 lg:grid-cols-[1.45fr_0.95fr]">
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1.45fr_0.95fr]">
         <div className="content-card p-6 sm:p-7">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>

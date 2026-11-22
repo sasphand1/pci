@@ -61,7 +61,7 @@ export function CreatorProfilePage({ creator, rank, series: growthSeries, peers,
         </div>
       </section>
 
-      <section className="mt-6 grid gap-6 lg:grid-cols-[1.45fr_0.95fr]">
+      <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1.45fr_0.95fr]">
         <div className="content-card p-6">
           <p className="eyebrow">Observed History</p>
           <h2 className="mt-1 font-display text-2xl font-medium text-primary">Subscriber and follower trend</h2>
