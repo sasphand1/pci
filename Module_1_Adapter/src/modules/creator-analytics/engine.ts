@@ -3,6 +3,17 @@ export const SOCIAL_BLADE_MIN_RPM_USD = 0.25;
 export const SOCIAL_BLADE_MAX_RPM_USD = 4;
 // PCI displays one figure: the arithmetic midpoint of Social Blade's assumptions.
 export const ASSUMED_RPM_USD = (SOCIAL_BLADE_MIN_RPM_USD + SOCIAL_BLADE_MAX_RPM_USD) / 2;
+
+// Instagram does not expose creator income. This is ONLY a hypothetical
+// sponsorship-price scenario, not RPM, monetization eligibility or earnings.
+// One assumed paid collaboration each month at $1 per 1,000 followers.
+export const INSTAGRAM_SPONSOR_USD_PER_1000_FOLLOWERS = 1;
+export const INSTAGRAM_ASSUMED_SPONSORED_POSTS_PER_MONTH = 1;
+export function estimateInstagramSponsorScenario(followers:number):number|null {
+  if(!Number.isSafeInteger(followers)||followers<0)return null;
+  const usd=Math.round((followers/1000)*INSTAGRAM_SPONSOR_USD_PER_1000_FOLLOWERS*INSTAGRAM_ASSUMED_SPONSORED_POSTS_PER_MONTH);
+  return Number.isSafeInteger(usd)?usd:null;
+}
 const DAY_MS = 86_400_000;
 // A measured daily interval is sufficient for a clearly labeled monthly pace projection.
 // Intervals shorter than 20 hours are too noisy and are not treated as monthly earnings.

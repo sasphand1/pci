@@ -87,3 +87,12 @@ test('provisional model uses only real views from last 30-day uploads',()=>{
   });
   for(const input of [-1,1.2,Number.NaN,Number.MAX_SAFE_INTEGER+1])assert.equal(estimateRecentUploadsFloor(input),null);
 });
+
+import {estimateInstagramSponsorScenario,INSTAGRAM_SPONSOR_USD_PER_1000_FOLLOWERS,INSTAGRAM_ASSUMED_SPONSORED_POSTS_PER_MONTH} from '../../src/modules/creator-analytics/engine.js';
+test('Instagram-only sponsorship scenario returns one explicitly hypothetical figure from followers',()=>{
+ assert.equal(INSTAGRAM_SPONSOR_USD_PER_1000_FOLLOWERS,1);
+ assert.equal(INSTAGRAM_ASSUMED_SPONSORED_POSTS_PER_MONTH,1);
+ assert.equal(estimateInstagramSponsorScenario(6_298_376),6298);
+ assert.equal(estimateInstagramSponsorScenario(6_444_007),6444);
+ for(const x of [-1,1.5,NaN,Infinity,Number.MAX_SAFE_INTEGER+1])assert.equal(estimateInstagramSponsorScenario(x),null);
+});

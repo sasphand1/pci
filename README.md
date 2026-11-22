@@ -1,34 +1,25 @@
+# PCI Wall security and indexing hardening
 
-Refresh <Link url="https://github.com/sasphand1/pci" title="your GitHub repository"/>. It will now have properly formatted headings, tables and code blocks.
+Base GitHub commit inspected: `dafcf6ab05e1300e76b98473ae69a133f9e39ae6`.
 
-## Step 2 — Connect GitHub to Hostinger
+This package changes ONLY five exact paths. It uses an isolated worktree and will stop if another team updates any of those paths. It does not remove messages, alter admin moderation or change any secrets.
 
-Your **Cloud Startup** hosting supports Next.js deployment from GitHub, including repositories containing multiple applications through its *Root directory* setting. <Cite refs={["turn455483search0","turn455483search2"]}/>
+## Changes
+- `Module_2_Public_Website/src/app/robots.ts`: do not disallow `/wall`, `/account`, `/verify-email`, `/reset-password` because those pages already publish `noindex` meta/HTTP directives. Continue to disallow `/api/` and `/admin/`.
+- `Module_1_Adapter/src/modules/wall/links.ts`: add a pure filter for old stored posts containing links.
+- `Module_1_Adapter/src/modules/wall/service.ts`: filter unsafe historical posts from public `/wall/messages` (not from authenticated admin moderation, and no database deletion).
+- Two regression tests for the above behavior.
 
-In Hostinger:
+## Install
+Extract the ZIP. From Windows PowerShell:
 
-1. Go to **Websites**.
-2. Click **+ Create site**.
-3. Choose **Web App**.
-4. Choose **Use temporary domain**.
-5. Select **Import your Git repository**.
-6. Connect GitHub and select `sasphand1/pci`.
-7. Select branch `main`.
+`& powershell.exe -NoProfile -ExecutionPolicy Bypass -File "<extracted-folder>\\Deploy-PCI-Wall-Hardening.ps1" -Repo "C:\\Users\\sasph\\Documents\\PCI_Clean"`
 
-When you reach **Build and output settings**, use these values:
+The installer fetches current main, verifies the exact Git blob IDs and ZIP integrity, runs `npm ci` and `npm run check` for Module 1 and Module 2, stages ONLY modified paths, commits and pushes non-force. Other team worktrees are unaffected. After it succeeds, redeploy Hostinger Module 1 and Module 2.
 
-| Setting | Value |
-|---|---|
-| Framework | Next.js |
-| Node.js | 22.x |
-| Root directory | `Module_2_Public_Website` |
-| Package manager | npm |
-| Build command | `npm run build` |
+`& powershell.exe -NoProfile -ExecutionPolicy Bypass -File "<extracted-folder>\\Verify-PCI-Wall.ps1"`
 
-Hostinger documents this method for deploying an individual app from a monorepo. <Cite ref="turn455483search2"/>
+It verifies live Googlebot-style noindex headers and crawl directives. A spoofed user-agent is NOT Google's actual inspection service. Run Google Search Console URL Inspection on `/wall`, then request security review separately after all site issues are addressed.
 
-**Stop at the environment variables screen and send me a screenshot.**
-
-We must configure public HTTPS addresses before deploying. Your current local API address (`localhost:8081`) will not work for external visitors, and I don't want us repeating that integration problem.
-
-We'll deploy the frontend first, then provision the backend and connect the live rankings.
+## Tests
+Package author runs feasible unit and static tests. Full npm production checks are run by the installer because dependencies cannot be installed in the package-author environment. Do NOT claim this patch guarantees clearing Search Console's Deceptive Pages warning.

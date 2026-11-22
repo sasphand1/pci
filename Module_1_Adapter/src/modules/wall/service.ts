@@ -9,7 +9,7 @@ import { config } from '../../lib/config.js';
 import { handler,HttpError } from '../../lib/errors.js';
 import { sha256,pseudonym } from '../../lib/security.js';
 import { requireWall,type WallIdentity } from '../auth/auth.js';
-import { containsLink } from './links.js';
+import { containsLink, filterPublicWallMessages } from './links.js';
 
 export const wallRoutes=Router();
 let io:Server|null=null;
@@ -45,7 +45,7 @@ wallRoutes.get('/messages',handler(async(req,res)=>{
  const r=await query(`SELECT id,nickname,author_type AS "authorType",body,created_at AS "createdAt" FROM wall_messages
  WHERE deleted_at IS NULL AND created_at>now()-($1::int*interval '1 day') AND ($2::timestamptz IS NULL OR created_at<$2::timestamptz)
  ORDER BY created_at DESC,id DESC LIMIT $3`,[config.WALL_MESSAGE_RETENTION_DAYS,q.before??null,q.limit]);
- res.json({data:r.rows.reverse(),meta:{retentionDays:config.WALL_MESSAGE_RETENTION_DAYS}});
+ res.json({data:filterPublicWallMessages(r.rows.reverse()),meta:{retentionDays:config.WALL_MESSAGE_RETENTION_DAYS}});
 }));
 wallRoutes.post('/messages',requireWall,handler(async(req,res)=>{
  const w=res.locals.wallUser as WallIdentity;

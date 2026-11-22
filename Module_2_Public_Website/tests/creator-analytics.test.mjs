@@ -6,7 +6,7 @@ const read=p=>readFileSync(new URL(p,import.meta.url),'utf8');
 test('published creator wheel displays model output, not lifetime views passed as earnings',()=>{
  const wheel=read('../src/components/PublishedWheel.tsx');
  const query=read('../../Module_1_Adapter/src/modules/public/queries.ts');
- assert.match(wheel,/c\.person\.estimatedMonthlyEarningsUsd/);
+ assert.match(wheel,/entry\.person\.estimatedMonthlyEarningsUsd/);
  assert.match(wheel,/Est\. monthly/);
  assert.match(wheel,/not verified income/i);
  assert.match(query,/monthlyEstimates\(\[\.\.\.ids\],now\)/);
@@ -64,7 +64,7 @@ test('earning-status labels distinguish missing, stale, and pending data',async(
  const api=read('../src/lib/public.ts');
  assert.match(api,/PubEarningsStatus/);
  const wheel=read('../src/components/PublishedWheel.tsx');
- assert.match(wheel,/c\.person\.earningsStatus/);
+ assert.match(wheel,/entry\.person\.earningsStatus/);
  const backend=read('../../Module_1_Adapter/src/modules/creator-analytics/data.ts');
  assert.match(backend,/aggregateEarningsStatus/);
 });
@@ -76,7 +76,7 @@ test('provisional earnings are explicitly distinguished from measured monthly gr
  assert.match(back,/recentUploadFloors/);
  assert.match(back,/published_at >= \$2::timestamptz - interval '30 days'/);
  assert.match(back,/recent_uploads_floor/);
- assert.match(front,/Est\. monthly\*/);
+ assert.match(front,/entry\.person\.earningsBasis==='recent_uploads_floor'/);
  assert.match(front,/older uploads/);
  assert.match(scheduler,/collectCreatorVideoSnapshots\(\)/);
 });
@@ -87,4 +87,21 @@ test('partial creator video sample coverage remains retryable without invented h
  assert.match(data,/floors\.length/);
  assert.match(scheduler,/pendingAccounts/);
  assert.match(scheduler,/refreshCreatorVideoSamples/);
+});
+
+test('Instagram-only creators get a distinct sponsor scenario on the wheel and their profiles',()=>{
+ const wheel=read('../src/components/PublishedWheel.tsx');
+ const profile=read('../src/components/CreatorAnalyticsPanel.tsx');
+ const backend=read('../../Module_1_Adapter/src/modules/creator-analytics/data.ts');
+ const queries=read('../../Module_1_Adapter/src/modules/public/queries.ts');
+ assert.match(backend,/instagramSponsorScenarios/);
+ assert.match(backend,/metric='followers'/);
+ assert.match(backend,/a\.platform='instagram'/);
+ assert.match(queries,/instagramSponsorScenarioUsd=instagram\.get\(id\)/);
+ assert.match(wheel,/IG sponsor\/mo/);
+ assert.match(wheel,/instagramSponsorScenarioUsd/);
+ assert.match(wheel,/contributions\.map\(c=>c\.platform\)/);
+ assert.match(profile,/Instagram sponsor scenario \/ month/);
+ assert.match(profile,/instagramAccountCount/);
+ assert.match(wheel,/not a known deal/);
 });

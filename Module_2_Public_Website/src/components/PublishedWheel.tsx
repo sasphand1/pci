@@ -8,6 +8,30 @@ import {earningsStatusLabel} from '@/lib/earnings-status.mjs';
 import type {PubRanking, PubEntry} from '@/lib/public';
 import {StageScene} from './StageScene';
 
+/** Determine the relevant platform(s) from actual ranking contributions. */
+function CardEarnings({entry}:{entry:PubEntry}){
+  const platforms=new Set(entry.contributions.map(c=>c.platform));
+  const youtube=platforms.has('youtube');
+  const instagram=platforms.has('instagram');
+  const yt=youtube&&typeof entry.person.estimatedMonthlyEarningsUsd==='number'&&Number.isFinite(entry.person.estimatedMonthlyEarningsUsd)?entry.person.estimatedMonthlyEarningsUsd:null;
+  const ig=instagram&&typeof entry.person.instagramSponsorScenarioUsd==='number'&&Number.isFinite(entry.person.instagramSponsorScenarioUsd)?entry.person.instagramSponsorScenarioUsd:null;
+  const hasYt=yt!==null;
+  const hasIg=ig!==null;
+  const total=hasYt&&hasIg?yt+ig:yt??ig;
+  const label=hasYt&&hasIg?'YT + IG model':hasIg?'IG sponsor/mo':hasYt?'YT est. monthly':'Est. monthly';
+  const blank=instagram&&!youtube?'No IG data':youtube
+    ? earningsStatusLabel(entry.person.earningsStatus??'needs_history'):'No estimate';
+  const disclosure=hasIg
+    ? 'Instagram: hypothetical one paid sponsored post per month at $1 per 1,000 followers; not a known deal, actual earnings or RPM. YouTube, when shown, uses its separate view-based model.'
+    : entry.person.earningsBasis==='recent_uploads_floor'
+      ? 'YouTube estimate based on current views on uploads published in the last 30 days, excluding older uploads. Not verified income.'
+      : 'YouTube estimated using observed channel-view growth and a $2.125 assumed RPM. Not verified income.';
+  return <span className="stage-earnings" title={disclosure}>
+    <small>{label}{hasYt&&entry.person.earningsBasis==='recent_uploads_floor'?'*':''}</small>
+    <b>{total===null?blank:new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(total)}</b>
+  </span>;
+}
+
 const WHEEL_STEP = 60;
 const WHEEL_GAP_MS = 550;
 const SLOTS:{slot:number;step:number}[] = [
@@ -219,12 +243,7 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
                   <b>{formatCount(c.value,true)}</b>
                   <small>{metricLabel}</small>
                 </span>
-                <span className="stage-earnings" title={c.person.earningsBasis==='recent_uploads_floor'
-                  ? 'Provisional lower-bound from views on YouTube videos uploaded within the past 30 days; older video views are excluded. Not verified income.'
-                  : "Illustrative monthly earnings, calculated from tracked YouTube view gains and Social Blade's $0.25–$4 RPM assumptions; not verified income."}>
-                  <small>{c.person.earningsBasis==='recent_uploads_floor'?'Est. monthly*':'Est. monthly'}</small>
-                  <b>{c.person.estimatedMonthlyEarningsUsd == null ? earningsStatusLabel(c.person.earningsStatus??(c.person.accounts.some(a=>a.platform==='youtube')?'needs_history':'no_youtube')) : new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(c.person.estimatedMonthlyEarningsUsd)}</b>
-                </span>
+                <CardEarnings entry={c}/>
               </span>
             </Link>
           ))}
@@ -248,7 +267,7 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
           </button>
         </div>
 
-        <p className="stage-earnings-note">Earnings are unverified estimates using the $0.25–$4 RPM midpoint. Primary figures use observed channel-view growth; values marked * use only videos uploaded in the last 30 days and exclude views on older uploads. Full channel estimates require snapshots 20+ hours apart. Instagram-only profiles have no modeled YouTube earnings.</p>
+        <p className="stage-earnings-note">YouTube: hypothetical view-based earnings using a $2.125 RPM assumption; * means only recent-upload views are counted. Instagram: separate hypothetical sponsorship scenario of one paid post/month at $1 per 1,000 followers. Channel-view estimates require 20+ hours apart when calculated from snapshots. Neither model represents actual creator income or known sponsorship contracts.</p>
         <div className="stage-dots" role="group" aria-label="Choose creator">
           {cards.map((c,i)=>(
             <button
