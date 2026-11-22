@@ -20,8 +20,9 @@ test('all public Next routes inherit header; no page duplicates it',()=>{
  assert.ok(result.length>9);
  for(const p of result){const content=readFileSync(p,'utf8');assert.doesNotMatch(content,/<SiteHeader\b|className=["']site-header["']/i,p);}
 });
-test('all seven tabs are sourced once from the same SiteHeader',()=>{
- for(const label of ['Home','Rankings','Creators','Events','Satellite','Insights','About'])assert.match(header,new RegExp(`label:'${label}'`));
+test('all five primary tabs are sourced once from the same SiteHeader',()=>{
+ for(const label of ['Home','Events','Satellite','Insights','About'])assert.match(header,new RegExp(`label:'${label}'`));
+ assert.doesNotMatch(header,/label:'(?:Rankings|Creators)'/);
  assert.match(header,/pathname\.startsWith\(`\$\{href\}\/`\)/);
  assert.match(header,/aria-current=\{active \? 'page' : undefined\}/);
 });

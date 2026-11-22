@@ -6,8 +6,6 @@ import {usePathname} from 'next/navigation';
 
 const primaryLinks = [
   {href:'/',label:'Home'},
-  {href:'/#top-100',label:'Rankings'},
-  {href:'/#discover',label:'Creators'},
   {href:'/events',label:'Events'},
   {href:'/satellite',label:'Satellite'},
   {href:'/methodology',label:'Insights'},
