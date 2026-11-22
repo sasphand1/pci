@@ -158,15 +158,9 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
             aria-label="Previous creator"
             onClick={()=>move(-1)}
           >
-            ‹
+            â€¹
           </button>
 
-          <div className="stage-floor-rings" aria-hidden="true">
-            <i/><i/><i/>
-          </div>
-          <div className="stage-podium" aria-hidden="true">
-            <i/><i/>
-          </div>
 
           {shown.map(({slot,entry:c})=>(
             <Link
@@ -220,7 +214,7 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
             aria-label="Next creator"
             onClick={()=>move(1)}
           >
-            ›
+            â€º
           </button>
         </div>
 
