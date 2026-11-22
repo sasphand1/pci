@@ -8,7 +8,8 @@ const primaryLinks = [
   {href:'/',label:'Home'},
   {href:'/#top-100',label:'Rankings'},
   {href:'/#discover',label:'Creators'},
-  {href:'/events.html',label:'Events'},
+  {href:'/events',label:'Events'},
+  {href:'/satellite',label:'Satellite'},
   {href:'/methodology',label:'Insights'},
   {href:'/about',label:'About'}
 ] as const;
@@ -41,7 +42,8 @@ export function SiteHeader(){
         >
           {primaryLinks.map(({href,label})=>{
             const active =
-              (href==='/' && pathname==='/');
+              (href==='/' && pathname==='/') ||
+              (href==='/events' && pathname==='/events');
             return (
               <Link
                 key={label}
@@ -66,10 +68,8 @@ export function SiteHeader(){
               <circle cx="11" cy="11" r="6.5"/>
               <path d="m16 16 4.5 4.5"/>
             </svg>
-            <span>Search creators, platforms, or topics...</span><kbd className="pci-search-shortcut" aria-hidden="true">âŒ˜K</kbd>
+            <span>Search creators, platforms, or topics...</span><kbd className="pci-search-shortcut" aria-hidden="true">⌘K</kbd>
           </Link>
-
-
 
           <Link href="/wall" className="pci-header-icon" aria-label="Community live wall">
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
