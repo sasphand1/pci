@@ -12,6 +12,9 @@ const runtimeModules = [
   'modules/cross-platform/score.mjs',
   'modules/unified/metrics.mjs',
   'modules/engine/status.mjs',
+  'modules/satellite/catalog.mjs',
+  'modules/satellite/guard.mjs',
+  'modules/satellite/bulk.mjs',
 ];
 
 for (const modulePath of runtimeModules) {
