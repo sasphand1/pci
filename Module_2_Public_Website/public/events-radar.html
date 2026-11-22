@@ -887,9 +887,9 @@ function fitLibreEvents(){
 function startMapLibre(){
   const fallback=$('#preview-map');
   if(!window.maplibregl||!maplibregl.supported?.()){
-    $('#engine-status').textContent='OFFLINE DESIGN PREVIEW';
+    $('#engine-status').textContent='VERIFIED EVENT LOCATIONS · STATIC MAP';
     const watermark=fallback.querySelector('.preview-map__watermark');
-    if(watermark)watermark.textContent='LIVE MAP UNAVAILABLE · DESIGN FALLBACK';
+    if(watermark)watermark.textContent='INTERACTIVE VERIFIED MARKERS · MAP TILES UNAVAILABLE';
     return;
   }
   const host=$('#libre-map');
@@ -909,7 +909,7 @@ function startMapLibre(){
     });
   }catch(error){
     host.style.display='none';
-    $('#engine-status').textContent='OFFLINE DESIGN PREVIEW';
+    $('#engine-status').textContent='VERIFIED EVENT LOCATIONS · STATIC MAP';
     console.warn('PCI live map initialization failed:',error);
     return;
   }
@@ -950,10 +950,13 @@ function asPublishedEvent(item){
  if(!CATEGORIES.some(c=>c.id===item.category))return null;
  if(typeof item.name!=='string'||!item.name.trim()||typeof item.venue!=='string'||!item.venue.trim())return null;
  const lat=Number(item.latitude),lng=Number(item.longitude),t=Date.parse(item.start_at);
- if(!Number.isFinite(lat)||!Number.isFinite(lng)||!Number.isFinite(t)||t<=Date.now())return null;
+ const end=Date.parse(item.end_at||item.start_at);
+ if(!Number.isFinite(lat)||!Number.isFinite(lng)||!Number.isFinite(t)||!Number.isFinite(end)||end<=Date.now())return null;
  const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Karachi',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(t));
  const time=item.all_day?'All day':new Intl.DateTimeFormat('en-PK',{timeZone:'Asia/Karachi',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date(t));
- const approx=EVENTS_CITY_ANCHOR[item.city];
+ const anchor=EVENTS_CITY_ANCHOR[item.city],center=CENTERS[item.city];
+ // Static illustration preview approximates venue offsets; Waze uses exact coordinates.
+ const approx={x:Math.max(10,Math.min(90,anchor.x+(lng-center.lng)*3)),y:Math.max(10,Math.min(90,anchor.y-(lat-center.lat)*3))};
  return {id:String(item.id),name:item.name,city:item.city,category:item.category,date,time,venue:item.venue,lat,lng,
   ticket:item.ticket_type||'unknown',price:item.price_text||null,description:item.description||'',source_name:item.source_name||'Official event feed',event_url:typeof item.event_url==='string'&&item.event_url.startsWith('https://')?item.event_url:null,
   x:approx.x,y:approx.y};
@@ -970,7 +973,13 @@ async function loadPublishedEvents(){
   restoreEventFromLink();
   refresh();
   focusMap();
-  if(!PUBLIC_EVENTS.length)summary.textContent='NO VERIFIED UPCOMING EVENTS';
+  if(!PUBLIC_EVENTS.length){
+   const health=body.meta||{};
+   if(health.sources_configured===0)summary.textContent='NO SOURCES CONNECTED · OPEN EVENT SOURCES IN ADMIN';
+   else if(health.sources_enabled===0)summary.textContent='FEEDS ADDED · AWAITING OWNER ACTIVATION';
+   else if(Number(health.awaiting_review)>0)summary.textContent=`${Number(health.awaiting_review)} EVENTS WAITING FOR OWNER REVIEW`;
+   else summary.textContent='SOURCES CONNECTED · NO APPROVED UPCOMING EVENTS';
+  }
  }catch(error){
   PUBLIC_EVENTS=[];refresh();
   summary.textContent='EVENT DATA TEMPORARILY UNAVAILABLE';
