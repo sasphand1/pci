@@ -1,3 +1,4 @@
+import { safeAvatarUrl } from './avatar.js';
 // Pure mapping from provider API payloads to results. No network, no config: unit-tested with fixtures.
 import type { FetchResult, MetricValue } from './types.js';
 
@@ -41,9 +42,9 @@ export function mapYoutubeStatistics(ch: YtChannelLike | undefined): Pick<FetchR
   return { outcome: 'ok', metrics, detail: notes.length ? notes.join(',') : undefined };
 }
 
-export type IgBody = { business_discovery?: { id?: string; username?: string; followers_count?: unknown; media?: { data?: Array<{ timestamp?: string }> } }; error?: { code?: number } };
+export type IgBody = { business_discovery?: { id?: string; username?: string; followers_count?: unknown; profile_picture_url?: unknown; media?: { data?: Array<{ timestamp?: string }> } }; error?: { code?: number } };
 
-export function mapInstagram(body: IgBody | null, httpStatus: number, username: string, nowMs: number, mediaLimit: number): Pick<FetchResult, 'outcome' | 'metrics' | 'detail' | 'resolvedExternalId'> {
+export function mapInstagram(body: IgBody | null, httpStatus: number, username: string, nowMs: number, mediaLimit: number): Pick<FetchResult, 'outcome' | 'metrics' | 'detail' | 'resolvedExternalId' | 'avatarUrl'> {
   const code = body?.error?.code;
   if (code !== undefined || httpStatus >= 400) {
     if (code !== undefined && RATE_LIMIT_INSTAGRAM_CODES.has(code)) return { outcome: 'rate_limited', metrics: [], detail: `graph_code_${code}` };
@@ -66,7 +67,7 @@ export function mapInstagram(body: IgBody | null, httpStatus: number, username: 
     if (capped) detail = 'posts_capped';
   } else detail = 'media_unavailable';
   const id = typeof r.id === 'string' && /^[0-9]+$/.test(r.id) ? r.id : undefined;
-  return { outcome: 'ok', metrics, detail, resolvedExternalId: id };
+  return { outcome: 'ok', metrics, detail, resolvedExternalId: id, avatarUrl: safeAvatarUrl(r.profile_picture_url) ?? undefined };
 }
 
 /** Turns a thrown error into a per-account outcome. Messages from our clients are codes, never secrets. */

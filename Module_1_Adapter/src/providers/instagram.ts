@@ -20,7 +20,7 @@ export function makeInstagramProvider(env: NodeJS.ProcessEnv = process.env, now:
         try {
           // Fixed host; the username is validated above and can never become a URL or host.
           const url = new URL(`https://graph.facebook.com/${API_VERSION}/${owner}`);
-          url.searchParams.set('fields', `business_discovery.username(${username}){id,username,followers_count,media_count,media.limit(${MEDIA_LIMIT}){timestamp}}`);
+          url.searchParams.set('fields', `business_discovery.username(${username}){id,username,followers_count,media_count,profile_picture_url,media.limit(${MEDIA_LIMIT}){timestamp}}`);
           const res = await fetchImpl(url, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15000) });
           let body: IgBody | null = null;
           try { body = await res.json() as IgBody; } catch { body = null; }
