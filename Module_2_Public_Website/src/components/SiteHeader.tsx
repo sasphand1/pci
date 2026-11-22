@@ -41,9 +41,9 @@ export function SiteHeader(){
           aria-label="Primary navigation"
         >
           {primaryLinks.map(({href,label})=>{
-            const active =
-              (href==='/' && pathname==='/') ||
-              (href==='/events' && pathname==='/events');
+            const active = href === '/' ? pathname === '/'
+              : href.startsWith('/#') ? false
+              : pathname === href || pathname.startsWith(`${href}/`);
             return (
               <Link
                 key={label}

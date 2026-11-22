@@ -1,3 +1,6 @@
+import {ensureSatelliteSchema} from './lib/satellite-schema.js';
+import {ensureEventsSchema} from './lib/events-schema.js';
+import {adminEventsRoutes,publicEventsRoutes} from './modules/events/routes.js';
 import {SATELLITE_RATE_WINDOW_SECONDS,isPublicSatelliteRead,satellitePermission} from './modules/satellite/guard.mjs';
 import {instagramPublicRoutes,instagramAdminRoutes} from './modules/instagram/routes.js';
 import {satellitePublicRoutes,satelliteAdminRoutes} from './modules/satellite/routes.js';
@@ -109,6 +112,7 @@ export function makeApp() {
   app.use('/api/v1',legacyGate());
   app.use(docsRoutes);
   app.use('/api/v1/public',publicRankingRoutes);
+  app.use('/api/v1/public',publicEventsRoutes);
   app.use('/api/v1',publicRoutes);
   app.use('/api/v1',unifiedPublicRoutes);
   app.use('/api/v1',instagramPublicRoutes);
@@ -119,6 +123,7 @@ export function makeApp() {
   app.use('/api/v1/wall',wallRoutes);
   app.use('/api/v1/admin/auth',adminAuthRoutes);
   app.use('/api/v1/admin',adminRoutes);
+  app.use('/api/v1/admin/events',adminEventsRoutes);
   app.use('/api/v1/admin',bucketAdminRoutes);
   app.use('/api/v1/admin',refreshAdminRoutes);
   app.use('/api/v1/admin',publishAdminRoutes);
@@ -187,6 +192,10 @@ async function main(){
           console.error('[PCI_SCHEMA_FAILURE] publication schema failed');
         }
         await ensureRedis();
+        try{await ensureEventsSchema();logger.info('Events schema verified');}
+        catch(err){logger.error({err},'Events schema unavailable; event endpoints may fail until the migration is applied');}
+        try{await ensureSatelliteSchema();logger.info('Satellite schema verified');}
+        catch(err){logger.error({err},'Satellite schema unavailable; satellite endpoints may fail until migration is applied');}
         pciStartupReady=true;
         logger.info('API server ready');
         if(config.RUN_WORKER_IN_API==='true'){

@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 type Datum=Record<string,unknown>;
-const API=(process.env.NEXT_PUBLIC_ADAPTER_API_URL||'http://localhost:8080').replace(/\/$/,'');
+const API='/api/satellite';
 const cityNames=['lahore','karachi','islamabad','peshawar','quetta','multan','faisalabad','hyderabad'];
 function rows(d:unknown[]):Datum[]{return d.filter((x):x is Datum=>Boolean(x&&typeof x==='object'&&!Array.isArray(x)));}
 function shown(v:unknown){return typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('en-PK',{maximumFractionDigits:2}):'Not available';}
@@ -10,7 +10,7 @@ export function SatelliteDashboard({sources,fires,rain,solar}:{sources:unknown[]
  const [city,setCity]=useState('lahore'),[rainData,setRainData]=useState(rows(rain)),[solarData,setSolarData]=useState(rows(solar));
  const [error,setError]=useState('');
  useEffect(()=>{let active=true;setError('');if(city==='lahore'){setRainData(rows(rain));setSolarData(rows(solar));return;}
- Promise.all(['rainfall','solar'].map(async metric=>{const response=await fetch(`${API}/api/v1/satellite/${metric}/latest?city=${encodeURIComponent(city)}`,{signal:AbortSignal.timeout(8000)});if(!response.ok)throw Error('Data service unavailable');return rows((await response.json()).data??[]);})).then(([r,s])=>{if(active){setRainData(r);setSolarData(s);}}).catch(()=>{if(active){setError('Unable to retrieve city observations.');setRainData([]);setSolarData([]);}});return()=>{active=false;};},[city,rain,solar]);
+ Promise.all(['rainfall','solar'].map(async metric=>{const response=await fetch(`${API}?metric=${encodeURIComponent(metric)}&city=${encodeURIComponent(city)}`,{signal:AbortSignal.timeout(8000)});if(!response.ok)throw Error('Data service unavailable');return rows((await response.json()).data??[]);})).then(([r,s])=>{if(active){setRainData(r);setSolarData(s);}}).catch(()=>{if(active){setError('Unable to retrieve city observations.');setRainData([]);setSolarData([]);}});return()=>{active=false;};},[city,rain,solar]);
  const providers=rows(sources),fireRows=rows(fires);const latestRain=rainData[0],latestSolar=solarData[0];
  return <div className="satellite-dashboard">
   <section className="satellite-controls"><label htmlFor="satellite-city">Select city</label><select id="satellite-city" value={city} onChange={e=>setCity(e.target.value)}>{cityNames.map(c=><option key={c} value={c}>{c[0].toUpperCase()+c.slice(1)}</option>)}</select><span>City values are satellite-derived / modeled regional estimates, not street measurements.</span></section>

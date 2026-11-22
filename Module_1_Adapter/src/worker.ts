@@ -1,3 +1,4 @@
+import {ensureSatelliteSchema} from './lib/satellite-schema.js';
 import {ensureEventsSchema} from './lib/events-schema.js';
 import { ensureRedis,redis } from './lib/redis.js';
 import { pool } from './lib/db.js';
@@ -17,8 +18,9 @@ async function main(){
  try{await ensureUnifiedSchema();}catch(err){logger.error({err},'Unified schema verification failed in worker');}
  try{await ensureEngineSchema();}catch(err){logger.error({err},'Engine schema verification failed in worker');}
  try{await ensureRegistrySchema();await ensureObservationsSchema();await ensurePublicationSchema();await ensurePublicSchema();}catch(err){logger.error({err},'Registry/observations schema verification failed in worker');}
- const scheduler=await startScheduler({embedded:false});
+ try{await ensureSatelliteSchema();}catch(err){logger.error({err},'Satellite schema initialization failed in worker');}
  try{await ensureEventsSchema();}catch(err){logger.error({err},'Event sources schema initialization failed in worker');}
+ const scheduler=await startScheduler({embedded:false});
  logger.info({workerId:scheduler.workerId},'Worker ready');
  const stop=async()=>{scheduler.stop();await redis.quit();await pool.end();process.exit(0);};
  process.once('SIGINT',()=>void stop());process.once('SIGTERM',()=>void stop());

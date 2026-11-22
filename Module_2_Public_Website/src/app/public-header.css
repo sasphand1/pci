@@ -1,0 +1,96 @@
+/* The SINGLE public navigation template is SiteHeader in src/app/layout.tsx.
+   These rules apply to every public route; Module 3 is intentionally excluded.
+   Loaded after older page-theme styles to eliminate competing header breakpoints. */
+.site-shell .pci-site-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+  isolation: isolate;
+}
+.site-shell .pci-site-header .pci-nav-inner {
+  width: min(calc(100% - 32px), 1500px);
+  box-sizing: border-box;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+.site-shell .pci-site-header .pci-primary-nav a {
+  white-space: nowrap;
+}
+.site-shell .pci-site-header .pci-primary-nav a:focus-visible,
+.site-shell .pci-site-header .pci-nav-toggle:focus-visible {
+  outline: 2px solid #f3c965;
+  outline-offset: 4px;
+}
+@media (min-width: 1101px) and (max-width: 1290px) {
+  .site-shell .pci-site-header .pci-nav-inner { gap: 9px; }
+  .site-shell .pci-site-header .pci-nav-brand { margin-right: 0; }
+  .site-shell .pci-site-header .pci-primary-nav { gap: 13px; padding-left: 12px; }
+  .site-shell .pci-site-header .pci-primary-nav a { font-size: 12px; }
+  .site-shell .pci-site-header .pci-header-search { flex-basis: 100px; }
+}
+/* One breakpoint and one menu for all public pages, regardless of page content. */
+@media (max-width: 1100px) {
+  .site-shell .pci-site-header .pci-nav-inner { min-height: 60px; gap: 10px; }
+  .site-shell .pci-site-header .pci-nav-brand { margin-right: 0; }
+  .site-shell .pci-site-header .pci-primary-nav {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 120;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    margin: 0;
+    padding: 10px max(16px, calc((100vw - 1500px)/2));
+    border: 1px solid rgba(209,240,231,.22);
+    border-top: 0;
+    border-radius: 0;
+    background: #052322;
+    box-shadow: 0 18px 30px rgba(0,0,0,.3);
+    max-height: calc(100dvh - 60px);
+    overflow-y: auto;
+  }
+  .site-shell .pci-site-header .pci-primary-nav[data-open="true"] { display: flex; }
+  .site-shell .pci-site-header .pci-primary-nav a,
+  .site-shell .pci-site-header .pci-primary-nav a[aria-current=page] {
+    display: block;
+    padding: 13px 12px;
+    font-size: 14px;
+  }
+  .site-shell .pci-site-header .pci-primary-nav a[aria-current=page]::after { bottom: 4px; }
+  .site-shell .pci-site-header .pci-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    padding: 0 12px;
+    border-radius: 999px;
+    color: #f4f7f5;
+    background: rgba(1,27,29,.55);
+    border: 1px solid rgba(209,240,231,.29);
+  }
+  .site-shell .pci-site-header .pci-header-actions { flex: 1 1 auto; justify-content: flex-end; }
+  .site-shell .pci-site-header .pci-header-search {
+    flex: 0 0 36px;
+    min-width: 36px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  .site-shell .pci-site-header .pci-header-search span,
+  .site-shell .pci-site-header .pci-search-shortcut { display: none; }
+}
+@media (max-width: 530px) {
+  .site-shell .pci-site-header .pci-nav-inner { gap: 7px; }
+  .site-shell .pci-site-header .pci-brand-copy { font-size: 11px; }
+  .site-shell .pci-site-header .pci-brand-copy strong { font-size: 14px; }
+  .site-shell .pci-site-header .brand-mark { width: 30px; height: 34px; }
+  .site-shell .pci-site-header .pci-header-icon { display: none; }
+  .site-shell .pci-site-header .pci-header-actions { gap: 7px; }
+}
