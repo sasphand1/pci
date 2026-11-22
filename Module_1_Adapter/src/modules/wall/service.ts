@@ -9,6 +9,7 @@ import { config } from '../../lib/config.js';
 import { handler,HttpError } from '../../lib/errors.js';
 import { sha256,pseudonym } from '../../lib/security.js';
 import { requireWall,type WallIdentity } from '../auth/auth.js';
+import { containsLink } from './links.js';
 
 export const wallRoutes=Router();
 let io:Server|null=null;
@@ -35,7 +36,7 @@ async function isBanned(w:WallIdentity){
  const r=await query('SELECT 1 FROM wall_bans WHERE subject_key=$1 AND (expires_at IS NULL OR expires_at>now())',[key]);
  return !!r.rowCount;
 }
-const messageSchema=z.object({body:z.string().trim().min(1).max(500)});
+const messageSchema=z.object({body:z.string().trim().min(1).max(500).refine(b=>!containsLink(b),{message:'Links are not allowed on the wall.'})});
 wallRoutes.get('/status',handler(async(_req,res)=>{
  res.json({data:{enabled:await setting<boolean>('wall_enabled'),readOnly:await setting<boolean>('wall_read_only'),retentionDays:config.WALL_MESSAGE_RETENTION_DAYS}});
 }));

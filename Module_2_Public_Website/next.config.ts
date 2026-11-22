@@ -7,6 +7,8 @@ const nextConfig: NextConfig={
     {key:'X-Frame-Options',value:'DENY'},
     {key:'Permissions-Policy',value:'camera=(), microphone=(), geolocation=()'},
     {key:'X-Permitted-Cross-Domain-Policies',value:'none'}
-  ]}];}
+  ]},
+  {source:'/:path(account|wall|verify-email|reset-password)',headers:[{key:'X-Robots-Tag',value:'noindex, nofollow'}]},
+  {source:'/(.*)',headers:[{key:'Strict-Transport-Security',value:'max-age=31536000'}]}];}
 };
 export default nextConfig;
