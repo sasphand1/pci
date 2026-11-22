@@ -3,7 +3,7 @@ import {canonicalPath} from '@/lib/seo';
 
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: {userAgent: '*', allow: '/', disallow: ['/account', '/wall', '/api/', '/admin/', '/verify-email', '/reset-password']},
+    rules: {userAgent: '*', allow: '/', disallow: ['/api/', '/admin/']},
     sitemap: canonicalPath('/sitemap.xml'),
   };
 }

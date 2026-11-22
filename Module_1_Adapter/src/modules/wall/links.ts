@@ -10,3 +10,9 @@ export function containsLink(text: string): boolean {
   const t = text.normalize('NFKC');
   return SCHEME.test(t) || WWW.test(t) || SHORT.test(t) || EMAIL.test(t) || BARE.test(t);
 }
+
+/** Legacy stored messages predate write-time link rejection. Suppress them at read time
+ * without deleting evidence used by moderators or audit investigations. */
+export function filterPublicWallMessages<T extends {body:string}>(rows:T[]):T[] {
+  return rows.filter(row=>typeof row.body==='string' && !containsLink(row.body));
+}
