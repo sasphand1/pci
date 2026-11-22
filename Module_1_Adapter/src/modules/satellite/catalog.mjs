@@ -2,7 +2,7 @@
 export const PROVIDERS = Object.freeze({
  firms:{label:'NASA FIRMS (VIIRS)',kind:'fire',implemented:true,auth:'NASA_FIRMS_MAP_KEY',minMinutes:180},
  power:{label:'NASA POWER (daily meteorology)',kind:'rainfall,solar',implemented:true,auth:null,minMinutes:1440},
- eonet:{label:'NASA EONET natural events',kind:'natural_event',implemented:true,auth:null,minMinutes:180},
+ eonet:{label:'NASA EONET natural events',kind:'natural_event',implemented:true,auth:null,minMinutes:360},
  gibs:{label:'NASA GIBS satellite imagery',kind:'imagery',implemented:true,auth:null,minMinutes:1440},
  gpm:{label:'NASA GPM IMERG (rainfall imagery only)',kind:'rainfall imagery',implemented:true,auth:null,minMinutes:360},
  sentinel1:{label:'Copernicus Sentinel-1 (scene catalogue)',kind:'scene',implemented:true,auth:null,minMinutes:1440},

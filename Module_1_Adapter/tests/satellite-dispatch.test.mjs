@@ -17,10 +17,11 @@ test('worker starts immediately and subsequently polls every minute',()=>{
  assert.match(s,/void satelliteTick\(\)/);
  assert.match(s,/cron\.schedule\('\* \* \* \* \*',\(\)=>void satelliteTick\(\)\)/);
 });
-test('queued job keeps request marker through claim for crash recovery',()=>{
+test('queued jobs respect atomic cooldown while preserving the request marker',()=>{
  const s=read('../src/modules/satellite/service.ts');
- assert.match(s,/last_attempt_at<refresh_requested_at/);
- assert.match(s,/interval '5 minutes'/);
+ assert.match(s,/minimumIntervalMinutes\(p\.id\)/);
+ assert.match(s,/UPDATE satellite\.providers SET last_attempt_at=now\(\)/);
+ assert.match(s,/last_attempt_at <= now\(\)-make_interval\(mins=>GREATEST\(refresh_minutes,\$2::int\)\)/);
  assert.doesNotMatch(s,/SET last_attempt_at=now\(\),refresh_requested_at=NULL WHERE id=\$1/);
 });
 test('Power coordinates respect immutable tuple',()=>{
