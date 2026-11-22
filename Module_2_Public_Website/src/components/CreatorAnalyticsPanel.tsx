@@ -31,13 +31,14 @@ export function CreatorAnalyticsPanel({data}:{data:PubCreatorAnalytics}){
   const milestone=data.milestone??null;
   return <section className="section pci-analytics" aria-label="Creator growth and earnings">
     <h2>Creator Analytics</h2>
-    <p className="fineprint">Observed public YouTube data. Graphs include only real observations; missing days are not invented.</p>
+    <p className="fineprint">YouTube graphs use observed public data; Instagram sponsorship values are hypothetical price scenarios, not verified income.</p>
     <div className="pci-analytics-summary">
-      <div className="pci-analytics-tile"><small>Subscriber change · 7 days</small><strong>{signed(data.growth.subscribers['7d'])}</strong></div>
-      <div className="pci-analytics-tile"><small>Channel views gained · 30 days</small><strong>{signed(data.growth.views['30d'])}</strong></div>
-      <div className="pci-analytics-tile pci-analytics-revenue"><small>Estimated Monthly Earnings</small><strong>{data.estimatedMonthlyEarningsUsd===null?earningsStatusLabel(data.earningsStatus):usd(data.estimatedMonthlyEarningsUsd)}</strong><span>{data.earningsBasis==='recent_uploads_floor'?'Recent-upload lower bound; excludes older videos':'Modeled estimate, not verified revenue'}</span></div>
+      {data.historyAccountCount>0&&<div className="pci-analytics-tile"><small>Subscriber change · 7 days</small><strong>{signed(data.growth.subscribers['7d'])}</strong></div>}
+      {data.historyAccountCount>0&&<div className="pci-analytics-tile"><small>Channel views gained · 30 days</small><strong>{signed(data.growth.views['30d'])}</strong></div>}
+      {data.historyAccountCount>0&&<div className="pci-analytics-tile pci-analytics-revenue"><small>YT estimated monthly earnings</small><strong>{data.estimatedMonthlyEarningsUsd===null?earningsStatusLabel(data.earningsStatus):usd(data.estimatedMonthlyEarningsUsd)}</strong><span>{data.earningsBasis==='recent_uploads_floor'?'Recent-upload lower bound; excludes older videos':'Modeled estimate, not verified revenue'}</span></div>}
+      {(data.instagramAccountCount??0)>0&&<div className="pci-analytics-tile pci-analytics-revenue"><small>Instagram sponsor scenario / month</small><strong>{data.instagramSponsorScenarioUsd==null?'No IG data':usd(data.instagramSponsorScenarioUsd)}</strong><span>Hypothetical 1 paid post/month at $1 per 1,000 followers; no verified deals or earnings</span></div>}
     </div>
-    <div className="pci-analytics-graph">
+    {data.historyAccountCount>0&&<div className="pci-analytics-graph">
       <div className="pci-analytics-toolbar">
         <div className="pci-analytics-controls" role="group" aria-label="Historical metric">
           {(['subscribers','views'] as Metric[]).map(m=><button type="button" key={m} aria-pressed={metric===m} onClick={()=>setMetric(m)}>{m==='subscribers'?'Subscribers':'Views'}</button>)}
@@ -57,8 +58,8 @@ export function CreatorAnalyticsPanel({data}:{data:PubCreatorAnalytics}){
         {(['24h','7d','30d'] as const).map(p=><div key={p}><small>{p} growth</small><strong>{signed(data.growth[metric][p])}</strong></div>)}
       </div>
       {data.historyAccountCount>1&&<p className="fineprint">Trend shown for the first linked YouTube channel. The earnings model covers all linked YouTube channels when data is complete.</p>}
-    </div>
-    <div className="pci-video-analytics">
+    </div>}
+    {data.historyAccountCount>0&&<div className="pci-video-analytics">
       <div className="pci-analytics-subheading"><h3>Video performance</h3><span className="fineprint">Latest collected YouTube uploads · public view counts</span></div>
       <div className="pci-analytics-summary pci-analytics-video-summary">
         <div className="pci-analytics-tile"><small>Videos sampled</small><strong>{video.sampledVideos}</strong></div>
@@ -79,7 +80,7 @@ export function CreatorAnalyticsPanel({data}:{data:PubCreatorAnalytics}){
       </table></div>:<p className="pci-analytics-empty">Video-level observations are being collected. Historical 24h, 7d and 30d figures cannot be reconstructed retroactively.</p>}
       {video.topVideos.length>0&&<div className="pci-top-videos"><h3>Top videos in the tracked sample</h3><ol>{video.topVideos.map(v=><li key={v.videoId}><a target="_blank" rel="noopener noreferrer" href={`https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}`}>{v.title}</a><strong>{formatCount(v.views,true)} views</strong></li>)}</ol></div>}
       <p className="fineprint">24h/7d/30d are cumulative views sampled near each video-age milestone, not view gains during those periods. Blank values mean no sufficiently timed observation. Views/hour uses actual successive samples. Breakout compares observed first-day views with at least three older videos.</p>
-    </div>
-    <p className="pci-analytics-disclaimer">Earnings use the $0.25–$4.00 Social Blade RPM range midpoint ($2.125 per 1,000 views). With 20+ hours of real channel-view snapshots we project a 30-day pace. Provisional estimates instead count only views on uploads published within the past 30 days; they exclude all views on older videos and may materially understate the channel's activity. All amounts are hypothetical, not actual creator income; missing readings never become fabricated earnings.</p>
+    </div>}
+    <p className="pci-analytics-disclaimer">Earnings use the $0.25–$4.00 Social Blade RPM range midpoint ($2.125 per 1,000 views). With 20+ hours of real channel-view snapshots we project a 30-day pace. Provisional estimates instead count only views on uploads published within the past 30 days; they exclude all views on older videos and may materially understate the channel's activity. Instagram's separate hypothetical pricing model assumes one sponsored post per month at $1 per 1,000 followers, without evidence of sponsorship agreements. All amounts are hypothetical, not actual creator income; missing readings never become fabricated earnings.</p>
   </section>;
 }

@@ -3,7 +3,7 @@ import {adapterGet} from '@/lib/api';
 // Shapes returned by /api/v1/public. Everything the site shows comes from rankings that were published.
 export type PubAccount={platform:'youtube'|'instagram';handle:string;url:string|null};
 export type PubEarningsStatus='ready'|'needs_history'|'no_view_data'|'stale'|'invalid'|'no_youtube';
-export type PubPerson={slug:string;displayName:string;avatarUrl:string|null;estimatedMonthlyEarningsUsd?:number|null;earningsStatus?:PubEarningsStatus;earningsBasis?:'observed_view_gain'|'recent_uploads_floor'|null;categories:{slug:string;label:string}[];accounts:PubAccount[]};
+export type PubPerson={slug:string;displayName:string;avatarUrl:string|null;estimatedMonthlyEarningsUsd?:number|null;earningsStatus?:PubEarningsStatus;earningsBasis?:'observed_view_gain'|'recent_uploads_floor'|null;instagramSponsorScenarioUsd?:number|null;categories:{slug:string;label:string}[];accounts:PubAccount[]};
 export type PubEntry={slot:number;rank:number;tied:boolean;value:number;counted:number;contributions:{platform:string;value:number}[];person:PubPerson};
 export type PubRanking={scope:string;kind:'wheel'|'platform'|'category';label:string;unit:string;publishedAt:string|null;stale:boolean;population:number;covered:number;entries:PubEntry[]};
 export type PubRows={platforms:PubRanking[];categories:PubRanking[]};
@@ -24,6 +24,9 @@ export type PubCreatorAnalytics={
   earningsStatus?:PubEarningsStatus;
   earningsBasis?:'observed_view_gain'|'recent_uploads_floor'|null;
   earningsMethod:string;
+  instagramAccountCount?:number;
+  instagramSponsorScenarioUsd?:number|null;
+  instagramSponsorFollowers?:number|null;
   growth:{subscribers:Record<'24h'|'7d'|'30d',number|null>;views:Record<'24h'|'7d'|'30d',number|null>};
   history:{subscribers:{at:string;value:number}[];views:{at:string;value:number}[]};
   historyAccountCount:number;

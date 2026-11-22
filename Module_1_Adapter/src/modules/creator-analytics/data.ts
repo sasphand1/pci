@@ -1,11 +1,46 @@
 import {query} from '../../lib/db.js';
-import {dailyHistory, estimateRecentUploadsFloor, estimateMonthlyEarnings, gainAtPeriod, subscriberMilestone, earningsSampleStatus, aggregateEarningsStatus, type EarningsStatus, type ObservationPoint, type MonthlyEstimate} from './engine.js';
+import {estimateInstagramSponsorScenario, dailyHistory, estimateRecentUploadsFloor, estimateMonthlyEarnings, gainAtPeriod, subscriberMilestone, earningsSampleStatus, aggregateEarningsStatus, type EarningsStatus, type ObservationPoint, type MonthlyEstimate} from './engine.js';
 import {creatorVideoSummary,type CreatorVideoSummary} from './videos.js';
 
 type MetricRow = {personId:string;accountId:string;metric:string;value:string|null;observedAt:Date|string|null};
 export type EarningsResult = {estimate:MonthlyEstimate;status:EarningsStatus;basis:EarningsBasis};
 export type EarningsBasis = 'observed_view_gain' | 'recent_uploads_floor' | null;
 type PersonEstimates = Map<string,EarningsResult>;
+
+type InstagramFollowerRow={personId:string;accountId:string;followers:string|null;observedAt:Date|string|null};
+export type InstagramSponsorScenario={usd:number|null;followers:number|null;accountCount:number};
+/** Only recent, observed Instagram follower counts. One hypothetical paid post
+ * on the creator's largest linked Instagram account; do not sum followers on
+ * multiple accounts or treat a sponsorship scenario as recorded creator income.
+ */
+export async function instagramSponsorScenarios(personIds:string[],now=new Date()):Promise<Map<string,InstagramSponsorScenario>>{
+  const scenarios=new Map<string,InstagramSponsorScenario>();
+  if(!personIds.length)return scenarios;
+  const r=await query<InstagramFollowerRow>(`SELECT a.person_id AS "personId",a.id AS "accountId",
+    o.value::text AS followers,o.observed_at AS "observedAt"
+    FROM accounts a
+    LEFT JOIN LATERAL (
+      SELECT value,observed_at FROM metric_observations
+      WHERE account_id=a.id AND metric='followers'
+        AND observed_at >= $2::timestamptz - interval '7 days'
+        AND observed_at <= $2::timestamptz
+      ORDER BY observed_at DESC LIMIT 1
+    ) o ON true
+    WHERE a.platform='instagram' AND a.person_id=ANY($1::uuid[])
+    ORDER BY a.person_id,a.id`,[personIds,now.toISOString()]);
+  for(const row of r.rows){
+    const previous=scenarios.get(row.personId)??{usd:null,followers:null,accountCount:0};
+    previous.accountCount++;
+    const count=row.followers!==null && /^\d+$/.test(row.followers)?Number(row.followers):NaN;
+    if(Number.isSafeInteger(count)&&count>=0&&(previous.followers===null||count>previous.followers)){
+      previous.followers=count;
+      previous.usd=estimateInstagramSponsorScenario(count);
+    }
+    scenarios.set(row.personId,previous);
+  }
+  return scenarios;
+}
+
 
 /** This is a lower bound, NOT total 30-day channel views: every view on a video
  * published within the previous 30 days necessarily happened within that window.
@@ -91,6 +126,7 @@ export async function monthlyEstimates(personIds:string[], now = new Date()):Pro
 }
 
 export async function personAnalytics(personId:string, now=new Date()) {
+  const instagram=(await instagramSponsorScenarios([personId],now)).get(personId);
   const result=await query<MetricRow>(`SELECT a.person_id AS "personId", a.id AS "accountId", o.metric,
     o.value::text AS value, o.observed_at AS "observedAt"
     FROM accounts a LEFT JOIN metric_observations o ON o.account_id=a.id
@@ -131,6 +167,9 @@ export async function personAnalytics(personId:string, now=new Date()) {
   const milestone=subscriberMilestone(currentSubscribers,gainAtPeriod(primary.followers,30,now));
   return {
     video,milestone,
+    instagramAccountCount:instagram?.accountCount??0,
+    instagramSponsorScenarioUsd:instagram?.usd??null,
+    instagramSponsorFollowers:instagram?.followers??null,
     estimatedMonthlyEarningsUsd:earnings,
     earningsStatus:earnings!==null?'ready':earningsStatus,
     earningsBasis,

@@ -1,10 +1,10 @@
 import { query } from '../../lib/db.js';
-import {monthlyEstimates,personAnalytics} from '../creator-analytics/data.js';
+import {monthlyEstimates,instagramSponsorScenarios,personAnalytics} from '../creator-analytics/data.js';
 import { FRESHNESS_DAYS_DEFAULT } from '../../engine/index.js';
 import { safeAvatarUrl } from '../../providers/avatar.js';
 import { accountUrl, isStale, scopeInfo, toEntries, type PublicEntry, type SlotRow } from './shape.js';
 
-export type PublicPerson = { slug: string; displayName: string; avatarUrl: string | null; estimatedMonthlyEarningsUsd?:number|null; earningsStatus?:'ready'|'needs_history'|'no_view_data'|'stale'|'invalid'|'no_youtube'; earningsBasis?:'observed_view_gain'|'recent_uploads_floor'|null; categories: { slug: string; label: string }[]; accounts: { platform: string; handle: string; url: string | null }[] };
+export type PublicPerson = { slug: string; displayName: string; avatarUrl: string | null; estimatedMonthlyEarningsUsd?:number|null; earningsStatus?:'ready'|'needs_history'|'no_view_data'|'stale'|'invalid'|'no_youtube'; earningsBasis?:'observed_view_gain'|'recent_uploads_floor'|null; instagramSponsorScenarioUsd?:number|null; categories: { slug: string; label: string }[]; accounts: { platform: string; handle: string; url: string | null }[] };
 export type Ranking = { scope: string; kind: string; label: string; unit: string; publishedAt: string | null; stale: boolean; population: number; covered: number; entries: PublicEntry<PublicPerson>[] };
 type Pointer = { scope: string; runId: string; publishedAt: string | null; population: number };
 
@@ -61,11 +61,12 @@ export async function rankings(scopes: string[], limit: number, now = new Date()
   const ids = new Set<string>(); for (const s of slots.values()) for (const r of s.rows) ids.add(r.personId);
   const people = await peopleByIds([...ids]);
   if (scopes.some(scope=>scope.startsWith('wheel.'))) {
-    const estimates=await monthlyEstimates([...ids],now);
+    const [estimates,instagram]=await Promise.all([monthlyEstimates([...ids],now),instagramSponsorScenarios([...ids],now)]);
     for(const [id,person] of people) {
       person.estimatedMonthlyEarningsUsd=estimates.get(id)?.estimate?.usd??null;
       person.earningsStatus=estimates.get(id)?.status??'no_youtube';
       person.earningsBasis=estimates.get(id)?.basis??null;
+      person.instagramSponsorScenarioUsd=instagram.get(id)?.usd??null;
     }
   }
   const cats = labels ?? await categoryLabels();
