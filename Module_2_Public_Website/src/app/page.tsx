@@ -7,6 +7,7 @@ import {PublishedRows} from '@/components/PublishedRows';
 import {PublishedTop100} from '@/components/PublishedTop100';
 import {displayDate} from '@/lib/format.mjs';
 import {SnapshotStatus} from '@/components/SnapshotStatus';
+import {publishedTotal} from '@/lib/creator-totals';
 
 /** Everything on this page comes from rankings that were published. Nothing is calculated here. */
 export default async function Home(){
@@ -24,8 +25,8 @@ export default async function Home(){
   {label:'Tracked creators',value:status?.people == null ? 'N/A' : String(status.people)},
   {label:'YouTube creators',value:rank('youtube.subscribed') == null ? 'N/A' : String(rank('youtube.subscribed'))},
   {label:'Instagram creators',value:rank('instagram.followers') == null ? 'N/A' : String(rank('instagram.followers'))},
-  {label:'Total subscribers',value:'N/A'},
-  {label:'Total views',value:'N/A'}
+  {label:'Total subscribers',value:publishedTotal(wheel?.sorts,'wheel.subscribed')},
+  {label:'Total views',value:publishedTotal(wheel?.sorts,'wheel.viewed')}
  ];
  return <>
   <div className="pci-cinematic pci-explore-hero">

@@ -164,7 +164,7 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
             aria-label="Previous creator"
             onClick={()=>move(-1)}
           >
-            â€¹
+            &lt;
           </button>
 
 
@@ -220,7 +220,7 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
             aria-label="Next creator"
             onClick={()=>move(1)}
           >
-            â€º
+            &gt;
           </button>
         </div>
 
