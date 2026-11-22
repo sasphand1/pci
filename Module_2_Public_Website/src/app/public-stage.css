@@ -331,18 +331,18 @@
 
 /* WHEEL */
 .stage-wheel{
-  --cw:8.55cqw;
-  --ch:13.35cqw;
-  --cc:11.9cqw;
-  --cch:17.1cqw;
-  --gap:.8cqw;
+  --cw:11.6cqw;
+  --ch:15.0cqw;
+  --cc:14.4cqw;
+  --cch:19.2cqw;
+  --gap:1.2cqw;
   --shift:0px;
   --s1:calc(var(--cc)/2 + var(--cw)/2 + var(--gap));
   --s2:calc(var(--s1) + var(--cw) + var(--gap));
   --s3:calc(var(--s2) + var(--cw) + var(--gap));
   --s4:calc(var(--s3) + var(--cw) + var(--gap));
   position:relative;
-  margin-top:84px;
+  margin-top:96px;
   height:calc(var(--cch) + 5.5cqw);
   touch-action:pan-y;
   user-select:none;
@@ -353,7 +353,7 @@
 .stage-card{
   position:absolute;
   left:50%;
-  bottom:3.8cqw;
+  bottom:2.8cqw;
   width:var(--cw);
   height:var(--ch);
   transform:translateX(calc(-50% + var(--x,0px)));
@@ -385,7 +385,7 @@
 .stage-card[data-center="true"]{
   width:var(--cc);
   height:var(--cch);
-  bottom:4.8cqw;
+  bottom:3.8cqw;
   z-index:4;
   border:1px solid rgba(231,185,92,.55);
   box-shadow:
@@ -1030,3 +1030,4 @@
 }
 
 /* PCI GLANCE POSITION END */
+.pci-stage .stage-arrow { display: none !important; }

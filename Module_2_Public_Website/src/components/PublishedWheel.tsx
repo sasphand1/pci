@@ -10,14 +10,11 @@ import {StageScene} from './StageScene';
 const WHEEL_STEP = 60;
 const WHEEL_GAP_MS = 550;
 const SLOTS:{slot:number;step:number}[] = [
-  {slot:-4,step:6},
-  {slot:-3,step:4},
-  {slot:-2,step:3},
-  {slot:-1,step:1},
+  {slot:-2,step:-2},
+  {slot:-1,step:-1},
   {slot:0,step:0},
-  {slot:1,step:2},
-  {slot:2,step:5},
-  {slot:3,step:7}
+  {slot:1,step:1},
+  {slot:2,step:2}
 ];
 
 function PlatformChips({entry}:{entry:PubEntry}){
@@ -116,7 +113,8 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
   }
 
   const shown = SLOTS
-    .map(({slot,step})=>({slot,entry:cards.length && step<cards.length ? cards[(index+step)%cards.length] : undefined}))
+    .filter(({step})=>cards.length>=5 || (cards.length>0 && Math.abs(step)<=Math.floor((cards.length-1)/2)))
+    .map(({slot,step})=>({slot,entry:cards.length ? cards[((index+step)%cards.length+cards.length)%cards.length] : undefined}))
     .filter((x):x is {slot:number;entry:PubEntry}=>Boolean(x.entry));
 
   return (

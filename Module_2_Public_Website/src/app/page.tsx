@@ -21,11 +21,11 @@ export default async function Home(){
  const initial=Object.fromEntries(WHEEL_SCOPES.map((scope,i)=>[scope,top[i]??null]));
  const rank=(scope:string)=>rows?.platforms.find(r=>r.scope===scope)?.population;
  const stats=[
-  {label:'Tracked creators',value:status?.people == null ? 'â€”' : String(status.people)},
-  {label:'YouTube creators',value:rank('youtube.subscribed') == null ? 'â€”' : String(rank('youtube.subscribed'))},
-  {label:'Instagram creators',value:rank('instagram.followers') == null ? 'â€”' : String(rank('instagram.followers'))},
-  {label:'Total subscribers',value:'â€”'},
-  {label:'Total views',value:'â€”'}
+  {label:'Tracked creators',value:status?.people == null ? 'N/A' : String(status.people)},
+  {label:'YouTube creators',value:rank('youtube.subscribed') == null ? 'N/A' : String(rank('youtube.subscribed'))},
+  {label:'Instagram creators',value:rank('instagram.followers') == null ? 'N/A' : String(rank('instagram.followers'))},
+  {label:'Total subscribers',value:'N/A'},
+  {label:'Total views',value:'N/A'}
  ];
  return <>
   <div className="pci-cinematic pci-explore-hero">

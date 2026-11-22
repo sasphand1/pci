@@ -40,9 +40,9 @@ test('wheel moves one card per gesture with a pause',async()=>{
  assert.match(src,/WHEEL_GAP_MS\s*=\s*550/);assert.match(src,/WHEEL_STEP/);assert.match(src,/stage-rank/);
 });
 
-test('stage follows the mockup: 8 slots (4 left, 3 right), crown only on #1, honest stats',()=>{
+test('stage shows exactly five desktop slots around the center, crown only on #1, honest stats',()=>{
  const w=read('src/components/PublishedWheel.tsx'),stage=read('src/app/public-stage.css');
- for(const [slot,step] of [[-4,6],[-3,4],[-2,3],[-1,1],[0,0],[1,2],[2,5],[3,7]])assert.ok(w.includes(`{slot:${slot},step:${step}}`),`slot ${slot}`);
+ for(const [slot,step] of [[-2,-2],[-1,-1],[0,0],[1,1],[2,2]])assert.ok(w.includes(`{slot:${slot},step:${step}}`),`slot ${slot}`);
  assert.match(w,/slot===0\s*&&\s*c\.rank===1\s*&&/);
  assert.doesNotMatch(page,/1\.2B|120B|500\+|320\+|180\+/,'no invented figures');
  assert.match(stage,/\.stage-card\[data-center="true"\]/);
