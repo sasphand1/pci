@@ -2,6 +2,7 @@
 
 import {useState} from 'react';
 import {formatCount} from '@/lib/format.mjs';
+import {earningsStatusLabel} from '@/lib/earnings-status.mjs';
 import type {PubCreatorAnalytics} from '@/lib/public';
 
 type Metric='subscribers'|'views';
@@ -34,7 +35,7 @@ export function CreatorAnalyticsPanel({data}:{data:PubCreatorAnalytics}){
     <div className="pci-analytics-summary">
       <div className="pci-analytics-tile"><small>Subscriber change · 7 days</small><strong>{signed(data.growth.subscribers['7d'])}</strong></div>
       <div className="pci-analytics-tile"><small>Channel views gained · 30 days</small><strong>{signed(data.growth.views['30d'])}</strong></div>
-      <div className="pci-analytics-tile pci-analytics-revenue"><small>Estimated Monthly Earnings</small><strong>{data.estimatedMonthlyEarningsUsd===null?'Collecting data':usd(data.estimatedMonthlyEarningsUsd)}</strong><span>Modeled estimate, not verified revenue</span></div>
+      <div className="pci-analytics-tile pci-analytics-revenue"><small>Estimated Monthly Earnings</small><strong>{data.estimatedMonthlyEarningsUsd===null?earningsStatusLabel(data.earningsStatus):usd(data.estimatedMonthlyEarningsUsd)}</strong><span>Modeled estimate, not verified revenue</span></div>
     </div>
     <div className="pci-analytics-graph">
       <div className="pci-analytics-toolbar">
@@ -79,6 +80,6 @@ export function CreatorAnalyticsPanel({data}:{data:PubCreatorAnalytics}){
       {video.topVideos.length>0&&<div className="pci-top-videos"><h3>Top videos in the tracked sample</h3><ol>{video.topVideos.map(v=><li key={v.videoId}><a target="_blank" rel="noopener noreferrer" href={`https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}`}>{v.title}</a><strong>{formatCount(v.views,true)} views</strong></li>)}</ol></div>}
       <p className="fineprint">24h/7d/30d are cumulative views sampled near each video-age milestone, not view gains during those periods. Blank values mean no sufficiently timed observation. Views/hour uses actual successive samples. Breakout compares observed first-day views with at least three older videos.</p>
     </div>
-    <p className="pci-analytics-disclaimer">Earnings use Social Blade's assumed $0.25–$4.00 RPM range midpoint ($2.125 per 1,000 views), applied to the normalized 30-day pace of observed channel-view gains. This is a hypothetical estimate, not actual creator income. N/A means insufficient reliable history.</p>
+    <p className="pci-analytics-disclaimer">Earnings use Social Blade's assumed $0.25–$4.00 RPM range midpoint ($2.125 per 1,000 views), applied to the normalized 30-day pace from at least 20 hours of measured channel-view growth. This is a hypothetical projection, not actual creator income. Missing and stale inputs never become fake earnings.</p>
   </section>;
 }
