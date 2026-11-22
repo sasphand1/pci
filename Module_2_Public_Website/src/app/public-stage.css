@@ -1000,3 +1000,33 @@
 }
 
 /* PCI HEADING RESIZE END */
+/* PCI GLANCE POSITION START */
+
+/* Fill the full background height */
+.pci-stage .stage-inner {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(max(690px, 56.19vw) - 30px);
+}
+
+/* Center the statistics bar near the bottom */
+.pci-stage .stage-glance {
+    position: relative;
+    margin: auto auto 48px;
+    width: min(94%, 1540px);
+    flex-shrink: 0;
+}
+
+/* Keep the mobile layout natural */
+@media (max-width: 900px) {
+    .pci-stage .stage-inner {
+        min-height: 0;
+    }
+
+    .pci-stage .stage-glance {
+        margin: 24px auto 16px;
+        width: 100%;
+    }
+}
+
+/* PCI GLANCE POSITION END */
