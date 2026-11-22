@@ -1,6 +1,7 @@
 import type {Metadata} from 'next';
 import '@pci/ui/styles.css';
 import './glass.css';
+import './mobile-admin.css';
 import {AuthProvider} from '@/components/AuthProvider';
 import {AdminShell} from '@/components/AdminShell';
 export const metadata:Metadata={title:'Management | Pakistan Creator Index',description:'Authorized administration only',robots:{index:false,follow:false}};

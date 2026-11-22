@@ -1,0 +1,49 @@
+/* PCI management console: compact mobile adaptation, desktop unaffected. */
+@media (max-width: 1024px) {
+  .admin-app .admin-workspace, .admin-app .admin-main,
+  .admin-app .admin-page-stack, .admin-app .card,
+  .admin-app .glass-card { min-width: 0; max-width: 100%; }
+  .admin-app .table-wrap { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+  .admin-app .admin-table, .admin-app .data-table { width: max-content; min-width: 100%; }
+  .admin-app .admin-panel-grid, .admin-app .admin-setting-grid { grid-template-columns: minmax(0, 1fr); }
+  .admin-app pre, .admin-app .admin-json { max-width: 100%; overflow-x: auto; }
+}
+@media (max-width: 830px) {
+  /* The sidebar stays collapsed until the existing Menu button opens it. */
+  .admin-app { grid-template-columns: minmax(0, 1fr); padding: 8px; gap: 8px; }
+  .admin-app .admin-sidebar { position: relative; top: auto; max-height: none; min-height: 0; overflow: visible; }
+  .admin-app .admin-sidebar:not(.is-open) { display: none; }
+  .admin-app .admin-sidebar.is-open { display: flex; max-height: min(70dvh, 680px); overflow-y: auto; }
+  .admin-app .admin-sidebar.is-open .admin-nav { display: flex; }
+  .admin-app .admin-sidebar.is-open .admin-sidebar-bottom { display: block; }
+  .admin-app .admin-topbar { position: sticky; top: 0; padding: 8px 10px; min-height: 48px; gap: 8px; }
+  .admin-app .admin-mobile-menu { display: inline-flex; align-items: center; min-height: 40px; }
+  .admin-app .admin-top-actions { gap: 6px; min-width: 0; }
+  .admin-app .admin-main { width: 100%; padding: 0 8px 24px; }
+  .admin-app .admin-main .page-head { padding-top: 16px; }
+  .admin-app .admin-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .admin-app .admin-form-grid, .admin-app .admin-check-grid,
+  .admin-app .glass-kpis, .admin-app .glass-split,
+  .admin-app .glass-split-even { grid-template-columns: minmax(0, 1fr); }
+  .admin-app .card, .admin-app .glass-card { padding: 12px; }
+  .admin-app .admin-topbar { flex-wrap: nowrap; }
+  .admin-app .admin-top-identity, .admin-app .admin-avatar, .admin-app .admin-top-title { display: none; }
+  .admin-app .state-pill { max-width: 110px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .admin-app .admin-top-actions .btn { padding-inline: 8px; min-height: 40px; }
+  .admin-app .admin-toolbar, .admin-app .admin-tools, .admin-app .admin-inline-actions { min-width: 0; }
+  .admin-app .admin-tools .field { flex: 1 1 100%; min-width: 0; }
+  .admin-app .admin-form-grid > *, .admin-app .admin-check-grid > * { min-width: 0; }
+  .admin-app input:not([type="checkbox"]):not([type="radio"]),
+  .admin-app select, .admin-app textarea,
+  .admin-login-shell input { font-size: 16px; max-width: 100%; }
+  .admin-app .flow-steps { grid-template-columns: minmax(0, 1fr); }
+  .admin-app .admin-table th, .admin-app .admin-table td { white-space: nowrap; }
+  .admin-login-shell { padding: 12px; }
+  .admin-login-panel { padding: 16px; }
+}
+@media (pointer: coarse) and (max-width: 830px) {
+  .admin-app .admin-mobile-menu, .admin-app .nav-link { min-height: 44px; }
+  .admin-app .admin-table .btn { min-height: 40px; }
+}

@@ -1,0 +1,76 @@
+/* PCI mobile compatibility. Loaded LAST; desktop look is unchanged.
+   Breakpoints: tablet <= 1024px, phones <= 640px, compact phones <= 380px.
+   Keep source/ownership of data and component behavior unchanged. */
+@media (max-width: 1024px) {
+  .site-shell { max-width: 100%; min-width: 0; }
+  .site-shell .site-main,
+  .site-shell .site-main > *,
+  .site-shell .container,
+  .site-shell .card { min-width: 0; }
+  .site-shell .container { width: calc(100% - 32px); max-width: 100%; }
+  .site-shell img, .site-shell video, .site-shell canvas, .site-shell iframe { max-width: 100%; }
+  .site-shell svg:not(.ranking-wheel-crown svg) { max-width: 100%; }
+  .site-shell .table-wrap,
+  .site-shell .pci-events-table-wrap { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-inline: contain; }
+  .site-shell .compare-grid, .site-shell .sidebar-layout, .site-shell .split { min-width: 0; }
+  .site-shell .satellite-controls { gap: 10px; }
+  .site-shell .satellite-geo, .site-shell .satellite-dashboard { min-width: 0; }
+  .site-shell .satellite-map-frame { max-width: 100%; }
+  .site-shell .pci-science-tabs { max-width: 100%; -webkit-overflow-scrolling: touch; }
+  .site-shell .pci-science-tab { flex: 0 0 auto; }
+}
+@media (max-width: 640px) {
+  .site-shell { --gutter: 16px; }
+  .site-shell .container { width: calc(100% - 28px); }
+  .site-shell .site-main { min-width: 0; }
+  .site-shell h1 { font-size: clamp(22px, 6vw, 29px); overflow-wrap: anywhere; }
+  .site-shell h2 { font-size: clamp(17px, 4.8vw, 22px); }
+  .site-shell .page-head, .site-shell .section-head { gap: 10px; }
+  .site-shell .card { padding: 14px; }
+  .site-shell .filters,
+  .site-shell .admin-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .site-shell input, .site-shell select, .site-shell textarea { max-width: 100%; min-width: 0; }
+  /* iOS Safari won't zoom focused input fields at 16px. */
+  .site-shell input:not([type="checkbox"]):not([type="radio"]),
+  .site-shell select, .site-shell textarea { font-size: 16px; }
+  .site-shell .pagination { flex-wrap: wrap; }
+  .site-shell .pci-site-header .pci-nav-inner { width: calc(100% - 24px); gap: 6px; }
+  .site-shell .pci-site-header .pci-header-actions { min-width: 0; gap: 5px; }
+  .site-shell .pci-site-header .pci-header-cta,
+  .site-shell .pci-site-header .pci-header-ghost { display: none; }
+  .site-shell .pci-site-header .pci-nav-toggle { min-width: 44px; min-height: 40px; padding-inline: 9px; border-radius: 6px; }
+  .site-shell .pci-site-header .pci-primary-nav { padding-inline: 14px; }
+  .site-shell .pci-site-header .pci-primary-nav a { min-height: 44px; display: flex; align-items: center; }
+  .site-shell .ranking-wheel-heading { padding-inline: 14px; }
+  .site-shell .ranking-wheel-heading p { font-size: 14px; line-height: 1.5; }
+  .site-shell .ranking-wheel-stage { --card-w: min(70vw, 204px); --dx1: min(62vw, 208px); }
+  .site-shell .ranking-wheel-modes { overflow-x: auto; justify-content: flex-start; max-width: calc(100% - 28px); border-radius: 9px; }
+  .site-shell .ranking-wheel-mode { flex: 0 0 auto; min-width: max-content; min-height: 42px; }
+  .site-shell .ranking-wheel-controls { gap: 12px; }
+  .site-shell .ranking-wheel-arrow { min-width: 44px; min-height: 44px; }
+  .site-shell .satellite-controls > * { max-width: 100%; }
+  .site-shell .satellite-controls select { min-width: 0; width: 100%; }
+  .site-shell .satellite-map-frame { height: min(58dvh, 460px); min-height: 300px; }
+  .site-shell .pci-science-finding-grid,
+  .site-shell .satellite-scene-grid,
+  .site-shell .satellite-cards,
+  .site-shell .satellite-source-grid { grid-template-columns: minmax(0, 1fr); }
+  .site-shell .pci-science-tab { min-width: 104px; min-height: 44px; padding: 9px 12px; font-size: 12px; }
+  .site-shell .pci-science-intro h2, .site-shell .pci-science-analysis h2 { font-size: 18px; }
+  .site-shell .pci-events-table-section .container { width: calc(100% - 28px); }
+  .site-shell .pci-events-table-wrap { border-radius: 6px; }
+  .site-shell .pci-events-table-wrap table { min-width: 620px; }
+  .site-shell .video-card { min-width: 0; }
+  .site-shell .video-card img { object-fit: cover; }
+}
+@media (max-width: 380px) {
+  .site-shell .container { width: calc(100% - 24px); }
+  .site-shell .pci-site-header .pci-nav-inner { width: calc(100% - 16px); }
+  .site-shell .pci-site-header .pci-brand-copy { font-size: 10px; }
+  .site-shell .pci-site-header .pci-brand-copy strong { font-size: 12px; }
+  .site-shell .ranking-wheel-stage { --card-w: 188px; --card-h: 300px; }
+}
+@media (pointer: coarse) {
+  .site-shell .pci-header-icon, .site-shell .pci-header-search { min-width: 40px; min-height: 40px; }
+  .site-shell a:focus-visible, .site-shell button:focus-visible { outline-offset: 3px; }
+}
