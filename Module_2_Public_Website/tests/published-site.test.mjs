@@ -29,7 +29,7 @@ test('external account links open safely',()=>{
  for(const f of ['src/components/RankingTable.tsx','src/app/creators/page.tsx','src/app/creators/[slug]/page.tsx'])assert.match(read(f),/rel="noopener noreferrer"/,f);
 });
 test('pictures are only shown from known image hosts',()=>{
- for(const f of ['src/components/RankingTable.tsx','src/components/PublishedWheel.tsx','src/components/PublishedRows.tsx'])assert.match(read(f),/safeYoutubeImage/,f);
+ for(const f of ['src/components/RankingTable.tsx','src/components/PublishedWheel.tsx','src/components/PublishedRows.tsx'])assert.match(read(f),/safeCreatorImage/,f);
 });
 test('the methodology page describes the real rules',()=>{
  const m=read('src/app/methodology/page.tsx');

@@ -1,4 +1,5 @@
 export function formatCount(input:string|number|bigint|null|undefined,compact?:boolean):string;
+export function safeCreatorImage(url:string|null|undefined):string|null;
 export function safeYoutubeImage(url:string|null|undefined):string|null;
 export function safeVideoId(id:string|null|undefined):string|null;
 export function safeChannelId(id:string|null|undefined):string|null;

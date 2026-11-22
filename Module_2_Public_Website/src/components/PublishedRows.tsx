@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import {useRef} from 'react';
-import {formatCount,safeYoutubeImage} from '@/lib/format.mjs';
+import {formatCount,safeCreatorImage} from '@/lib/format.mjs';
 import type {PubRanking} from '@/lib/public';
 
 function Rail({ranking,href}:{ranking:PubRanking;href?:string}){
@@ -11,7 +11,7 @@ function Rail({ranking,href}:{ranking:PubRanking;href?:string}){
   <div className="pci-discovery-rail-head"><div><h3>{ranking.label}</h3><p>Top {ranking.entries.length} by {ranking.unit}</p></div><div className="pci-discovery-controls"><button type="button" aria-label={`Scroll ${ranking.label} left`} onClick={()=>scroll(-1)}>‹</button><button type="button" aria-label={`Scroll ${ranking.label} right`} onClick={()=>scroll(1)}>›</button></div></div>
   <div className="pci-discovery-scroller" ref={scroller}>{ranking.entries.length?ranking.entries.map(e=><Link key={e.person.slug} className="pci-platform-tile" href={`/creators/${encodeURIComponent(e.person.slug)}`}>
    <span className="pci-platform-number">{e.tied?'=':''}#{e.rank}</span>
-   {safeYoutubeImage(e.person.avatarUrl)?<img src={safeYoutubeImage(e.person.avatarUrl)!} alt="" loading="lazy"/>:<span className="pci-platform-placeholder">{e.person.displayName.slice(0,1)}</span>}
+   {safeCreatorImage(e.person.avatarUrl)?<img src={safeCreatorImage(e.person.avatarUrl)!} alt="" loading="lazy"/>:<span className="pci-platform-placeholder">{e.person.displayName.slice(0,1)}</span>}
    <strong>{e.person.displayName}</strong><small>{formatCount(e.value,true)} {ranking.unit}</small></Link>):<div className="pci-discovery-empty">Nobody is ranked here yet.</div>}
   </div>
   {href&&<p className="fineprint"><Link href={href}>View all →</Link></p>}

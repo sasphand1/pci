@@ -15,7 +15,7 @@ test('compact navigation keeps the homepage and rankings accessible',()=>{
 });
 test('platform and category rows come from published rankings and link to profiles',()=>{
  assert.match(page,/<PublishedRows platforms=\{rows\?\.platforms\?\?\[\]\} categories=\{rows\?\.categories\?\?\[\]\}\/>/);
- assert.match(rows,/safeYoutubeImage\(e\.person\.avatarUrl\)/);
+ assert.match(rows,/safeCreatorImage\(e\.person\.avatarUrl\)/);
  assert.match(rows,/href=\{`\/creators\/\$\{encodeURIComponent\(e\.person\.slug\)\}`\}/);
  assert.match(rows,/scrollBy\(/);
  assert.match(rows,/categories\.map\(r=><Rail/);

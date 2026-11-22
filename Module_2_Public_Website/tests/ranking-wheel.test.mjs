@@ -8,7 +8,7 @@ test('wheel shows the published sorts and links every card to a profile',()=>{
  assert.match(wheel,/sorts\.map\(\(s,i\)=>/);
  assert.match(wheel,/href=\{`\/creators\/\$\{encodeURIComponent\(c\.person\.slug\)\}`\}/);
  assert.match(wheel,/if\s*\(\s*ignore\.current\s*\)\s*e\.preventDefault\(\)/);
- assert.match(wheel,/safeYoutubeImage/);
+ assert.match(wheel,/safeCreatorImage/);
 });
 test('wheel supports drag, touch, wheel, keyboard and arrows',()=>{
  for(const name of ['onPointerDown','onPointerUp','onWheel','ArrowLeft','ArrowRight','Previous creator','Next creator'])assert.ok(wheel.includes(name),name);

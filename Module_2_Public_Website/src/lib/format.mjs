@@ -15,6 +15,17 @@ export function safeYoutubeImage(url){
     return u.protocol==='https:'&&allow.has(u.hostname)?u.toString():null;
   }catch{return null;}
 }
+// Profile avatars can come from YouTube or Meta Business Discovery.
+// Keep video thumbnails restricted to safeYoutubeImage.
+export function safeCreatorImage(url){
+  if(typeof url!=='string'||url.length>4096)return null;
+  try{
+    const u=new URL(url);
+    const host=u.hostname.toLowerCase();
+    const meta=host.endsWith('.cdninstagram.com')||host.endsWith('.fbcdn.net');
+    return u.protocol==='https:'&&!u.username&&!u.password&&(meta||safeYoutubeImage(url)!==null)?u.toString():null;
+  }catch{return null;}
+}
 export function safeVideoId(s){return typeof s==='string'&&/^[A-Za-z0-9_-]{11}$/.test(s)?s:null;}
 export function safeChannelId(s){return typeof s==='string'&&/^UC[A-Za-z0-9_-]{22}$/.test(s)?s:null;}
 export function displayDate(value){if(!value)return 'Not available';const t=new Date(value);return Number.isFinite(t.valueOf())?t.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}):'Not available';}

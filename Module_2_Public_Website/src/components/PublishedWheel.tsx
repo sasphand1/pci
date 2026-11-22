@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import {useCallback, useEffect, useRef, useState} from 'react';
 import type {PointerEvent, WheelEvent} from 'react';
-import {formatCount, safeYoutubeImage} from '@/lib/format.mjs';
+import {formatCount, safeCreatorImage} from '@/lib/format.mjs';
 import type {PubRanking, PubEntry} from '@/lib/public';
 import {StageScene} from './StageScene';
 
@@ -190,8 +190,8 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
               <span className="stage-rank">#{c.rank}</span>
 
               <span className="stage-photo">
-                {safeYoutubeImage(c.person.avatarUrl)
-                  ? <img src={safeYoutubeImage(c.person.avatarUrl)!} alt="" draggable={false}/>
+                {safeCreatorImage(c.person.avatarUrl)
+                  ? <img src={safeCreatorImage(c.person.avatarUrl)!} alt="" draggable={false}/>
                   : <span className="stage-monogram">{c.person.displayName.slice(0,1)}</span>}
               </span>
 

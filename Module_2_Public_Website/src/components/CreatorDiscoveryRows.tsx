@@ -4,7 +4,7 @@ import {useEffect,useRef,useState} from 'react';
 import type {ReactNode} from 'react';
 import type {Category,Creator} from '@/lib/types';
 import type {UnifiedPerson} from '@/components/UnifiedCreatorExperience';
-import {formatCount,safeYoutubeImage} from '@/lib/format.mjs';
+import {formatCount,safeYoutubeImage,safeCreatorImage} from '@/lib/format.mjs';
 
 const decorations=['◎','◉','◇','✦','★','⌘','✧','◕'];
 const palette=['sea','teal','violet','olive','rose','blue','amber','purple'];
@@ -53,7 +53,7 @@ export function CreatorDiscoveryRows({categories,youtube,instagram,curatedYoutub
    </PanelRail>
    <PanelRail title="Instagram" summary="Top 15 verified Instagram profiles · followers" empty={!ig.length}>
     {ig.map(p=><Link key={p.id} className="pci-discovery-person" href={`/creators/${encodeURIComponent(p.slug)}`}>
-     <div className="pci-discovery-avatar pci-discovery-instagram-avatar">{safeYoutubeImage(p.thumbnailUrl)?<img loading="lazy" alt="" src={safeYoutubeImage(p.thumbnailUrl)!}/>:<span aria-hidden="true">{p.displayName.slice(0,1)}</span>}<span className="pci-discovery-chip">Instagram</span><span className="pci-discovery-rank" aria-label={`Rank ${p.rank??'unranked'}`}>#{p.rank??'—'}</span></div>
+     <div className="pci-discovery-avatar pci-discovery-instagram-avatar">{safeCreatorImage(p.thumbnailUrl)?<img loading="lazy" alt="" src={safeCreatorImage(p.thumbnailUrl)!}/>:<span aria-hidden="true">{p.displayName.slice(0,1)}</span>}<span className="pci-discovery-chip">Instagram</span><span className="pci-discovery-rank" aria-label={`Rank ${p.rank??'unranked'}`}>#{p.rank??'—'}</span></div>
      <div className="pci-discovery-caption"><strong>{p.displayName}</strong><span>{formatCount(p.subscriberCount,true)} Instagram followers</span></div>
     </Link>)}
    </PanelRail>
