@@ -1,4 +1,5 @@
 import {syncApprovedEventSources} from '../events/service.js';
+import {classifyPendingEvents} from '../events/intelligence.js';
 import cron from 'node-cron';
 import {satelliteTick} from '../satellite/service.js';
 import os from 'node:os';
@@ -77,6 +78,7 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
    );
  },{timezone:'Asia/Karachi'}));
  tasks.push(cron.schedule('20 4 * * *',()=>query("DELETE FROM satellite.observations WHERE observed_at<now()-interval '90 days'").catch(err=>logger.warn({err},'Satellite retention cleanup unavailable')),{timezone:'Asia/Karachi'}));
+ tasks.push(cron.schedule('15 */6 * * *',()=>{void classifyPendingEvents(100).catch(err=>logger.warn({err},'Events backfill skipped'));},{timezone:'Asia/Karachi'}));
  tasks.push(cron.schedule('*/10 * * * *',()=>recoverStalledJobs().catch(e=>logger.error({err:e},'stalled job recovery failed'))));
  tasks.push(cron.schedule('*/10 * * * *',()=>recoverStalledRuns().catch(e=>logger.error({err:e},'stalled refresh recovery failed'))));
  tasks.push(cron.schedule('*/15 * * * *',()=>void freshness()));

@@ -34,7 +34,7 @@ test('directions are linked only when supported by real coordinates',()=>{
 });
 test('no unsafe hyperlinks or invented admission details',()=>{
  const v=normalizePublicEvents([{...items[0],event_url:'javascript:alert(1)',ticket_type:'unknown'}],now);
- assert.equal(v[0].source_url,null);assert.equal(v[0].admission,'unknown');assert.equal(eventCategoryLabel('arts'),'Arts & Culture');
+ assert.equal(v[0].source_url,null);assert.equal(v[0].admission,'unknown');assert.equal(eventCategoryLabel('arts'),'Arts & Entertainment');
 });
 test('table connects to same events API as map; no Top 100 wording',()=>{
  const component=readFileSync(new URL('../src/components/EventsTable.tsx',import.meta.url),'utf8');

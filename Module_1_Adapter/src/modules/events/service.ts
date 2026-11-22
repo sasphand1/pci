@@ -2,6 +2,7 @@ import {pool,query} from '../../lib/db.js';
 import {fetchFeed} from './fetch.js';
 import {parseJsonFeed,parseRssFeed,parseIcsFeed,normalizeEvent} from './parse.js';
 import {logger} from '../../lib/errors.js';
+import {classifyEvent} from './classifier.mjs';
 
 export type EventSource={id:string;name:string;feed_type:'rss'|'ics'|'json';feed_url:string;category:string;city_hint:string|null;enabled:boolean;official_confirmed:boolean;rights_confirmed:boolean};
 export async function readAndParse(source:EventSource){
@@ -13,7 +14,9 @@ export async function readAndParse(source:EventSource){
   if(!value.ok){rejected++;continue;}
   const item=value.item;
   if (!item) continue;  if(seen.has(item.external_id))continue;
-  seen.add(item.external_id);accepted.push(item);
+  seen.add(item.external_id);
+  const classification=classifyEvent({name:item.name,description:item.description,venue:item.venue,sourceCategory:source.category});
+  accepted.push({...item,classification_category:classification.category,classification_confidence:classification.confidence,classification_reason:classification.reason,classification_state:classification.state});
  }
  return {accepted,rejected,inspected:raw.length};
 }
@@ -32,16 +35,22 @@ export async function syncSource(source:EventSource,trigger:'manual'|'scheduled'
   await c.query('BEGIN');
   try{
    for(const item of accepted){
-    await c.query(`INSERT INTO pci_events(source_id,external_id,name,start_at,all_day,city,category,venue,latitude,longitude,description,event_url,organizer,ticket_type,price_text,fingerprint,approved,active)
-     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,false,true)
+    await c.query(`INSERT INTO pci_events(source_id,external_id,name,start_at,all_day,city,category,venue,latitude,longitude,description,event_url,organizer,ticket_type,price_text,fingerprint,approved,active,classification_category,classification_confidence,classification_reason,classification_state,review_decision,classified_at)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,false,true,$17,$18,$19,$20,'pending',now())
      ON CONFLICT(source_id,external_id) DO UPDATE SET
      name=EXCLUDED.name,start_at=EXCLUDED.start_at,all_day=EXCLUDED.all_day,city=EXCLUDED.city,category=EXCLUDED.category,
      venue=EXCLUDED.venue,latitude=COALESCE(EXCLUDED.latitude,pci_events.latitude),longitude=COALESCE(EXCLUDED.longitude,pci_events.longitude),
      description=EXCLUDED.description,event_url=EXCLUDED.event_url,organizer=EXCLUDED.organizer,
      ticket_type=EXCLUDED.ticket_type,price_text=EXCLUDED.price_text,
      approved=CASE WHEN pci_events.fingerprint=EXCLUDED.fingerprint THEN pci_events.approved ELSE false END,
-     fingerprint=EXCLUDED.fingerprint,active=true,last_seen_at=now(),updated_at=now()`,
-     [source.id,item.external_id,item.name,item.start_at,item.all_day,item.city,item.category,item.venue,item.latitude,item.longitude,item.description,item.event_url,item.organizer,item.ticket_type,item.price_text,item.fingerprint]);
+     fingerprint=EXCLUDED.fingerprint,active=true,
+     classification_category=CASE WHEN pci_events.classification_state='manual' AND pci_events.fingerprint=EXCLUDED.fingerprint THEN pci_events.classification_category ELSE EXCLUDED.classification_category END,
+     classification_confidence=CASE WHEN pci_events.classification_state='manual' AND pci_events.fingerprint=EXCLUDED.fingerprint THEN pci_events.classification_confidence ELSE EXCLUDED.classification_confidence END,
+     classification_reason=CASE WHEN pci_events.classification_state='manual' AND pci_events.fingerprint=EXCLUDED.fingerprint THEN pci_events.classification_reason ELSE EXCLUDED.classification_reason END,
+     classification_state=CASE WHEN pci_events.classification_state='manual' AND pci_events.fingerprint=EXCLUDED.fingerprint THEN pci_events.classification_state ELSE EXCLUDED.classification_state END,
+     review_decision=CASE WHEN pci_events.fingerprint=EXCLUDED.fingerprint THEN pci_events.review_decision ELSE 'pending' END,
+     classified_at=now(),last_seen_at=now(),updated_at=now()`,
+     [source.id,item.external_id,item.name,item.start_at,item.all_day,item.city,item.category,item.venue,item.latitude,item.longitude,item.description,item.event_url,item.organizer,item.ticket_type,item.price_text,item.fingerprint,item.classification_category,item.classification_confidence,item.classification_reason,item.classification_state]);
    }
    await c.query(`UPDATE event_sources SET last_status='success',last_sync_at=now(),last_success_at=now(),last_error=NULL,last_imported=$2,updated_at=now() WHERE id=$1`,[source.id,accepted.length]);
    await c.query(`INSERT INTO event_source_runs(source_id,trigger,status,imported,rejected,detail) VALUES($1,$2,'success',$3,$4,$5)`,[source.id,trigger,accepted.length,rejected,`${inspected} input entries; all entries require human review`]);

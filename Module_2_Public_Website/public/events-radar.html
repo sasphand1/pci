@@ -304,11 +304,13 @@ let PUBLIC_EVENTS = [];
 
 
 const CATEGORIES = [
-  {id:'all', label:'All Events'},
+  {id:'all',label:'All Events'},
   {id:'sports',label:'Sports'},
-  {id:'arts',label:'Arts & Culture'},
-  {id:'expos',label:'Expos & Business'},
-  {id:'conferences',label:'Conferences & Workshops'},
+  {id:'education',label:'Education & Learning'},
+  {id:'gaming',label:'Gaming & Esports'},
+  {id:'technology',label:'Technology & Innovation'},
+  {id:'business',label:'Business & Expos'},
+  {id:'arts',label:'Arts & Entertainment'},
   {id:'community',label:'Community & Festivals'}
 ];
 const CITY_LIST = ['All Cities','Karachi','Lahore','Islamabad'];
@@ -323,13 +325,14 @@ const $ = selector => document.querySelector(selector);
 
 function escapeHtml(input){return String(input).replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));}
 function categoryLabel(id){return CATEGORIES.find(c=>c.id===id)?.label || 'Event';}
+function categoryMatches(event){const selected=state.category==='expos'?'business':state.category==='conferences'?'education':state.category;return selected==='all'||event.category===selected;}
 function eligibleEvents(){return PUBLIC_EVENTS.filter(event =>
-  (state.category==='all'||event.category===state.category) &&
+  categoryMatches(event) &&
   (state.city==='All Cities'||event.city===state.city) &&
   `${event.name} ${event.venue} ${event.city}`.toLowerCase().includes(state.query)
 );}
 function countByCity(city){return PUBLIC_EVENTS.filter(event =>
-  (state.category==='all'||event.category===state.category) &&
+  categoryMatches(event) &&
   (city==='All Cities'||event.city===city) &&
   `${event.name} ${event.venue} ${event.city}`.toLowerCase().includes(state.query)
 ).length;}
@@ -947,7 +950,8 @@ function startMapLibre(){
 const EVENTS_CITY_ANCHOR = {Karachi:{x:32,y:69},Lahore:{x:69,y:55},Islamabad:{x:72,y:35}};
 function asPublishedEvent(item){
  if(!item || typeof item!=='object' || !['Karachi','Lahore','Islamabad'].includes(item.city))return null;
- if(!CATEGORIES.some(c=>c.id===item.category))return null;
+ const category=item.category==='expos'?'business':item.category==='conferences'?'education':item.category;
+ if(!CATEGORIES.some(c=>c.id===category))return null;
  if(typeof item.name!=='string'||!item.name.trim()||typeof item.venue!=='string'||!item.venue.trim())return null;
  const lat=Number(item.latitude),lng=Number(item.longitude),t=Date.parse(item.start_at);
  const end=Date.parse(item.end_at||item.start_at);
@@ -957,7 +961,7 @@ function asPublishedEvent(item){
  const anchor=EVENTS_CITY_ANCHOR[item.city],center=CENTERS[item.city];
  // Static illustration preview approximates venue offsets; Waze uses exact coordinates.
  const approx={x:Math.max(10,Math.min(90,anchor.x+(lng-center.lng)*3)),y:Math.max(10,Math.min(90,anchor.y-(lat-center.lat)*3))};
- return {id:String(item.id),name:item.name,city:item.city,category:item.category,date,time,venue:item.venue,lat,lng,
+ return {id:String(item.id),name:item.name,city:item.city,category,date,time,venue:item.venue,lat,lng,
   ticket:item.ticket_type||'unknown',price:item.price_text||null,description:item.description||'',source_name:item.source_name||'Official event feed',event_url:typeof item.event_url==='string'&&item.event_url.startsWith('https://')?item.event_url:null,
   x:approx.x,y:approx.y};
 }

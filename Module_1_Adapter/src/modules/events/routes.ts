@@ -4,6 +4,7 @@ import {query} from '../../lib/db.js';
 import {handler,HttpError} from '../../lib/errors.js';
 import {requireAdmin,roles,audit,type AdminIdentity} from '../auth/auth.js';
 import {validateHttpsUrl} from './parse.js';
+import {intelligenceRoutes} from './intelligence.js';
 import {syncSource,testSource,type EventSource} from './service.js';
 import {EVENT_FEED_CATALOG,catalogEntry,catalogSourceInput} from './catalog.js';
 
@@ -11,7 +12,7 @@ export const publicEventsRoutes=Router();
 export const adminEventsRoutes=Router();
 const uuid=z.string().uuid();
 const city=z.enum(['Karachi','Lahore','Islamabad']);
-const category=z.enum(['sports','arts','expos','conferences','community']);
+const category=z.enum(['sports','education','gaming','technology','business','arts','community','expos','conferences']);
 const input=z.object({
  name:z.string().trim().min(2).max(140),feed_type:z.enum(['rss','ics','json']),feed_url:z.string().trim().min(12).max(1900),category,
  city_hint:city.nullable(),enabled:z.boolean(),official_confirmed:z.boolean(),rights_confirmed:z.boolean()
@@ -20,6 +21,7 @@ function safeSource(body:unknown){const v=input.parse(body);try{validateHttpsUrl
 async function sourceById(id:string){const r=await query<EventSource>('SELECT * FROM event_sources WHERE id=$1',[id]);if(!r.rows[0])throw new HttpError(404,'SOURCE_NOT_FOUND','Unknown event source');return r.rows[0];}
 const actor=(res:any)=>(res.locals.admin as AdminIdentity).id;
 adminEventsRoutes.use(requireAdmin,roles('owner','editor'));
+adminEventsRoutes.use('/intelligence',intelligenceRoutes);
 // Editorial notices are individual owner-confirmed records, not third-party feed imports.
 // An explicit source link and a venue coordinate check are required before publication.
 const editorialBounds:Record<string,[number,number,number,number]>={Karachi:[24.6,25.3,66.6,67.5],Lahore:[31.1,31.8,74,74.7],Islamabad:[33.4,33.9,72.7,73.5]};
@@ -147,11 +149,11 @@ adminEventsRoutes.get('/runs',handler(async(_req,res)=>{
 publicEventsRoutes.get('/events',handler(async(_req,res)=>{
  // Source feeds are restricted to approved, geolocated, future entries.
  const [feed,editorial,status]=await Promise.all([
-  query(`SELECT e.id,e.name,e.start_at,e.start_at AS end_at,e.all_day,e.city,e.category,e.venue,e.latitude,e.longitude,e.description,e.event_url,e.organizer,e.ticket_type,e.price_text,s.name AS source_name
+  query(`SELECT e.id,e.name,e.start_at,e.start_at AS end_at,e.all_day,e.city,COALESCE(e.classification_category,CASE e.category WHEN 'expos' THEN 'business' WHEN 'conferences' THEN 'education' ELSE e.category END) AS category,e.venue,e.latitude,e.longitude,e.description,e.event_url,e.organizer,e.ticket_type,e.price_text,s.name AS source_name
    FROM pci_events e JOIN event_sources s ON s.id=e.source_id
    WHERE e.approved=true AND e.active=true AND e.start_at>=now() AND s.enabled=true AND s.official_confirmed=true AND s.rights_confirmed=true
    AND e.latitude IS NOT NULL AND e.longitude IS NOT NULL ORDER BY e.start_at ASC LIMIT 400`),
-  query(`SELECT id,name,start_at,end_at,false AS all_day,city,category,venue,latitude,longitude,description,
+  query(`SELECT id,name,start_at,end_at,false AS all_day,city,CASE category WHEN 'expos' THEN 'business' WHEN 'conferences' THEN 'education' ELSE category END AS category,venue,latitude,longitude,description,
    source_url AS event_url,organizer,'unknown'::text AS ticket_type,''::text AS price_text,
    'PCI editorial · verified official source'::text AS source_name
    FROM pci_editorial_events WHERE approved=true AND end_at>now() ORDER BY start_at ASC LIMIT 200`),
