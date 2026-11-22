@@ -156,30 +156,27 @@ function SparkleMark() {
 
 export function SiteFooter() {
   return (
-    <footer className="mt-16 pb-10">
-      <div className="site-container">
-        <div className="overflow-hidden rounded-3xl bg-primary px-7 py-10 text-primary-foreground shadow-soft sm:px-10 sm:py-12">
-          <div className="grid gap-10 border-b border-primary-foreground/15 pb-10 md:grid-cols-[1.35fr_1fr_1fr_1fr]">
-            <div>
-              <Logo inverse />
-              <p className="mt-3 max-w-xs font-display text-2xl leading-tight text-primary-foreground">Pakistan's people. Places. Possibilities.</p>
-              <p className="mt-3 max-w-sm text-sm leading-6 text-primary-foreground/65">Independent, useful and made for curious Pakistanis everywhere.</p>
-            </div>
-            <FooterLinks title="Explore" links={[{ label: "Creators", to: "/creators" }, { label: "Top Dramas", to: "/dramas" }, { label: "Events", to: "/events" }, { label: "Local guide", to: "/local" }]} />
-            <FooterLinks title="Intelligence" links={[{ label: "Satellite", to: "/satellite" }, { label: "Insights", to: "/insights" }, { label: "About", to: "/about" }, { label: "Admin Console", to: "/admin" }]} />
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-[0.16em] text-gold-soft">Stay curious</h3>
-              <p className="mt-4 text-sm leading-6 text-primary-foreground/65">A thoughtful weekly brief. No noise, just what's worth knowing.</p>
-              <button type="button" onClick={openFifi} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-gold-soft hover:text-primary-foreground">Ask Fifi instead <ArrowRight className="h-4 w-4" /></button>
-              <div className="mt-5 flex gap-2">
-                {[Instagram, Youtube, Linkedin].map((Icon, index) => <span key={index} className="grid h-9 w-9 place-items-center rounded-full border border-primary-foreground/20 text-primary-foreground/70" aria-hidden="true"><Icon className="h-4 w-4" /></span>)}
-              </div>
-            </div>
+    <footer className="mt-10 w-full bg-primary text-primary-foreground">
+      <div className="mx-auto grid w-full max-w-[1600px] gap-8 px-5 py-8 sm:px-8 md:grid-cols-[1.4fr_repeat(3,1fr)] lg:px-10">
+        <div>
+          <Logo inverse />
+          <p className="mt-2 font-display text-lg leading-snug text-primary-foreground">Pakistan's people. Places. Possibilities.</p>
+          <p className="mt-1 max-w-xs text-xs leading-5 text-primary-foreground/60">Independent, useful and made for curious Pakistanis everywhere.</p>
+        </div>
+        <FooterLinks title="Explore" links={[{ label: "Creators", to: "/creators" }, { label: "Top Dramas", to: "/dramas" }, { label: "Events", to: "/events" }, { label: "Local guide", to: "/local" }]} />
+        <FooterLinks title="Intelligence" links={[{ label: "Satellite", to: "/satellite" }, { label: "Insights", to: "/insights" }, { label: "Methodology", to: "/methodology" }, { label: "About", to: "/about" }]} />
+        <div>
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-gold-soft">Follow</h3>
+          <button type="button" onClick={openFifi} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-gold-soft hover:text-primary-foreground">Ask Fifi <ArrowRight className="h-4 w-4" /></button>
+          <div className="mt-3 flex gap-2">
+            {[Instagram, Youtube, Linkedin].map((Icon, index) => <span key={index} className="grid h-8 w-8 place-items-center rounded-full border border-primary-foreground/20 text-primary-foreground/70" aria-hidden="true"><Icon className="h-4 w-4" /></span>)}
           </div>
-          <div className="flex flex-col gap-3 pt-6 text-xs text-primary-foreground/55 sm:flex-row sm:items-center sm:justify-between">
-            <p>© 2026 Fifi. Built with care in Pakistan.</p>
-            <p>Curated preview content · Ready for live backend integration</p>
-          </div>
+        </div>
+      </div>
+      <div className="border-t border-primary-foreground/15">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-2 px-5 py-3 text-xs text-primary-foreground/55 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10">
+          <p>© 2026 Fifi. Built with care in Pakistan.</p>
+          <p className="flex flex-wrap gap-x-4 gap-y-1"><Link to="/privacy" className="hover:text-primary-foreground">Privacy</Link><Link to="/terms" className="hover:text-primary-foreground">Terms</Link><Link to="/contact" className="hover:text-primary-foreground">Contact</Link></p>
         </div>
       </div>
     </footer>
@@ -187,5 +184,5 @@ export function SiteFooter() {
 }
 
 function FooterLinks({ title, links }: { title: string; links: ReadonlyArray<{ label: string; to: string }> }) {
-  return <div><h3 className="text-xs font-bold uppercase tracking-[0.16em] text-gold-soft">{title}</h3><div className="mt-4 flex flex-col items-start gap-3">{links.map((link) => <Link key={link.label} to={link.to} className="text-sm text-primary-foreground/70 transition hover:text-primary-foreground">{link.label}</Link>)}</div></div>;
+  return <div><h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-gold-soft">{title}</h3><div className="mt-3 flex flex-col items-start gap-1.5">{links.map((link) => <Link key={link.label} to={link.to} className="text-sm text-primary-foreground/70 transition hover:text-primary-foreground">{link.label}</Link>)}</div></div>;
 }
