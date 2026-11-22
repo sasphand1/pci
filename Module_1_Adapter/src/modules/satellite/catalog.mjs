@@ -2,10 +2,12 @@
 export const PROVIDERS = Object.freeze({
  firms:{label:'NASA FIRMS (VIIRS)',kind:'fire',implemented:true,auth:'NASA_FIRMS_MAP_KEY',minMinutes:180},
  power:{label:'NASA POWER (daily meteorology)',kind:'rainfall,solar',implemented:true,auth:null,minMinutes:1440},
- gpm:{label:'NASA GPM IMERG',kind:'rainfall',implemented:false,auth:'NASA_EARTHDATA_TOKEN',minMinutes:180},
- sentinel1:{label:'Copernicus Sentinel-1',kind:'flood',implemented:false,auth:'COPERNICUS credentials',minMinutes:1440},
- sentinel2:{label:'Copernicus Sentinel-2',kind:'agriculture',implemented:false,auth:'COPERNICUS credentials',minMinutes:1440},
- sentinel5p:{label:'Copernicus Sentinel-5P',kind:'atmosphere',implemented:false,auth:'COPERNICUS credentials',minMinutes:1440}
+ eonet:{label:'NASA EONET natural events',kind:'natural_event',implemented:true,auth:null,minMinutes:180},
+ gibs:{label:'NASA GIBS satellite imagery',kind:'imagery',implemented:true,auth:null,minMinutes:1440},
+ gpm:{label:'NASA GPM IMERG (rainfall imagery only)',kind:'rainfall imagery',implemented:true,auth:null,minMinutes:360},
+ sentinel1:{label:'Copernicus Sentinel-1 (scene catalogue)',kind:'scene',implemented:true,auth:null,minMinutes:1440},
+ sentinel2:{label:'Copernicus Sentinel-2 (scene catalogue)',kind:'scene',implemented:true,auth:null,minMinutes:1440},
+ sentinel5p:{label:'Copernicus Sentinel-5P (scene catalogue)',kind:'scene',implemented:true,auth:null,minMinutes:1440}
 });
 export const CITIES=Object.freeze({lahore:[74.3587,31.5204],karachi:[67.0099,24.8615],islamabad:[73.0479,33.6844],peshawar:[71.5249,34.0151],quetta:[67.0011,30.1798],multan:[71.5249,30.1575],faisalabad:[73.1350,31.4504],hyderabad:[68.3578,25.3960]});
 export function validateProvider(id){return Object.hasOwn(PROVIDERS,id)}

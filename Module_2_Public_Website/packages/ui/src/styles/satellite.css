@@ -1,3 +1,10 @@
 .satellite-page{padding-top:3rem;padding-bottom:5rem}.satellite-dashboard{display:grid;gap:1.4rem}.satellite-controls{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}.satellite-controls select{min-width:180px;padding:.65rem;border:1px solid #aaa;border-radius:.5rem;background:#fff;color:#161616}.satellite-controls span,.satellite-disclaimer{font-size:.88rem;opacity:.78}.satellite-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem}.satellite-cards .card{display:grid;gap:.8rem}.satellite-cards h2{font-size:1.2rem}.satellite-cards strong{font-size:1.7rem}.satellite-cards small,.satellite-source-grid small{opacity:.72}.satellite-source-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem}.satellite-source-grid>div{display:grid;gap:.4rem;border-top:1px solid #aaa;padding-top:.8rem}.satellite-source-grid span{font-size:.9rem}
 
 .satellite-geo{display:grid;gap:1rem}.satellite-plot{width:100%;max-height:510px}.satellite-plot-bg{fill:#f5f7fa;stroke:#9aa9b9;stroke-width:1}.satellite-plot-grid{stroke:#c8d1db;stroke-width:1}.satellite-plot-label{fill:#475569;font-size:12px}.satellite-hotspot{fill:#d35c37;opacity:.8}.satellite-geo p{font-size:.9rem;line-height:1.6}
+
+.satellite-map-frame{width:100%;height:510px;min-height:340px;border:1px solid #24465c;border-radius:12px;background:#061322;display:block}
+@media(max-width:600px){.satellite-map-frame{height:380px;min-height:300px}}
+
+.satellite-feed-details{display:grid;gap:.8rem}.satellite-feed-details ul{margin:0;padding-left:1.5rem}.satellite-feed-details li{line-height:1.6}.satellite-scene-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.8rem}.satellite-scene-grid>div{display:grid;gap:.35rem;border:1px solid #c3d1db;border-radius:.7rem;padding:.85rem}.satellite-scene-grid h3{font-size:1rem;margin:0}.satellite-scene-grid small{opacity:.75}.satellite-map-frame{width:100%;height:480px;border:0;border-radius:.7rem}
+
+.satellite-notice{padding:1rem 1.25rem;border:1px solid #cfa963;border-radius:.65rem;background:#fff7e6;color:#45371d;font-size:.94rem;line-height:1.55}

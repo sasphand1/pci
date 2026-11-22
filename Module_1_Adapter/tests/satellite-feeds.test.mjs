@@ -1,0 +1,25 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
+import {dirname,join} from 'node:path';
+import {parseEonet,parseCopernicus,copernicusUrl,eonetUrl,gibsDisplayTemplate,gibsTileURL,gpmWmsURL,inRegion} from '../src/modules/satellite/feeds.mjs';
+import {PROVIDERS} from '../src/modules/satellite/catalog.mjs';
+import {buildObservationBatch} from '../src/modules/satellite/bulk.mjs';
+const root=dirname(fileURLToPath(import.meta.url));
+const source=path=>readFileSync(join(root,'..',path),'utf8');
+test('NASA EONET URL is fixed official HTTPS endpoint',()=>{assert.equal(new URL(eonetUrl()).hostname,'eonet.gsfc.nasa.gov');assert.ok(eonetUrl().includes('limit=200'));});
+test('EONET only includes valid regional point geometries',()=>{
+ const data={events:[{id:'E1',title:'Flood reported',categories:[{title:'Floods'}],geometry:[{type:'Point',date:'2026-11-20T00:00:00Z',coordinates:[71,31]},{type:'Point',date:'2026-11-19T00:00:00Z',coordinates:[-100,40]}]},{id:'E2',title:'Polygon',geometry:[{type:'Polygon',date:'2026-11-20T00:00:00Z',coordinates:[[[70,30]]]}]}]};
+ const out=parseEonet(data);assert.equal(out.length,1);assert.equal(out[0].payload.title,'Flood reported');assert.equal(out[0].payload.status,'curated_event_metadata_not_hazard_warning');
+});
+test('EONET invalid responses fail closed',()=>{assert.throws(()=>parseEonet({}));assert.throws(()=>parseEonet(null));});
+test('Copernicus URL uses fixed allowlisted mission and Pakistan box',()=>{for(const m of ['sentinel1','sentinel2','sentinel5p']){let url=new URL(copernicusUrl(m,new Date('2026-11-22T00:00:00Z')));assert.equal(url.hostname,'catalogue.dataspace.copernicus.eu');assert.ok(url.searchParams.get('$filter').includes('POLYGON((60 23,78 23,78 38,60 38,60 23))'));}assert.throws(()=>copernicusUrl('evil'));});
+test('Copernicus scene metadata does not invent NDVI, floods, or pollution',()=>{const out=parseCopernicus({value:[{Id:'safe-1',Name:'S2A_sample',ContentDate:{Start:'2026-11-20T12:00:00Z'},GeoFootprint:{type:'Polygon',coordinates:[]}}]},'sentinel2');assert.equal(out.length,1);assert.equal(out[0].payload.derivedAnalysisAvailable,false);assert.ok(!('ndvi' in out[0].payload));assert.ok(!('floodExtent' in out[0].payload));});
+test('Copernicus malformed catalogue fails closed',()=>{assert.throws(()=>parseCopernicus({value:null},'sentinel2'));});
+test('NASA GIBS templates are fixed-origin, date-validated',()=>{assert.ok(gibsDisplayTemplate('2026-11-19').includes('{z}/{y}/{x}'));assert.equal(new URL(gibsTileURL('2026-11-19')).hostname,'gibs.earthdata.nasa.gov');assert.throws(()=>gibsTileURL('../../secret'));});
+test('Regional coordinates are bounded',()=>{assert.equal(inRegion(70,30),true);assert.equal(inRegion(70,50),false);assert.equal(inRegion(NaN,30),false);});
+test('All six original providers plus EONET and GIBS registered honestly',()=>{for(const id of ['firms','power','eonet','gibs','sentinel1','sentinel2','sentinel5p'])assert.equal(PROVIDERS[id].implemented,true);assert.equal(PROVIDERS.gpm.implemented,true);assert.match(PROVIDERS.gpm.label,/imagery only/);assert.match(PROVIDERS.sentinel1.label,/catalogue/);});
+test('Batched new feed inserts remain parameterized and bounded',()=>{const out=buildObservationBatch('eonet',[{metric:'natural_event',location:'bounding-box',observationKey:'E1',observedAt:'2026-11-20T00:00:00Z',payload:{title:"x'); DROP TABLE users; --"}}]);assert.match(out.sql,/\$6::jsonb/);assert.ok(!out.sql.includes('DROP TABLE'));assert.equal(out.values.length,6);});
+test('Existing scheduler and Events sync are not overwritten by patch',()=>{const routes=source('src/modules/satellite/routes.ts');assert.match(routes,/natural-events\/latest/);assert.match(routes,/scenes\/latest/);assert.match(routes,/imagery\/latest/);});
+test('GPM is a fixed NASA precipitation visualization, not numeric rainfall',()=>{const url=gpmWmsURL('2026-11-18',true);assert.ok(url.includes('IMERG_Precipitation_Rate'));assert.ok(url.includes('{bbox-epsg-3857}'));assert.ok(!url.includes('NASA_EARTHDATA_TOKEN'));});

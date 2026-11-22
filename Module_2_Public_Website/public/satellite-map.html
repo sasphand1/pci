@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PCI Satellite — Thermal Detections Map</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.21.0/dist/maplibre-gl.css">
+<style>
+html,body,#map{height:100%;width:100%;margin:0;background:#061322;font-family:system-ui,sans-serif}
+#map{position:absolute;inset:0}#status{position:absolute;left:14px;bottom:20px;z-index:2;background:#071522e8;color:#d4edf8;border:1px solid #31647c;border-radius:7px;padding:9px 11px;font-size:12px;max-width:75%;pointer-events:none}
+#source{position:absolute;top:12px;left:12px;z-index:2;background:#071522e8;color:#b2d8e9;border:1px solid #31647c;border-radius:7px;padding:8px 10px;font-size:11px;pointer-events:none}
+#gpm-toggle{position:absolute;right:50px;top:53px;z-index:5;border:1px solid #29627b;border-radius:7px;background:#071522ee;color:#e0f4fd;padding:9px 12px;font-weight:600;cursor:pointer}#gpm-toggle:disabled{opacity:.45;cursor:not-allowed}#imagery-toggle{position:absolute;right:50px;top:10px;z-index:5;border:1px solid #29627b;border-radius:7px;background:#071522ee;color:#e0f4fd;padding:9px 12px;font-weight:600;cursor:pointer}#imagery-toggle:disabled{opacity:.45;cursor:not-allowed}
+</style></head><body><div id="map" role="region" aria-label="Interactive Pakistan satellite map"></div><div id="source">NASA FIRMS · Thermal detections (not confirmed fires)</div><div id="status" role="status">Waiting for observations…</div>
+<button id="imagery-toggle" type="button" disabled aria-pressed="false">NASA imagery: unavailable</button><button id="gpm-toggle" type="button" disabled aria-pressed="false">IMERG rain: unavailable</button><script src="https://unpkg.com/maplibre-gl@5.21.0/dist/maplibre-gl.js"></script>
+<script>
+'use strict';
+(function(){
+  const status=document.getElementById('status');
+  if(!window.maplibregl){status.textContent='Map library unavailable';return;}
+  let points=[];let events=[];let loaded=false;let imageryUrl=null;let imageryVisible=false;let gpmUrl=null;let gpmVisible=false;
+  const toggle=document.getElementById('imagery-toggle');const gpmToggle=document.getElementById('gpm-toggle');
+  const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/dark',center:[69.3,30.3],zoom:4.5,attributionControl:true,maxZoom:15});
+  map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
+  const eventData=()=>({type:'FeatureCollection',features:events.map(e=>({type:'Feature',geometry:{type:'Point',coordinates:[e.longitude,e.latitude]},properties:{title:e.title}}))});
+  const data=()=>({type:'FeatureCollection',features:points.map(p=>({type:'Feature',geometry:{type:'Point',coordinates:[p.longitude,p.latitude]},properties:{observedAt:p.observedAt||''}}))});
+  function render(){if(!loaded)return;
+   const src=map.getSource('hotspots');if(src)src.setData(data());
+   const eventSource=map.getSource('natural-events');if(eventSource)eventSource.setData(eventData());
+   status.textContent=`${points.length} thermal detections · ${events.length} NASA natural events (regional bounding box)`;
+   if(imageryUrl&&!map.getSource('nasa-imagery')){
+     map.addSource('nasa-imagery',{type:'raster',tiles:[imageryUrl],tileSize:256,maxzoom:9});
+     map.addLayer({id:'nasa-imagery',type:'raster',source:'nasa-imagery',layout:{visibility:'none'},paint:{'raster-opacity':.7}},'hotspots');
+   }
+   if(gpmUrl&&!map.getSource('gpm-imagery')){
+    map.addSource('gpm-imagery',{type:'raster',tiles:[gpmUrl],tileSize:256,maxzoom:6});
+    map.addLayer({id:'gpm-imagery',type:'raster',source:'gpm-imagery',layout:{visibility:'none'},paint:{'raster-opacity':.65}},'hotspots');
+   }
+   gpmToggle.disabled=!gpmUrl;gpmToggle.textContent=gpmUrl?'IMERG rain: '+(gpmVisible?'On':'Off'):'IMERG rain: unavailable';
+   toggle.disabled=!imageryUrl;toggle.textContent=imageryUrl?'NASA imagery: '+(imageryVisible?'On':'Off'):'NASA imagery: unavailable';
+  }
+  map.on('load',()=>{loaded=true;map.addSource('hotspots',{type:'geojson',data:data()});map.addLayer({id:'hotspots-halo',type:'circle',source:'hotspots',paint:{'circle-radius':9,'circle-color':'#ff6347','circle-opacity':.2,'circle-stroke-width':0}});map.addLayer({id:'hotspots',type:'circle',source:'hotspots',paint:{'circle-radius':5,'circle-color':'#ff785c','circle-stroke-color':'#fff1dc','circle-stroke-width':1,'circle-opacity':.94}});
+   map.addSource('natural-events',{type:'geojson',data:eventData()});map.addLayer({id:'natural-events',type:'circle',source:'natural-events',paint:{'circle-radius':6,'circle-color':'#66e0ff','circle-stroke-color':'#e4fbff','circle-stroke-width':2}});render();});
+  map.on('error',()=>{if(!loaded)status.textContent='Map tiles unavailable. Check the connection.';});
+  window.addEventListener('message',event=>{
+    if(event.origin!==location.origin||event.source!==window.parent||event.data?.type!=='PCI_SATELLITE_POINTS_V1'||!Array.isArray(event.data.points))return;
+    points=event.data.points.slice(0,200).filter(p=>typeof p.latitude==='number'&&typeof p.longitude==='number'&&Number.isFinite(p.latitude)&&Number.isFinite(p.longitude)&&p.latitude>=23&&p.latitude<=38&&p.longitude>=60&&p.longitude<=78).map(p=>({latitude:p.latitude,longitude:p.longitude,observedAt:typeof p.observedAt==='string'?p.observedAt:null}));
+    events=(Array.isArray(event.data.events)?event.data.events:[]).slice(0,100).filter(p=>typeof p.latitude==='number'&&typeof p.longitude==='number'&&Number.isFinite(p.latitude)&&Number.isFinite(p.longitude)&&p.latitude>=23&&p.latitude<=38&&p.longitude>=60&&p.longitude<=78).map(p=>({latitude:p.latitude,longitude:p.longitude,title:String(p.title||'Natural event').slice(0,160)}));
+    const template=event.data.imagery;
+    imageryUrl=(typeof template==='string'&&/^https:\/\/gibs\.earthdata\.nasa\.gov\/wmts\/epsg3857\/best\/MODIS_Terra_CorrectedReflectance_TrueColor\/default\/\d{4}-\d{2}-\d{2}\/GoogleMapsCompatible_Level9\/\{z\}\/\{y\}\/\{x\}\.jpg$/.test(template))?template:null;
+    const gpm=event.data.gpmImagery;
+    gpmUrl=(typeof gpm==='string'&&/^https:\/\/gibs\.earthdata\.nasa\.gov\/wms\/epsg3857\/best\/wms\.cgi\?/.test(gpm)&&gpm.includes('IMERG_Precipitation_Rate')&&gpm.includes('{bbox-epsg-3857}'))?gpm:null;
+    render();
+  });
+  gpmToggle.addEventListener('click',()=>{if(!loaded||!map.getLayer('gpm-imagery'))return;gpmVisible=!gpmVisible;map.setLayoutProperty('gpm-imagery','visibility',gpmVisible?'visible':'none');gpmToggle.textContent='IMERG rain: '+(gpmVisible?'On':'Off');gpmToggle.setAttribute('aria-pressed',String(gpmVisible));});
+  toggle.addEventListener('click',()=>{if(!loaded||!map.getLayer('nasa-imagery'))return;imageryVisible=!imageryVisible;map.setLayoutProperty('nasa-imagery','visibility',imageryVisible?'visible':'none');toggle.textContent='NASA imagery: '+(imageryVisible?'On':'Off');toggle.setAttribute('aria-pressed',String(imageryVisible));});
+})();
+</script></body></html>
