@@ -128,12 +128,12 @@ export function HomePage({ creators, events, categoryRows, reach, eventsCount }:
               <div className="mt-4">
                 <h2 className="text-sm font-bold text-foreground">Top Creators in Pakistan</h2>
                 <p className="text-[11px] text-muted-foreground">Verified Pakistani creators ranked by audience reach and engagement.</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="mt-3 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
                   {creators.slice(0, 4).map((creator) => {
                     const isFollowing = Boolean(followed[creator.id]);
                     return (
                       <article key={creator.id} className="overflow-hidden rounded-xl border border-border/70 bg-background/50 p-2.5">
-                        <Link to="/creators/$id" params={{ id: creator.slug ?? String(creator.id) }} className="block aspect-[4/3] overflow-hidden rounded-lg bg-muted">
+                        <Link to="/creators/$id" params={{ id: creator.slug ?? String(creator.id) }} className="block aspect-[3/2] sm:aspect-[4/3] overflow-hidden rounded-lg bg-muted">
                           <Pic src={creator.image} alt={creator.name} className="h-full w-full object-cover transition duration-300 hover:scale-105" />
                         </Link>
                         <div className="mt-2.5">
@@ -162,10 +162,10 @@ export function HomePage({ creators, events, categoryRows, reach, eventsCount }:
             )}
 
             {tab === "events" && (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-4 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
                 {events.slice(0, 4).map((ev) => (
                   <Link key={ev.id} to="/events" className="group overflow-hidden rounded-xl border border-border/70 bg-background/50 p-2.5">
-                    <div className="aspect-[4/3] overflow-hidden rounded-lg bg-muted">
+                    <div className="aspect-[3/2] sm:aspect-[4/3] overflow-hidden rounded-lg bg-muted">
                       <Pic src={ev.image} alt={ev.title} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
                     </div>
                     <p className="mt-2 text-[10px] font-bold uppercase text-gold-foreground">{ev.day} {ev.month} · {ev.city}</p>
@@ -186,10 +186,10 @@ export function HomePage({ creators, events, categoryRows, reach, eventsCount }:
                   View all <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-3 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
                 {businesses.slice(0, 4).map((biz) => (
                   <article key={biz.id} className="overflow-hidden rounded-xl border border-border/70 bg-background/50">
-                    <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+                    <div className="relative aspect-[3/2] sm:aspect-[4/3] overflow-hidden bg-muted">
                       <img src={biz.image} alt={biz.name} className="h-full w-full object-cover" />
                       <div className="absolute right-2 top-2 scale-75"><SaveButton label={biz.name} /></div>
                     </div>
@@ -225,10 +225,10 @@ export function HomePage({ creators, events, categoryRows, reach, eventsCount }:
                     View all <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="mt-3 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
                   {row.creators.slice(0, 4).map((creator) => (
                     <article key={creator.slug} className="overflow-hidden rounded-xl border border-border/70 bg-background/50 p-2.5">
-                      <Link to="/creators/$id" params={{ id: creator.slug }} className="block aspect-[4/3] overflow-hidden rounded-lg bg-muted">
+                      <Link to="/creators/$id" params={{ id: creator.slug }} className="block aspect-[3/2] sm:aspect-[4/3] overflow-hidden rounded-lg bg-muted">
                         <Pic src={creator.image} alt={creator.name} className="h-full w-full object-cover transition duration-300 hover:scale-105" />
                       </Link>
                       <div className="mt-2.5">
@@ -243,7 +243,7 @@ export function HomePage({ creators, events, categoryRows, reach, eventsCount }:
                   ))}
                   {Array.from({ length: filler }, (_, index) => (
                     <article key={`ph-${index}`} className="overflow-hidden rounded-xl border border-dashed border-border/70 bg-background/30 p-2.5" aria-hidden="true">
-                      <div className="aspect-[4/3] overflow-hidden rounded-lg"><Pic src="" alt="Creator" /></div>
+                      <div className="aspect-[3/2] sm:aspect-[4/3] overflow-hidden rounded-lg"><Pic src="" alt="Creator" /></div>
                       <div className="mt-2.5">
                         <p className="text-xs font-bold text-foreground/60">Creator name</p>
                         <p className="text-[10px] text-muted-foreground">{row.label}</p>

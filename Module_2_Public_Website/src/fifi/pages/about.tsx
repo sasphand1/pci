@@ -26,7 +26,7 @@ export function AboutPage() {
 
         <section className="py-14">
           <div className="max-w-2xl"><p className="eyebrow">Our editorial compass</p><h2 className="mt-3 font-display text-4xl text-primary sm:text-5xl">Principles before page views.</h2></div>
-          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{[
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">{[
             { icon: Eye, title: "Clarity is a public service", text: "We explain what information means, where it came from and why it might matter to you." },
             { icon: ShieldCheck, title: "Trust must be earned", text: "We separate facts from promotion, acknowledge uncertainty and never hide the source behind a claim." },
             { icon: HeartHandshake, title: "Local value comes first", text: "We champion independent voices and businesses while keeping user interests ahead of advertisers." },

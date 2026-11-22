@@ -157,8 +157,8 @@ function SparkleMark() {
 export function SiteFooter() {
   return (
     <footer className="mt-10 w-full bg-primary text-primary-foreground">
-      <div className="mx-auto grid w-full max-w-[1600px] gap-8 px-5 py-8 sm:px-8 md:grid-cols-[1.4fr_repeat(3,1fr)] lg:px-10">
-        <div>
+      <div className="mx-auto grid w-full max-w-[1600px] grid-cols-2 gap-6 px-4 py-6 sm:px-8 sm:py-8 md:grid-cols-[1.4fr_repeat(3,1fr)] md:gap-8 lg:px-10">
+        <div className="col-span-2 md:col-span-1">
           <Logo inverse />
           <p className="mt-2 font-display text-lg leading-snug text-primary-foreground">Pakistan's people. Places. Possibilities.</p>
           <p className="mt-1 max-w-xs text-xs leading-5 text-primary-foreground/60">Independent, useful and made for curious Pakistanis everywhere.</p>
