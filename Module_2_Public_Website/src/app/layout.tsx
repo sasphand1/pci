@@ -7,6 +7,7 @@ import './mobile-app.css';
 import {SiteHeader} from '@/components/SiteHeader';
 import {SiteFooter} from '@/components/SiteFooter';
 import {siteOrigin} from '@/lib/seo';
+import {SiteStructuredData} from '@/components/SiteStructuredData';
 
 export const metadata:Metadata = {
   metadataBase: new URL(siteOrigin()),
@@ -16,7 +17,8 @@ export const metadata:Metadata = {
   robots: {index: true, follow: true},
   openGraph: {type: 'website', locale: 'en_PK', siteName: 'Pakistan Creator Index', title: 'Pakistan Creator Index — Pakistani Creator Rankings', description: 'Explore Pakistani creator rankings, public statistics and creator profiles.', url: '/'},
   twitter: {card: 'summary_large_image'},
+  verification: {google: process.env.GOOGLE_SITE_VERIFICATION || undefined, other: process.env.BING_SITE_VERIFICATION ? {'msvalidate.01': process.env.BING_SITE_VERIFICATION} : undefined},
 };
 export default function RootLayout({children}:{children:React.ReactNode}){
-  return <html lang="en"><body><div className="site-shell"><a className="skip-link" href="#main">Skip to content</a><SiteHeader/><main id="main" className="site-main">{children}</main><SiteFooter/></div></body></html>;
+  return <html lang="en"><body><div className="site-shell"><a className="skip-link" href="#main">Skip to content</a><SiteHeader/><main id="main" className="site-main">{children}</main><SiteFooter/></div><SiteStructuredData/></body></html>;
 }
