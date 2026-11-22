@@ -1031,3 +1031,36 @@
 
 /* PCI GLANCE POSITION END */
 .pci-stage .stage-arrow { display: none !important; }
+
+/* PCI creator earnings: a compact secondary metric on the existing five-card wheel. */
+.pci-stage .stage-body{gap:clamp(2px,.25cqw,5px)}
+.pci-stage .stage-earnings{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:.3em;width:100%;color:#F4D18A;font:600 clamp(8px,.7cqw,11px)/1.2 'Segoe UI',system-ui,sans-serif}
+.pci-stage .stage-earnings small{font-size:inherit;color:#C5D7D1}
+.pci-stage .stage-earnings b{font-size:clamp(10px,.94cqw,15px);font-weight:800}
+.pci-stage .stage-card[data-center="true"] .stage-earnings b{font-size:clamp(13px,1.2cqw,19px)}
+.pci-stage .stage-earnings-note{width:min(94%,900px);margin:0 auto 5px;text-align:center;color:#C8DDD6;font:400 clamp(10px,.8cqw,12px)/1.4 'Segoe UI',system-ui,sans-serif}
+@media(max-width:700px){.pci-stage .stage-earnings{font-size:9px}.pci-stage .stage-earnings-note{font-size:10px;padding:0 12px}}
+
+/* Creator analytics — localized UI styles, shared across every public profile. */
+.pci-analytics{max-width:1100px;margin-inline:auto}
+.pci-analytics-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:18px 0}
+.pci-analytics-tile{border:1px solid rgba(6,93,78,.16);border-radius:14px;padding:18px;background:#fff;display:flex;flex-direction:column;gap:7px;min-width:0}
+.pci-analytics-tile small,.pci-analytics-tile span{font-size:.78rem;color:#526c68}
+.pci-analytics-tile strong{font-size:clamp(1.2rem,2.3vw,1.9rem);font-weight:800;overflow-wrap:anywhere;color:#093c37}
+.pci-analytics-revenue{border-color:rgba(0,126,98,.35);background:#f0faf6}
+.pci-analytics-graph{border:1px solid rgba(6,93,78,.15);border-radius:16px;background:#fff;padding:18px}
+.pci-analytics-toolbar{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.pci-analytics-controls{display:flex;gap:5px;flex-wrap:wrap}
+.pci-analytics-controls button{border:1px solid #cbded9;background:#fff;color:#174a43;cursor:pointer;border-radius:8px;padding:7px 12px;font-weight:700;font-size:.8rem}
+.pci-analytics-controls button[aria-pressed="true"]{background:#0e7667;color:white;border-color:#0e7667}
+.pci-analytics-svg{display:block;width:100%;height:200px;overflow:visible}
+.pci-analytics-grid{stroke:#d8e8e2;stroke-width:1;stroke-dasharray:5 6;fill:none}
+.pci-analytics-chart-path{fill:none;stroke:#0b9d7d;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.pci-analytics-axis{display:flex;justify-content:space-between;color:#61746f;font-size:.8rem}
+.pci-analytics-gains{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:18px;border-top:1px solid #e4edea;padding-top:16px}
+.pci-analytics-gains div{display:flex;flex-direction:column;gap:5px}
+.pci-analytics-gains small{color:#526c68;font-size:.8rem}
+.pci-analytics-gains strong{color:#0c473e;font-weight:800}
+.pci-analytics-empty{padding:55px 12px;text-align:center;color:#61746f;background:#f6faf8;border-radius:10px}
+.pci-analytics-disclaimer{font-size:.8rem;line-height:1.5;color:#526b65;margin-top:14px}
+@media(max-width:720px){.pci-analytics-summary{grid-template-columns:1fr;gap:9px}.pci-analytics-tile{padding:13px}.pci-analytics-graph{padding:12px}.pci-analytics-svg{height:160px}.pci-analytics-controls button{padding:6px 9px;font-size:.75rem}.pci-analytics-gains{gap:6px}.pci-analytics-gains strong{font-size:.87rem}}

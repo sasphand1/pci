@@ -1,9 +1,10 @@
 import { query } from '../../lib/db.js';
+import {monthlyEstimates,personAnalytics} from '../creator-analytics/data.js';
 import { FRESHNESS_DAYS_DEFAULT } from '../../engine/index.js';
 import { safeAvatarUrl } from '../../providers/avatar.js';
 import { accountUrl, isStale, scopeInfo, toEntries, type PublicEntry, type SlotRow } from './shape.js';
 
-export type PublicPerson = { slug: string; displayName: string; avatarUrl: string | null; categories: { slug: string; label: string }[]; accounts: { platform: string; handle: string; url: string | null }[] };
+export type PublicPerson = { slug: string; displayName: string; avatarUrl: string | null; estimatedMonthlyEarningsUsd?:number|null; categories: { slug: string; label: string }[]; accounts: { platform: string; handle: string; url: string | null }[] };
 export type Ranking = { scope: string; kind: string; label: string; unit: string; publishedAt: string | null; stale: boolean; population: number; covered: number; entries: PublicEntry<PublicPerson>[] };
 type Pointer = { scope: string; runId: string; publishedAt: string | null; population: number };
 
@@ -59,6 +60,10 @@ export async function rankings(scopes: string[], limit: number, now = new Date()
   const slots = await slotsFor([...ptrs.values()].map(p => p.runId), limit);
   const ids = new Set<string>(); for (const s of slots.values()) for (const r of s.rows) ids.add(r.personId);
   const people = await peopleByIds([...ids]);
+  if (scopes.some(scope=>scope.startsWith('wheel.'))) {
+    const estimates=await monthlyEstimates([...ids],now);
+    for(const [id,person] of people) person.estimatedMonthlyEarningsUsd=estimates.get(id)?.usd??null;
+  }
   const cats = labels ?? await categoryLabels();
   const out: Ranking[] = [];
   for (const scope of scopes) {
@@ -114,5 +119,6 @@ export async function personDetail(slug: string) {
   }
   const accounts = acc.rows.map((a: any) => ({ platform: a.platform, handle: a.handle, url: accountUrl(a.platform, a.external_id, a.handle), ...(fig.get(a.id) ?? { followers: null, views: null, posts30d: null, observedAt: null }) }));
   const positions = pos.rows.map((x: any) => { const i = scopeInfo(x.scope, cats.get(x.scope.slice(9))?.label); return i ? { scope: x.scope, label: i.label, unit: i.unit, slot: x.slot, rank: x.rank, value: Number(x.value) } : null; }).filter(Boolean);
-  return { slug, displayName: base.displayName, avatarUrl: base.avatarUrl, categories: base.categories, accounts, positions };
+  const analytics=await personAnalytics(id);
+  return { slug, displayName: base.displayName, avatarUrl: base.avatarUrl, categories: base.categories, accounts, positions, analytics };
 }

@@ -201,6 +201,10 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
                   <b>{formatCount(c.value,true)}</b>
                   <small>{metricLabel}</small>
                 </span>
+                <span className="stage-earnings" title="Illustrative monthly earnings, calculated from tracked YouTube view gains and Social Blade's $0.25–$4 RPM assumptions; not verified income.">
+                  <small>Est. monthly</small>
+                  <b>{c.person.estimatedMonthlyEarningsUsd == null ? 'N/A' : new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(c.person.estimatedMonthlyEarningsUsd)}</b>
+                </span>
               </span>
             </Link>
           ))}
@@ -224,6 +228,7 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
           </button>
         </div>
 
+        <p className="stage-earnings-note">Earnings are modeled from tracked YouTube views using the $0.25–$4 RPM range midpoint; not verified income. N/A means insufficient history.</p>
         <div className="stage-dots" role="group" aria-label="Choose creator">
           {cards.map((c,i)=>(
             <button
