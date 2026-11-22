@@ -8,6 +8,7 @@ const primaryLinks = [
   {href:'/',label:'Home'},
   {href:'/#top-100',label:'Rankings'},
   {href:'/#discover',label:'Creators'},
+  {href:'/events.html',label:'Events'},
   {href:'/methodology',label:'Insights'},
   {href:'/about',label:'About'}
 ] as const;
