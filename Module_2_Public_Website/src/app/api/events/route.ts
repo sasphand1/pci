@@ -47,5 +47,5 @@ export async function GET(){
   // If neither backend nor curated notice is available, report the outage rather
   // than returning a misleading success with zero events.
   const status=backendStatus!=='online'&&entries.length===0?503:200;
-  return NextResponse.json({data:entries,meta,...(status===503?{error:'EVENTS_BACKEND_UNAVAILABLE'}:{})},{status,headers:{'Cache-Control':'public, max-age=180, stale-while-revalidate=300'}});
+  return NextResponse.json({data:entries,meta,...(status===503?{error:'EVENTS_BACKEND_UNAVAILABLE'}:{})},{status,headers:{'Cache-Control':'no-store, no-cache, must-revalidate'}});
 }

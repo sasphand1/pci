@@ -47,7 +47,7 @@ test('owner editorial endpoints must validate source and coordinates and support
 test('map displays server data in static preview even when MapLibre is unavailable',()=>{
  const html=source('Module_2_Public_Website/public/events-radar.html');
  assert.match(html,/renderPreviewPins\(\)/);
- assert.match(html,/VERIFIED EVENT LOCATIONS/);
+ assert.match(html,/GEOREFERENCED MAP/);
  assert.match(html,/end_at/);
  assert.match(html,/waze\.com\/ul\?ll=/);
 });

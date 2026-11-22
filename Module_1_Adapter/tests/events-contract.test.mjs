@@ -27,9 +27,9 @@ test('server keeps source metadata in database, not client secrets',()=>{
 });
 test('PCI map preserves glows and contains Waze + verified event integration',()=>{
  const html=read('Module_2_Public_Website/public/events-radar.html');
- assert.match(html,/crystalBlink/);assert.match(html,/holo-arc__beam/);assert.match(html,/mapSpecular/);
+ assert.match(html,/pciPinPulse/);assert.match(html,/venueGroups\(\)/);assert.match(html,/mapSpecular/);
  assert.match(html,/https:\/\/waze\.com\/ul\?ll=/);
- assert.match(html,/loadPublishedEvents\(\)/);assert.match(html,/fetch\('\/api\/events'/);
+ assert.match(html,/loadPublishedEvents\(\)/);assert.match(html,/fetch\('\/api\/events\?fresh='/);
  assert.match(html,/Rackelto Technologies Ltd/);
  assert.doesNotMatch(html,/const DEMO_EVENTS/);
 });
