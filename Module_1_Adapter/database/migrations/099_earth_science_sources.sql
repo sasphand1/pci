@@ -7,11 +7,11 @@ DO $$ BEGIN
  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='satellite.providers'::regclass AND conname='providers_id_check') THEN
   ALTER TABLE satellite.providers ADD CONSTRAINT providers_id_check CHECK (id IN ('firms','power','gpm','sentinel1','sentinel2','sentinel5p','eonet','gibs','usgs','landsat','ecostress','smap','blackmarble'));
  END IF;
- IF EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='satellite.observations'::regclass AND conname='observations_metric_check' AND pg_get_constraintdef(oid) NOT LIKE '%earthquake%') THEN
+ IF EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='satellite.observations'::regclass AND conname='observations_metric_check' AND pg_get_constraintdef(oid) NOT LIKE '%science_scene%') THEN
   ALTER TABLE satellite.observations DROP CONSTRAINT observations_metric_check;
  END IF;
  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='satellite.observations'::regclass AND conname='observations_metric_check') THEN
-  ALTER TABLE satellite.observations ADD CONSTRAINT observations_metric_check CHECK (metric IN ('fire','rainfall','solar','natural_event','scene','imagery','earthquake'));
+  ALTER TABLE satellite.observations ADD CONSTRAINT observations_metric_check CHECK (metric IN ('fire','rainfall','solar','natural_event','scene','imagery','earthquake','science_scene'));
  END IF;
 END $$;
 INSERT INTO satellite.providers(id,enabled,refresh_minutes) VALUES

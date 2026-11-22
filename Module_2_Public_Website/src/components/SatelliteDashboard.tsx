@@ -27,11 +27,12 @@ export function SatelliteDashboard({sources,fires,rain,solar}:{sources:unknown[]
  const [historyStatus,setHistoryStatus]=useState<'loading'|'ready'|'unavailable'>('loading');
  const mapFrame=useRef<HTMLIFrameElement>(null);
  const [earthquakes,setEarthquakes]=useState<Datum[]>([]);
+ const [scienceScenes,setScienceScenes]=useState<Record<string,Datum[]>>({});
  const [naturalEvents,setNaturalEvents]=useState<Datum[]>([]),[imagery,setImagery]=useState<Datum[]>([]),[gpmImagery,setGpmImagery]=useState<Datum[]>([]),[scenes,setScenes]=useState<Record<string,Datum[]>>({});
- useEffect(()=>{let active=true;const filters=['natural-events','imagery','gpm-imagery','scenes&mission=sentinel1','scenes&mission=sentinel2','scenes&mission=sentinel5p','earthquakes'];
+ useEffect(()=>{let active=true;const filters=['natural-events','imagery','gpm-imagery','scenes&mission=sentinel1','scenes&mission=sentinel2','scenes&mission=sentinel5p','earthquakes','science-scenes&mission=landsat','science-scenes&mission=ecostress','science-scenes&mission=smap','science-scenes&mission=blackmarble'];
  Promise.allSettled(filters.map(async f=>{const resp=await fetch(`${API}?metric=${f}`,{signal:AbortSignal.timeout(8000)});if(!resp.ok)throw Error('Source unavailable');return rows((await resp.json()).data??[])})).then(results=>{if(!active)return;
  const value=(i:number)=>{const result=results[i];return result?.status==='fulfilled'?result.value:[];};
- setNaturalEvents(value(0));setImagery(value(1));setGpmImagery(value(2));setScenes({sentinel1:value(3),sentinel2:value(4),sentinel5p:value(5)}); setEarthquakes(value(6));});
+ setNaturalEvents(value(0));setImagery(value(1));setGpmImagery(value(2));setScenes({sentinel1:value(3),sentinel2:value(4),sentinel5p:value(5)}); setEarthquakes(value(6));setScienceScenes({landsat:value(7),ecostress:value(8),smap:value(9),blackmarble:value(10)});});
  return()=>{active=false;};},[]);
  useEffect(()=>{let active=true;setError('');if(city==='lahore'){setRainData(rows(rain));setSolarData(rows(solar));return;}
  Promise.all(['rainfall','solar'].map(async metric=>{const response=await fetch(`${API}?metric=${encodeURIComponent(metric)}&city=${encodeURIComponent(city)}`,{signal:AbortSignal.timeout(8000)});if(!response.ok)throw Error('Data service unavailable');return rows((await response.json()).data??[]);})).then(([r,s])=>{if(active){setRainData(r);setSolarData(s);}}).catch(()=>{if(active){setError('Unable to retrieve city observations.');setRainData([]);setSolarData([]);}});return()=>{active=false;};},[city,rain,solar]);
@@ -87,6 +88,9 @@ export function SatelliteDashboard({sources,fires,rain,solar}:{sources:unknown[]
    <h2>NASA natural events · Pakistan region</h2>
    <p>NASA EONET event metadata (not an emergency alert). Only events with a point geometry within the region are shown.</p>
    {naturalEvents.length?<ul>{naturalEvents.slice(0,8).map((e,i)=><li key={i}><strong>{String(e.title??'Natural event')}</strong> · {date(e.observedAt)}</li>)}</ul>:<p>No regional point events in the latest published feed, or feed disabled.</p>}
+   <h2>Additional Earth science acquisition records</h2>
+   <p>These counts indicate recently discoverable NASA/USGS granules or scenes, not processed soil moisture, surface temperature, water stress or nighttime brightness.</p>
+   <div className="satellite-scene-grid">{(['landsat','ecostress','smap','blackmarble'] as const).map(id=><div key={id}><h3>{({landsat:'Landsat thermal',ecostress:'ECOSTRESS',smap:'SMAP',blackmarble:'Black Marble'} as const)[id]}</h3><strong>{scienceScenes[id]?.length??0} recent acquisitions</strong><small>Most recent: {date(scienceScenes[id]?.[0]?.observedAt)}</small></div>)}</div>
    <h2>Copernicus scene discovery</h2>
    <p>Satellite scene catalogue entries are not flood extent, NDVI crop health or pollutant concentration measurements.</p>
    <div className="satellite-scene-grid">{(['sentinel1','sentinel2','sentinel5p'] as const).map(mission=><div key={mission}><h3>{mission.replace('sentinel','Sentinel-')}</h3><strong>{scenes[mission]?.length??0} recent scenes</strong><small>Latest: {date(scenes[mission]?.[0]?.observedAt)}</small></div>)}</div>

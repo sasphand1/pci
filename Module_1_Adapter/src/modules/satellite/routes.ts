@@ -14,7 +14,7 @@ const city=z.enum(Object.keys(CITIES) as [string,...string[]]);
 const days=z.coerce.number().int().min(1).max(30).default(7);
 const limit=z.coerce.number().int().min(1).max(200).default(100);
 const idSchema=z.enum(Object.keys(PROVIDERS) as [string,...string[]]);
-const list=async(metric:'fire'|'rainfall'|'solar'|'natural_event'|'scene'|'imagery'|'earthquake',location:string,n:number,backDays:number,providerId:string|null=null)=>{
+const list=async(metric:'fire'|'rainfall'|'solar'|'natural_event'|'scene'|'imagery'|'earthquake'|'science_scene',location:string,n:number,backDays:number,providerId:string|null=null)=>{
  const epoch=(await redis.get('satellite:epoch'))??'0';
  return cacheRead(`satellite:observations:v1:${epoch}:${metric}:${location}:${n}:${backDays}:${providerId??'all'}`,async()=>{
   const r=await query(`SELECT obs.location,obs.observed_at,obs.payload,obs.provider FROM satellite.observations obs JOIN satellite.providers cfg ON cfg.id=obs.provider AND cfg.enabled=true WHERE metric=$1 AND ($2='all' OR location=$2) AND observed_at>=now()-($3::int*interval '1 day') AND ($5::text IS NULL OR obs.provider=$5) ORDER BY observed_at DESC,obs.id DESC LIMIT $4`,[metric,location,backDays,n,providerId]);
@@ -22,7 +22,7 @@ const list=async(metric:'fire'|'rainfall'|'solar'|'natural_event'|'scene'|'image
  },30);
 };
 satellitePublicRoutes.use((_req,res,next)=>{res.setHeader('Cache-Control','public, max-age=60, stale-while-revalidate=180');next();});
-satellitePublicRoutes.get('/openapi.json',(_req,res)=>res.json({openapi:'3.0.3',info:{title:'PCI Satellite Intelligence API',version:'0.1.0',description:'Public read-only satellite-derived estimates. NASA POWER rainfall is not GPM; NASA FIRMS anomalies are not confirmed fires.'},servers:[{url:'/api/v1/satellite'}],paths:Object.fromEntries(['/sources','/fires/latest','/fires/history','/rainfall/latest','/rainfall/history','/solar/latest','/solar/history','/natural-events/latest','/earthquakes/latest','/scenes/latest','/imagery/latest','/gpm/imagery/latest'].map(p=>[p,{get:{summary:`Satellite data ${p}`,responses:{'200':{description:'Data with provenance, observation time and limitations'},'429':{description:'Rate limit exceeded'}}}}]))}));
+satellitePublicRoutes.get('/openapi.json',(_req,res)=>res.json({openapi:'3.0.3',info:{title:'PCI Satellite Intelligence API',version:'0.1.0',description:'Public read-only satellite-derived estimates. NASA POWER rainfall is not GPM; NASA FIRMS anomalies are not confirmed fires.'},servers:[{url:'/api/v1/satellite'}],paths:Object.fromEntries(['/sources','/fires/latest','/fires/history','/rainfall/latest','/rainfall/history','/solar/latest','/solar/history','/natural-events/latest','/earthquakes/latest','/science-scenes/latest','/scenes/latest','/imagery/latest','/gpm/imagery/latest'].map(p=>[p,{get:{summary:`Satellite data ${p}`,responses:{'200':{description:'Data with provenance, observation time and limitations'},'429':{description:'Rate limit exceeded'}}}}]))}));
 satellitePublicRoutes.get('/sources',handler(async(_req,res)=>{res.json({data:(await providers()).map(p=>({id:p.id,label:p.label,kind:p.kind,enabled:p.enabled,implemented:p.implemented,lastSuccessAt:p.last_success_at,lastAttemptAt:p.last_attempt_at,refreshQueued:Boolean(p.refresh_requested_at),available:p.enabled&&p.implemented&&p.configured&&Boolean(p.last_success_at)&&Date.now()-new Date(p.last_success_at!).getTime()<Math.max(172800000,p.refresh_minutes*120000)}))});}));
 satellitePublicRoutes.get('/fires/latest',handler(async(req,res)=>{const q=limit.parse(req.query.limit);res.json({data:await list('fire','bounding-box',q,4),meta:{status:'satellite_thermal_detections_not_confirmed_fires',source:'NASA FIRMS',provisional:true}});}));
 satellitePublicRoutes.get('/fires/history',handler(async(req,res)=>{const q=days.parse(req.query.days);res.json({data:await list('fire','bounding-box',200,q),meta:{days:q,source:'NASA FIRMS',provisional:true}});}));
@@ -35,6 +35,13 @@ satellitePublicRoutes.get('/solar/history',handler(async(req,res)=>{const locati
 satellitePublicRoutes.get('/earthquakes/latest',handler(async(req,res)=>{
  const n=limit.parse(req.query.limit);
  res.json({data:await list('earthquake','bounding-box',n,7,'usgs'),meta:{source:'USGS ComCat',region:'Pakistan-region bounding box',notEarlyWarning:true,notPrediction:true,mayIncludeNeighboringCountries:true}});
+}));
+// New scientific sources expose verified scene/granule acquisition metadata ONLY.
+// No NDVI, surface temperature, water stress, soil moisture or lighting measurements are implied.
+satellitePublicRoutes.get('/science-scenes/latest',handler(async(req,res)=>{
+ const dataset=z.enum(['landsat','ecostress','smap','blackmarble']).parse(req.query.dataset);
+ const data=await list('science_scene','bounding-box',30,35,dataset);
+ res.json({data,meta:{dataset,scope:'catalogue_only',derivedAnalysisAvailable:false,notPhysicalMeasurements:true}});
 }));
 satellitePublicRoutes.get('/natural-events/latest',handler(async(_req,res)=>{
  res.json({data:await list('natural_event','bounding-box',100,30),meta:{source:'NASA EONET',scope:'Pakistan-region bounding box',notWarning:true}});

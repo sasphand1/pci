@@ -13,6 +13,7 @@ const runtimeModules=[
   'modules/unified/metrics.mjs',
   'modules/engine/status.mjs',
   'modules/satellite/catalog.mjs',
+  'modules/satellite/discovery.mjs',
   'modules/satellite/guard.mjs',
   'modules/satellite/bulk.mjs',
   'modules/satellite/feeds.mjs',

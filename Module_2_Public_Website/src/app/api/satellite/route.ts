@@ -12,6 +12,7 @@ export async function GET(req:NextRequest){
  else if((metric==='rainfall-history'||metric==='solar-history')&&cities.has(city))path=`${metric==='rainfall-history'?'rainfall':'solar'}/history?city=${encodeURIComponent(city)}&days=30`;
  else if(metric==='natural-events'&&!city&&!mission)path='natural-events/latest';
  else if(metric==='earthquakes'&&!city&&!mission)path='earthquakes/latest';
+ else if(metric==='science-scenes'&&['landsat','ecostress','smap','blackmarble'].includes(mission)&&!city)path=`science-scenes/latest?dataset=${encodeURIComponent(mission)}`;
  else if(metric==='imagery'&&!city&&!mission)path='imagery/latest';
  else if(metric==='gpm-imagery'&&!city&&!mission)path='gpm/imagery/latest';
  else if(metric==='scenes'&&missions.has(mission)&&!city)path=`scenes/latest?mission=${encodeURIComponent(mission)}`;
