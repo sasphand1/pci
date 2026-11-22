@@ -1,11 +1,15 @@
-// Profile pictures are shown on the public site, so only well-known YouTube image hosts are accepted.
+// Restrict public profile pictures to trusted YouTube and Meta image CDN hosts.
 const HOSTS = new Set(['yt3.ggpht.com', 'yt3.googleusercontent.com', 'i.ytimg.com', 'img.youtube.com']);
+const META_CDN_SUFFIXES = ['.cdninstagram.com', '.fbcdn.net'];
+const isTrustedImageHost = (host: string): boolean => HOSTS.has(host) || META_CDN_SUFFIXES.some(suffix => host.endsWith(suffix));
 
 export function safeAvatarUrl(url: unknown): string | null {
-  if (typeof url !== 'string' || url.length > 500) return null;
+  if (typeof url !== 'string') return null;
   try {
     const u = new URL(url);
-    return u.protocol === 'https:' && HOSTS.has(u.hostname) && !u.username && !u.password ? u.toString() : null;
+    const isYoutube = HOSTS.has(u.hostname);
+    const maxLength = isYoutube ? 500 : 2048;
+    return url.length <= maxLength && u.protocol === 'https:' && isTrustedImageHost(u.hostname) && !u.username && !u.password ? u.toString() : null;
   } catch { return null; }
 }
 
