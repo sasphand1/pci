@@ -1064,3 +1064,27 @@
 .pci-analytics-empty{padding:55px 12px;text-align:center;color:#61746f;background:#f6faf8;border-radius:10px}
 .pci-analytics-disclaimer{font-size:.8rem;line-height:1.5;color:#526b65;margin-top:14px}
 @media(max-width:720px){.pci-analytics-summary{grid-template-columns:1fr;gap:9px}.pci-analytics-tile{padding:13px}.pci-analytics-graph{padding:12px}.pci-analytics-svg{height:160px}.pci-analytics-controls button{padding:6px 9px;font-size:.75rem}.pci-analytics-gains{gap:6px}.pci-analytics-gains strong{font-size:.87rem}}
+
+/* Small platform marks on the top-right photo corner of the five-card ranking wheel. */
+.pci-stage .stage-platform-badges{position:absolute;z-index:5;top:clamp(4px,.45cqw,8px);right:clamp(4px,.45cqw,8px);display:flex;gap:clamp(2px,.25cqw,5px);align-items:center;pointer-events:none}
+.pci-stage .stage-platform-badge{display:grid;place-items:center;width:clamp(15px,1.4cqw,22px);height:clamp(15px,1.4cqw,22px);border-radius:5px;background:rgba(3,18,23,.84);border:1px solid rgba(255,255,255,.36);box-shadow:0 1px 4px #0009}
+.pci-stage .stage-platform-badge svg{width:clamp(11px,1.05cqw,17px);height:clamp(11px,1.05cqw,17px);display:block}
+.pci-stage .stage-card[data-center="true"] .stage-platform-badge{width:clamp(19px,1.65cqw,26px);height:clamp(19px,1.65cqw,26px)}
+.pci-stage .stage-card[data-center="true"] .stage-platform-badge svg{width:clamp(14px,1.25cqw,19px);height:clamp(14px,1.25cqw,19px)}
+/* Extra analytics widgets are scoped to profile pages, not the shared ranking styles. */
+.pci-analytics-subheading{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:baseline;margin:26px 0 10px}
+.pci-analytics-subheading h3,.pci-top-videos h3{font-size:1.18rem;margin:0;color:#08463d}
+.pci-analytics-video-summary{margin-top:8px}
+.pci-video-table-wrap{background:#fff;border:1px solid #e1eae6;border-radius:12px;margin:12px 0;overflow:auto}
+.pci-video-table{width:100%;min-width:750px}
+.pci-video-table th,.pci-video-table td{font-size:.82rem;padding:11px 9px;vertical-align:top}
+.pci-video-table td:first-child{min-width:220px;max-width:310px}
+.pci-video-table td:first-child a{font-weight:650;color:#075b52;text-decoration:none}
+.pci-video-table td:first-child small{display:block;color:#627a73;margin-top:3px}
+.pci-top-videos{background:#f6fbf8;border:1px solid #deebe6;border-radius:12px;padding:14px 18px;margin:18px 0}
+.pci-top-videos ol{margin:10px 0 0;padding-left:22px}
+.pci-top-videos li{padding:7px 0;display:list-item}
+.pci-top-videos a{color:#075c50;text-decoration:none}
+.pci-top-videos strong{font-size:.82rem;margin-left:12px;white-space:nowrap;color:#254d46}
+.pci-similar-creators .grid-3{margin-top:12px}
+@media(max-width:720px){.pci-analytics-video-summary{grid-template-columns:1fr}.pci-video-table-wrap{margin-inline:-4px}.pci-top-videos{padding:12px}}

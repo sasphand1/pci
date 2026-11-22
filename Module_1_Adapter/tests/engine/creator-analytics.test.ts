@@ -33,3 +33,31 @@ test('history preserves real daily samples and gains only near requested periods
   assert.equal(gainAtPeriod(points,1,now),null);
   assert.equal(dailyHistory([{at:at(0),value:10},{at:at(0),value:20}]).length,1);
 });
+
+import {videoMilestones,velocityPerHour,breakoutFactor,subscriberMilestone} from '../../src/modules/creator-analytics/engine.js';
+
+test('video age milestones only accept observed samples near the actual upload age',()=>{
+  const published=at(31);
+  const series=[{at:at(30),value:300},{at:at(24),value:2500},{at:at(1),value:6500}];
+  const result=videoMilestones(series,published);
+  assert.deepEqual(result,{'24h':300,'7d':2500,'30d':6500});
+  assert.deepEqual(videoMilestones([{at:at(15),value:5000}],published),{'24h':null,'7d':null,'30d':null});
+});
+
+test('view velocity is a measured gain between samples and rejects resets',()=>{
+  assert.equal(velocityPerHour([{at:at(1),value:100},{at:at(0),value:340}]),10);
+  assert.equal(velocityPerHour([{at:at(1),value:340},{at:at(0),value:100}]),null);
+  assert.equal(velocityPerHour([{at:at(0),value:100}]),null);
+});
+
+test('breakout needs at least three older comparable videos',()=>{
+  assert.equal(breakoutFactor(300,[100,100,100]),3);
+  assert.equal(breakoutFactor(300,[100,100]),null);
+  assert.equal(breakoutFactor(null,[100,100,100]),null);
+});
+
+test('subscriber milestone projection requires observed positive 30-day growth',()=>{
+  assert.deepEqual(subscriberMilestone(8500,3000),{target:10000,estimatedDays:15});
+  assert.deepEqual(subscriberMilestone(8500,null),{target:10000,estimatedDays:null});
+  assert.equal(subscriberMilestone(null,20),null);
+});

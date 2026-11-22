@@ -1,5 +1,6 @@
 import { query } from '../../lib/db.js';
 import { logger } from '../../lib/errors.js';
+import { collectCreatorVideoSnapshots } from '../creator-analytics/videos.js';
 import { createRuns, processRun, type Deps } from '../refresh/service.js';
 import { defaultProviders } from '../../providers/index.js';
 import { activeRefreshCount, buildBatch, publishBatch, recordAlert } from './service.js';
@@ -61,6 +62,9 @@ export async function executePipeline(id: string, trigger: Trigger, actorId: str
     } catch (e) { steps.push({ step: 'publish', status: 'failed', detail: (e instanceof Error ? e.message : 'failed').slice(0, 150) }); status = 'failed'; await recordAlert('pipeline_failed', null, 'Publishing failed; the live rankings were not changed'); }
   } catch (e) { logger.error({ err: e, id }, 'pipeline crashed'); status = 'failed'; }
   await save(true);
+  // Analytics is independent of the published rankings. A collection error never fails publication.
+  void collectCreatorVideoSnapshots().then(s=>logger.info(s,'Creator video samples collected'))
+    .catch(err=>logger.warn({err},'Creator video analytics collection unavailable'));
   return status;
 }
 

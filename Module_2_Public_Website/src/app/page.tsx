@@ -7,7 +7,7 @@ import {PublishedRows} from '@/components/PublishedRows';
 import {PublishedTop100} from '@/components/PublishedTop100';
 import {displayDate} from '@/lib/format.mjs';
 import {SnapshotStatus} from '@/components/SnapshotStatus';
-import {publishedTotal} from '@/lib/creator-totals';
+import {publishedRankedTotal} from '@/lib/creator-totals';
 
 /** Everything on this page comes from rankings that were published. Nothing is calculated here. */
 export default async function Home(){
@@ -20,16 +20,14 @@ export default async function Home(){
   ...WHEEL_SCOPES.map(scope=>pubGet<PubRanking>(`/rankings/${scope}?limit=100`))
  ]);
  const initial=Object.fromEntries(WHEEL_SCOPES.map((scope,i)=>[scope,top[i]??null]));
- // /wheel is capped at 12 display cards. Use the already-fetched full rankings
- // for aggregates so the completeness check covers all published creators.
  const fullRankings=top.filter((r):r is PubRanking=>r!==null);
  const rank=(scope:string)=>rows?.platforms.find(r=>r.scope===scope)?.population;
  const stats=[
   {label:'Tracked creators',value:status?.people == null ? 'N/A' : String(status.people)},
   {label:'YouTube creators',value:rank('youtube.subscribed') == null ? 'N/A' : String(rank('youtube.subscribed'))},
   {label:'Instagram creators',value:rank('instagram.followers') == null ? 'N/A' : String(rank('instagram.followers'))},
-  {label:'Total subscribers',value:publishedTotal(fullRankings,'wheel.subscribed')},
-  {label:'Total views',value:publishedTotal(fullRankings,'wheel.viewed')}
+  {label:'Ranked followers',value:publishedRankedTotal(fullRankings,'wheel.subscribed')},
+  {label:'Ranked views',value:publishedRankedTotal(fullRankings,'wheel.viewed')}
  ];
  return <>
   <div className="pci-cinematic pci-explore-hero">

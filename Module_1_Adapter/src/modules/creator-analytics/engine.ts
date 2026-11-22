@@ -59,3 +59,45 @@ export function dailyHistory(samples: ObservationPoint[]): ObservationPoint[] {
   for (const p of validPoints(samples)) dates.set(p.at.slice(0, 10), p);
   return [...dates.values()];
 }
+
+/** Cumulative views observed near video-age milestones. No interpolation/backfill. */
+export function videoMilestones(samples:ObservationPoint[],publishedAt:string):Record<'24h'|'7d'|'30d',number|null>{
+  const published=Date.parse(publishedAt);
+  const result:{'24h':number|null;'7d':number|null;'30d':number|null}={'24h':null,'7d':null,'30d':null};
+  if(!Number.isFinite(published))return result;
+  const points=validPoints(samples).filter(p=>Date.parse(p.at)>=published);
+  for(const [name,age,tolerance] of [['24h',1,.5],['7d',7,1],['30d',30,1.5]] as const){
+    const target=published+age*DAY_MS;
+    const match=points.filter(p=>Math.abs(Date.parse(p.at)-target)<=tolerance*DAY_MS)
+      .sort((a,b)=>Math.abs(Date.parse(a.at)-target)-Math.abs(Date.parse(b.at)-target))[0];
+    result[name]=match?.value??null;
+  }
+  return result;
+}
+
+/** Last two fresh observed samples; measures actual gain/hour, never a lifetime average. */
+export function velocityPerHour(samples:ObservationPoint[]):number|null{
+  const points=validPoints(samples);
+  if(points.length<2)return null;
+  const a=points.at(-2)!,b=points.at(-1)!;
+  const hours=(Date.parse(b.at)-Date.parse(a.at))/3_600_000;
+  if(hours<1||hours>72||b.value<a.value)return null;
+  return Math.round((b.value-a.value)/hours*10)/10;
+}
+
+/** Breakout requires >=3 videos with comparable, observed 24h views. */
+export function breakoutFactor(views24h:number|null,previousComparable:number[]):number|null{
+  if(views24h===null||previousComparable.length<3||previousComparable.some(n=>!Number.isSafeInteger(n)||n<0))return null;
+  const baseline=previousComparable.reduce((a,b)=>a+b,0)/previousComparable.length;
+  return baseline>0?Math.round(views24h/baseline*100)/100:null;
+}
+
+/** Milestones based on recent observed growth, not predictive AI. */
+export function subscriberMilestone(current:number|null,gained30d:number|null):{target:number;estimatedDays:number|null}|null{
+  if(current===null||!Number.isSafeInteger(current)||current<0)return null;
+  const bases=[1000,10000,100000,1000000,10000000,100000000];
+  const target=bases.find(t=>t>current)??Math.ceil((current+1)/100000000)*100000000;
+  const estimatedDays=gained30d!==null&&gained30d>0
+    ?Math.ceil((target-current)/(gained30d/30)):null;
+  return {target,estimatedDays:estimatedDays!==null&&estimatedDays<=365?estimatedDays:null};
+}

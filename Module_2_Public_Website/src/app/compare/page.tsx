@@ -11,6 +11,9 @@ export default async function Compare({searchParams}:{searchParams:Promise<{left
  const people=list?.data??[];
  const rows:[string,(p:PubPersonDetail)=>string][]=[
   ['Followers across accounts',p=>formatCount(total(p,'followers'),true)],['YouTube lifetime views',p=>formatCount(total(p,'views'),true)],['Posts in the last 30 days',p=>formatCount(total(p,'posts30d'),true)],
+  ['Subscribers gained · 7 days',p=>p.analytics?.growth.subscribers['7d']==null?'Collecting':formatCount(p.analytics.growth.subscribers['7d'],true)],
+  ['Channel views gained · 30 days',p=>p.analytics?.growth.views['30d']==null?'Collecting':formatCount(p.analytics.growth.views['30d'],true)],
+  ['Modeled monthly earnings (USD)',p=>p.analytics?.estimatedMonthlyEarningsUsd==null?'Collecting':new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(p.analytics.estimatedMonthlyEarningsUsd)],
   ['Accounts',p=>p.accounts.map(x=>platformName(x.platform)).join(', ')||'—'],['Most Subscribed rank',p=>{const x=p.positions.find(y=>y.scope==='wheel.subscribed');return x?`#${x.rank}`:'Not ranked';}]];
  return <div className="container"><PageHeading eyebrow="Compare" title="Compare two creators" description="Side by side, from the latest published numbers."/>
   <Card><form className="filters" method="get" action="/compare">{(['left','right'] as const).map(side=><div className="field" key={side}><label htmlFor={`cmp-${side}`}>{side==='left'?'First creator':'Second creator'}</label><select id={`cmp-${side}`} name={side} defaultValue={side==='left'?left:right}><option value="">Choose…</option>{people.map(p=><option key={p.slug} value={p.slug}>{p.displayName}</option>)}</select></div>)}<button className="btn btn-primary" type="submit">Compare</button></form></Card>

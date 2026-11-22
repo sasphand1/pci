@@ -1,5 +1,6 @@
 import {query} from '../../lib/db.js';
-import {dailyHistory, estimateMonthlyEarnings, gainAtPeriod, type ObservationPoint, type MonthlyEstimate} from './engine.js';
+import {dailyHistory, estimateMonthlyEarnings, gainAtPeriod, subscriberMilestone, type ObservationPoint, type MonthlyEstimate} from './engine.js';
+import {creatorVideoSummary,type CreatorVideoSummary} from './videos.js';
 
 type MetricRow = {personId:string;accountId:string;metric:string;value:string|null;observedAt:Date|string|null};
 type PersonEstimates = Map<string, MonthlyEstimate>;
@@ -68,7 +69,12 @@ export async function personAnalytics(personId:string, now=new Date()) {
   const growth=(points:ObservationPoint[])=>({
     '24h':gainAtPeriod(points,1,now), '7d':gainAtPeriod(points,7,now), '30d':gainAtPeriod(points,30,now)
   });
+  let video:CreatorVideoSummary={sampledVideos:0,averageViews:null,topVideos:[],videos:[]};
+  try{video=await creatorVideoSummary([...accounts.keys()]);}catch{/* analytics table may not exist during initial startup */}
+  const currentSubscribers=primary.followers.at(-1)?.value??null;
+  const milestone=subscriberMilestone(currentSubscribers,gainAtPeriod(primary.followers,30,now));
   return {
+    video,milestone,
     estimatedMonthlyEarningsUsd:earnings,
     earningsMethod:'Social Blade $0.25–$4 RPM midpoint; observed 2–31-day channel view pace normalized to 30 days',
     growth:{subscribers:growth(primary.followers),views:growth(primary.views)},

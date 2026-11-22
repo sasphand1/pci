@@ -10,14 +10,22 @@ export type PubCategory={slug:string;label:string;description:string|null;people
 export type PubStatus={publishedAt:string|null;stale:boolean;people:number};
 export type PubFigures={platform:string;handle:string;url:string|null;followers:number|null;views:number|null;posts30d:number|null;observedAt:string|null};
 export type PubPosition={scope:string;label:string;unit:string;slot:number;rank:number;value:number};
+export type PubVideoAnalytics={
+  sampledVideos:number;averageViews:number|null;
+  topVideos:{videoId:string;title:string;views:number;publishedAt:string|null}[];
+  videos:{videoId:string;title:string;publishedAt:string|null;thumbnailUrl:string|null;currentViews:number|null;
+    views24h:number|null;views7d:number|null;views30d:number|null;velocityPerHour:number|null;breakoutFactor:number|null}[];
+};
 export type PubCreatorAnalytics={
+  video:PubVideoAnalytics;
+  milestone:{target:number;estimatedDays:number|null}|null;
   estimatedMonthlyEarningsUsd:number|null;
   earningsMethod:string;
   growth:{subscribers:Record<'24h'|'7d'|'30d',number|null>;views:Record<'24h'|'7d'|'30d',number|null>};
   history:{subscribers:{at:string;value:number}[];views:{at:string;value:number}[]};
   historyAccountCount:number;
 };
-export type PubPersonDetail={slug:string;displayName:string;avatarUrl:string|null;categories:{slug:string;label:string}[];accounts:PubFigures[];positions:PubPosition[];analytics?:PubCreatorAnalytics};
+export type PubPersonDetail={slug:string;displayName:string;avatarUrl:string|null;categories:{slug:string;label:string}[];accounts:PubFigures[];positions:PubPosition[];analytics?:PubCreatorAnalytics;similarCreators?:{slug:string;displayName:string}[]};
 
 export const WHEEL_SCOPES=['wheel.subscribed','wheel.viewed','wheel.active'] as const;
 export const SCOPE_PATTERN=/^(wheel\.(subscribed|viewed|active)|youtube\.subscribed|instagram\.followers|category\.[a-z0-9-]{2,60})$/;

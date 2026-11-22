@@ -120,5 +120,9 @@ export async function personDetail(slug: string) {
   const accounts = acc.rows.map((a: any) => ({ platform: a.platform, handle: a.handle, url: accountUrl(a.platform, a.external_id, a.handle), ...(fig.get(a.id) ?? { followers: null, views: null, posts30d: null, observedAt: null }) }));
   const positions = pos.rows.map((x: any) => { const i = scopeInfo(x.scope, cats.get(x.scope.slice(9))?.label); return i ? { scope: x.scope, label: i.label, unit: i.unit, slot: x.slot, rank: x.rank, value: Number(x.value) } : null; }).filter(Boolean);
   const analytics=await personAnalytics(id);
-  return { slug, displayName: base.displayName, avatarUrl: base.avatarUrl, categories: base.categories, accounts, positions, analytics };
+  const similar=await query<{slug:string;displayName:string}>(`SELECT DISTINCT p2.slug,p2.display_name AS "displayName"
+    FROM person_categories mine JOIN person_categories shared ON shared.category_id=mine.category_id
+    JOIN people p2 ON p2.id=shared.person_id WHERE mine.person_id=$1 AND p2.id<>$1
+    ORDER BY p2.display_name,p2.slug LIMIT 4`,[id]);
+  return { slug, displayName: base.displayName, avatarUrl: base.avatarUrl, categories: base.categories, accounts, positions, analytics, similarCreators:similar.rows };
 }

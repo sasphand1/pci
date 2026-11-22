@@ -7,6 +7,7 @@ import { ensureUnifiedSchema } from './lib/unified-schema.js';
 import { ensureEngineSchema } from './lib/engine-schema.js';
 import { ensureRegistrySchema } from './lib/registry-schema.js';
 import { ensureObservationsSchema } from './lib/observations-schema.js';
+import { ensureCreatorAnalyticsSchema } from './lib/creator-analytics-schema.js';
 import { ensurePublicationSchema } from './lib/publication-schema.js';
 import { ensurePublicSchema } from './lib/public-schema.js';
 import { startScheduler } from './modules/sync/scheduler.js';
@@ -18,6 +19,7 @@ async function main(){
  try{await ensureUnifiedSchema();}catch(err){logger.error({err},'Unified schema verification failed in worker');}
  try{await ensureEngineSchema();}catch(err){logger.error({err},'Engine schema verification failed in worker');}
  try{await ensureRegistrySchema();await ensureObservationsSchema();await ensurePublicationSchema();await ensurePublicSchema();}catch(err){logger.error({err},'Registry/observations schema verification failed in worker');}
+ try{await ensureCreatorAnalyticsSchema();}catch(err){logger.error({err},'Creator video analytics schema unavailable');}
  try{await ensureSatelliteSchema();}catch(err){logger.error({err},'Satellite schema initialization failed in worker');}
  try{await ensureEventsSchema();}catch(err){logger.error({err},'Event sources schema initialization failed in worker');}
  const scheduler=await startScheduler({embedded:false});

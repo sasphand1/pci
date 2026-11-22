@@ -31,6 +31,22 @@ function PlatformChips({entry}:{entry:PubEntry}){
   );
 }
 
+/** Sources are from the published rank-slot contributions, not guessed from avatar or name. */
+function RankedPlatformBadges({entry,scope}:{entry:PubEntry;scope:string}){
+  const included=[...new Set(entry.contributions.map(c=>c.platform))];
+  // Most-viewed ranks use only YouTube views; mixed scopes can contain both platforms.
+  const source=included.filter(p=>p==='youtube'||p==='instagram');
+  const badges=source.length?source:scope==='wheel.viewed'?['youtube']:
+    entry.person.accounts.map(a=>a.platform).filter(p=>p==='youtube'||p==='instagram');
+  return <span className="stage-platform-badges" aria-label={`Ranked platforms: ${[...new Set(badges)].join(', ')}`}>
+    {[...new Set(badges)].map(platform=><span key={platform} className="stage-platform-badge" data-platform={platform} title={platform==='youtube'?'YouTube':'Instagram'}>
+      {platform==='youtube'
+        ?<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="5" fill="#FF0033"/><path d="m10 8 7 4-7 4z" fill="white"/></svg>
+        :<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="pci-wheel-instagram" x1="0" x2="1" y1="1" y2="0"><stop offset="0" stopColor="#FEDA75"/><stop offset=".4" stopColor="#E1306C"/><stop offset="1" stopColor="#6543D2"/></linearGradient></defs><rect x="1" y="1" width="22" height="22" rx="6" fill="url(#pci-wheel-instagram)"/><rect x="5.5" y="5.5" width="13" height="13" rx="4" fill="none" stroke="#fff" strokeWidth="1.8"/><circle cx="12" cy="12" r="3.1" stroke="#fff" strokeWidth="1.8" fill="none"/><circle cx="17.2" cy="6.8" r="1.1" fill="white"/></svg>}
+    </span>)}
+  </span>;
+}
+
 function glanceTone(label:string,index:number){
   const key=label.toLowerCase();
   if(key.includes('youtube')) return 'youtube';
@@ -188,6 +204,7 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
               )}
 
               <span className="stage-rank">#{c.rank}</span>
+              <RankedPlatformBadges entry={c} scope={current.scope}/>
 
               <span className="stage-photo">
                 {safeCreatorImage(c.person.avatarUrl)
@@ -203,7 +220,7 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
                 </span>
                 <span className="stage-earnings" title="Illustrative monthly earnings, calculated from tracked YouTube view gains and Social Blade's $0.25–$4 RPM assumptions; not verified income.">
                   <small>Est. monthly</small>
-                  <b>{c.person.estimatedMonthlyEarningsUsd == null ? 'N/A' : new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(c.person.estimatedMonthlyEarningsUsd)}</b>
+                  <b>{c.person.estimatedMonthlyEarningsUsd == null ? (c.person.accounts.some(a=>a.platform==='youtube')?'Collecting':'YT only') : new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(c.person.estimatedMonthlyEarningsUsd)}</b>
                 </span>
               </span>
             </Link>
@@ -228,7 +245,7 @@ export function PublishedWheel({sorts,stats}:{sorts:PubRanking[];stats?:{label:s
           </button>
         </div>
 
-        <p className="stage-earnings-note">Earnings are modeled from tracked YouTube views using the $0.25–$4 RPM range midpoint; not verified income. N/A means insufficient history.</p>
+        <p className="stage-earnings-note">Earnings are modeled from tracked YouTube views using the $0.25–$4 RPM range midpoint; not verified income. Unavailable figures are collecting observations; Instagram-only profiles have no modeled YouTube earnings.</p>
         <div className="stage-dots" role="group" aria-label="Choose creator">
           {cards.map((c,i)=>(
             <button

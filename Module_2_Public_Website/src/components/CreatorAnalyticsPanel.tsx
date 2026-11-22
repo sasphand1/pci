@@ -26,13 +26,15 @@ export function CreatorAnalyticsPanel({data}:{data:PubCreatorAnalytics}){
   const cutoff=latest?Date.parse(latest.at)-span*86_400_000:0;
   const visible=history.filter(p=>Date.parse(p.at)>=cutoff);
   const d=trendPath(visible);
+  const video=data.video??{sampledVideos:0,averageViews:null,topVideos:[],videos:[]};
+  const milestone=data.milestone??null;
   return <section className="section pci-analytics" aria-label="Creator growth and earnings">
     <h2>Creator Analytics</h2>
     <p className="fineprint">Observed public YouTube data. Graphs include only real observations; missing days are not invented.</p>
     <div className="pci-analytics-summary">
       <div className="pci-analytics-tile"><small>Subscriber change · 7 days</small><strong>{signed(data.growth.subscribers['7d'])}</strong></div>
       <div className="pci-analytics-tile"><small>Channel views gained · 30 days</small><strong>{signed(data.growth.views['30d'])}</strong></div>
-      <div className="pci-analytics-tile pci-analytics-revenue"><small>Estimated Monthly Earnings</small><strong>{data.estimatedMonthlyEarningsUsd===null?'N/A':usd(data.estimatedMonthlyEarningsUsd)}</strong><span>Modeled estimate, not verified revenue</span></div>
+      <div className="pci-analytics-tile pci-analytics-revenue"><small>Estimated Monthly Earnings</small><strong>{data.estimatedMonthlyEarningsUsd===null?'Collecting data':usd(data.estimatedMonthlyEarningsUsd)}</strong><span>Modeled estimate, not verified revenue</span></div>
     </div>
     <div className="pci-analytics-graph">
       <div className="pci-analytics-toolbar">
@@ -54,6 +56,28 @@ export function CreatorAnalyticsPanel({data}:{data:PubCreatorAnalytics}){
         {(['24h','7d','30d'] as const).map(p=><div key={p}><small>{p} growth</small><strong>{signed(data.growth[metric][p])}</strong></div>)}
       </div>
       {data.historyAccountCount>1&&<p className="fineprint">Trend shown for the first linked YouTube channel. The earnings model covers all linked YouTube channels when data is complete.</p>}
+    </div>
+    <div className="pci-video-analytics">
+      <div className="pci-analytics-subheading"><h3>Video performance</h3><span className="fineprint">Latest collected YouTube uploads · public view counts</span></div>
+      <div className="pci-analytics-summary pci-analytics-video-summary">
+        <div className="pci-analytics-tile"><small>Videos sampled</small><strong>{video.sampledVideos}</strong></div>
+        <div className="pci-analytics-tile"><small>Average views per sampled video</small><strong>{video.averageViews===null?'Collecting':formatCount(video.averageViews,true)}</strong></div>
+        <div className="pci-analytics-tile"><small>Next subscriber milestone</small><strong>{milestone?formatCount(milestone.target,true):'Collecting'}</strong><span>{milestone?.estimatedDays!=null?`Trend projection: ~${milestone.estimatedDays} days`:'No reliable projection yet'}</span></div>
+      </div>
+      {video.videos.length>0?<div className="table-wrap pci-video-table-wrap"><table className="data-table pci-video-table">
+        <thead><tr><th>Video</th><th>Current views</th><th>At 24h</th><th>At 7d</th><th>At 30d</th><th>Views/hour</th><th>Breakout</th></tr></thead>
+        <tbody>{video.videos.map(v=><tr key={v.videoId}>
+          <td><a href={`https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}`} target="_blank" rel="noopener noreferrer">{v.title}</a><small>{v.publishedAt?new Date(v.publishedAt).toLocaleDateString('en-GB',{dateStyle:'medium'}):'Upload date unavailable'}</small></td>
+          <td>{v.currentViews===null?'—':formatCount(v.currentViews,true)}</td>
+          <td>{v.views24h===null?'—':formatCount(v.views24h,true)}</td>
+          <td>{v.views7d===null?'—':formatCount(v.views7d,true)}</td>
+          <td>{v.views30d===null?'—':formatCount(v.views30d,true)}</td>
+          <td>{v.velocityPerHour===null?'—':new Intl.NumberFormat('en-US',{maximumFractionDigits:1}).format(v.velocityPerHour)}</td>
+          <td>{v.breakoutFactor!==null&&v.breakoutFactor>=1.5?`${v.breakoutFactor.toFixed(1)}×`:'—'}</td>
+        </tr>)}</tbody>
+      </table></div>:<p className="pci-analytics-empty">Video-level observations are being collected. Historical 24h, 7d and 30d figures cannot be reconstructed retroactively.</p>}
+      {video.topVideos.length>0&&<div className="pci-top-videos"><h3>Top videos in the tracked sample</h3><ol>{video.topVideos.map(v=><li key={v.videoId}><a target="_blank" rel="noopener noreferrer" href={`https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}`}>{v.title}</a><strong>{formatCount(v.views,true)} views</strong></li>)}</ol></div>}
+      <p className="fineprint">24h/7d/30d are cumulative views sampled near each video-age milestone, not view gains during those periods. Blank values mean no sufficiently timed observation. Views/hour uses actual successive samples. Breakout compares observed first-day views with at least three older videos.</p>
     </div>
     <p className="pci-analytics-disclaimer">Earnings use Social Blade's assumed $0.25–$4.00 RPM range midpoint ($2.125 per 1,000 views), applied to the normalized 30-day pace of observed channel-view gains. This is a hypothetical estimate, not actual creator income. N/A means insufficient reliable history.</p>
   </section>;

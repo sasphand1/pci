@@ -17,6 +17,7 @@ import {ensureEngineSchema} from './lib/engine-schema.js';
 import {ensureRegistrySchema} from './lib/registry-schema.js';
 import {bucketAdminRoutes} from './modules/bucket/routes.js';
 import {ensureObservationsSchema} from './lib/observations-schema.js';
+import {ensureCreatorAnalyticsSchema} from './lib/creator-analytics-schema.js';
 import {refreshAdminRoutes} from './modules/refresh/routes.js';
 import {ensurePublicationSchema} from './lib/publication-schema.js';
 import {publishAdminRoutes} from './modules/publish/routes.js';
@@ -191,6 +192,8 @@ async function main(){
           logger.error({err},'Publication schema verification failed');
           console.error('[PCI_SCHEMA_FAILURE] publication schema failed');
         }
+        try {await ensureCreatorAnalyticsSchema();logger.info('Creator video analytics schema verified');}
+        catch(err){logger.error({err},'Creator video analytics schema unavailable; video analytics will show no data');}
         await ensureRedis();
         try{await ensureEventsSchema();logger.info('Events schema verified');}
         catch(err){logger.error({err},'Events schema unavailable; event endpoints may fail until the migration is applied');}
