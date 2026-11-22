@@ -156,16 +156,11 @@ publicEventsRoutes.get('/events',handler(async(_req,res)=>{
   query(`SELECT e.id,e.name,e.start_at,e.start_at AS end_at,e.all_day,e.city,COALESCE(e.classification_category,CASE e.category WHEN 'expos' THEN 'business' WHEN 'conferences' THEN 'education' ELSE e.category END) AS category,e.venue,e.latitude,e.longitude,e.description,e.event_url,e.organizer,e.ticket_type,e.price_text,s.name AS source_name
    FROM pci_events e JOIN event_sources s ON s.id=e.source_id
    WHERE e.approved=true AND e.active=true AND e.deleted_at IS NULL AND e.start_at>=now() AND s.enabled=true AND s.official_confirmed=true AND s.rights_confirmed=true
-   AND e.latitude IS NOT NULL AND e.longitude IS NOT NULL
-   AND lower(trim(e.venue)) NOT IN ('online','virtual','tba','unknown','n/a','remote')
-   AND e.venue !~* '(webinar|zoom meeting|google meet|livestream|online only|virtual event)'
-   ORDER BY e.start_at ASC LIMIT 400`),
+   AND e.latitude IS NOT NULL AND e.longitude IS NOT NULL ORDER BY e.start_at ASC LIMIT 400`),
   query(`SELECT id,name,start_at,end_at,all_day,city,CASE category WHEN 'expos' THEN 'business' WHEN 'conferences' THEN 'education' ELSE category END AS category,venue,latitude,longitude,description,
    source_url AS event_url,organizer,'unknown'::text AS ticket_type,''::text AS price_text,
    'PCI editorial · verified official source'::text AS source_name
-   FROM pci_editorial_events WHERE approved=true AND deleted_at IS NULL AND end_at>now()
-   AND lower(trim(venue)) NOT IN ('online','virtual','tba','unknown','n/a','remote')
-   AND venue !~* '(webinar|zoom meeting|google meet|livestream|online only|virtual event)' ORDER BY start_at ASC LIMIT 200`),
+   FROM pci_editorial_events WHERE approved=true AND deleted_at IS NULL AND end_at>now() ORDER BY start_at ASC LIMIT 200`),
   query(`SELECT (SELECT COUNT(*)::int FROM event_sources) AS sources_configured,
    (SELECT COUNT(*)::int FROM event_sources WHERE enabled AND official_confirmed AND rights_confirmed) AS sources_enabled,
    (SELECT COUNT(*)::int FROM pci_events WHERE approved=false AND deleted_at IS NULL AND active AND start_at>=now()) AS awaiting_review`)
