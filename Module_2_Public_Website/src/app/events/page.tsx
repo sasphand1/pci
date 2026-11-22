@@ -1,4 +1,5 @@
 import type {Metadata} from 'next';
+import {EventsTable} from '@/components/EventsTable';
 
 export const metadata: Metadata = {
   title: 'Events Radar — Karachi, Lahore & Islamabad',
@@ -7,6 +8,7 @@ export const metadata: Metadata = {
 
 export default function EventsPage() {
   return (
+    <>
     <section className="pci-events-host" aria-label="PCI interactive events map">
       <iframe
         className="pci-events-frame"
@@ -16,5 +18,7 @@ export default function EventsPage() {
         allow="geolocation"
       />
     </section>
+    <EventsTable />
+    </>
   );
 }
