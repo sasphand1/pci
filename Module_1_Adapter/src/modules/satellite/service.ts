@@ -23,13 +23,17 @@ async function ingestFirms(){const key=process.env.NASA_FIRMS_MAP_KEY;if(!key||!
  const csv=await fetchText(`https://firms.modaps.eosdis.nasa.gov/api/area/csv/${encodeURIComponent(key)}/VIIRS_SNPP_NRT/60,23,78,38/1`);
  const rows=parseFirmsCsv(csv);return storeBatch('firms',rows.map(obs=>({...obs,metric:'fire' as const})));
 }
-async function ingestPower(){let inserted=0;const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10).replace(/-/g,'');const start=new Date(Date.now()-12*86400000).toISOString().slice(0,10).replace(/-/g,'');
+async function ingestPower(){let inserted=0;let successfulCities=0;const failures:string[]=[];const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10).replace(/-/g,'');const start=new Date(Date.now()-12*86400000).toISOString().slice(0,10).replace(/-/g,'');
  for(const [location,coords] of Object.entries(CITIES)){
   const [longitude,latitude]=coords;
   const url=new URL('https://power.larc.nasa.gov/api/temporal/daily/point');url.searchParams.set('parameters','PRECTOTCORR,ALLSKY_SFC_SW_DWN');url.searchParams.set('community','RE');url.searchParams.set('longitude',String(longitude));url.searchParams.set('latitude',String(latitude));url.searchParams.set('start',start);url.searchParams.set('end',yesterday);url.searchParams.set('format','JSON');
-  const data=JSON.parse(await fetchText(url.toString()));const rows=parsePower(data,location);
-  inserted+=await storeBatch('power',rows);
+  try {
+   const data=JSON.parse(await fetchText(url.toString()));const rows=parsePower(data,location);
+   if(!rows.length)throw Error('No valid meteorological measurements');
+   inserted+=await storeBatch('power',rows);successfulCities++;
+  }catch(e){failures.push(`${location}: ${e instanceof Error?e.message:'unknown error'}`);}
  }
+ if(successfulCities!==Object.keys(CITIES).length)throw Error(`POWER incomplete (${successfulCities}/${Object.keys(CITIES).length} cities): ${failures.slice(0,3).join('; ')}`);
  return inserted;
 }
 export async function ingest(id:string){if(!allowed[id]?.implemented)throw Error('Provider connector has not been implemented');if(!configured(id))throw Error('Provider server credentials are not configured');
