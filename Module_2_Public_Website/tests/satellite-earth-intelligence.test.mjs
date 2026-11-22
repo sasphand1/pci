@@ -15,9 +15,12 @@ test('thermal records are geolocated observations, not fires',()=>{
  assert.equal(summarizeThermalDetections([{latitude:31.5,longitude:74.3,observedAt:'2026-11-22T09:00:00Z'},{latitude:51,longitude:1,observedAt:'2026-11-22T09:00:00Z'}],now).count,1);
  assert.match(summarizeThermalDetections([],now).explanation,/does not establish/);
 });
-test('eight categories, no inline React styles, and original NOT GPM disclaimer',()=>{
+test('five decision tools, no inline React styles, and original NOT GPM disclaimer',()=>{
  const s=source('../src/components/SatelliteDashboard.tsx');
- for(const id of ['agriculture','land','water','energy','environment','cities','disasters','discover'])assert.match(s,new RegExp(`id:'${id}'`));
+ for(const [id,title] of [['farm','Farm Doctor'],['land','Land DNA'],['water','Water Guardian'],['solar','Solar Advisor'],['city','City Health']]){
+  assert.match(s,new RegExp(`id:'${id}'`));
+  assert.ok(s.includes(`title:'${title}'`));
+ }
  assert.doesNotMatch(s,/style=\{/);assert.match(s,/NOT GPM/);assert.match(s,/satelliteScience\.mjs/);
  assert.match(source('../src/app/api/satellite/route.ts'),/rainfall-history/);
 });
