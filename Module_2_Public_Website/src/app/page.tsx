@@ -20,7 +20,13 @@ export default async function Home(){
  ]);
  const initial=Object.fromEntries(WHEEL_SCOPES.map((scope,i)=>[scope,top[i]??null]));
  const rank=(scope:string)=>rows?.platforms.find(r=>r.scope===scope)?.population;
- const stats=[status?.people?{label:'Tracked creators',value:String(status.people)}:null,rank('youtube.subscribed')?{label:'YouTube creators',value:String(rank('youtube.subscribed'))}:null,rank('instagram.followers')?{label:'Instagram creators',value:String(rank('instagram.followers'))}:null,status?.publishedAt?{label:'Last published',value:displayDate(status.publishedAt)}:null].filter((x):x is {label:string;value:string}=>Boolean(x));
+ const stats=[
+  {label:'Tracked creators',value:status?.people == null ? 'â€”' : String(status.people)},
+  {label:'YouTube creators',value:rank('youtube.subscribed') == null ? 'â€”' : String(rank('youtube.subscribed'))},
+  {label:'Instagram creators',value:rank('instagram.followers') == null ? 'â€”' : String(rank('instagram.followers'))},
+  {label:'Total subscribers',value:'â€”'},
+  {label:'Total views',value:'â€”'}
+ ];
  return <>
   <div className="pci-cinematic pci-explore-hero">
    <PublishedWheel sorts={wheel?.sorts??[]} stats={stats}/>
