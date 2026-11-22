@@ -3,6 +3,7 @@ import { logger } from '../../lib/errors.js';
 import { defaultProviders, type ProviderMap } from '../../providers/index.js';
 import type { AccountRef, FetchResult, Outcome, Platform } from '../../providers/types.js';
 import { MAX_ATTEMPTS, backoffMs, isRetryable, normalizeResults, summarizeRun } from './normalize.js';
+import { INSTAGRAM_PER_RUN, isInstagramLimit, shouldHoldInstagramRun } from './instagram-policy.js';
 
 export type Deps = { providers: ProviderMap; now: () => Date; sleep: (ms: number) => Promise<void>; backoff: (attempt: number) => number; background: boolean };
 const realDeps = (): Deps => ({ providers: defaultProviders(), now: () => new Date(), sleep: ms => new Promise(r => setTimeout(r, ms)), backoff: backoffMs, background: true });
@@ -10,7 +11,7 @@ export const ENABLED_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 const CHUNK: Record<string, number> = { youtube: 50, instagram: 10 };
 export const STALL_MINUTES = 20;
 
-export type StartedRun = { platform: Platform; runId: string; started: boolean; reason?: 'already_running' };
+export type StartedRun = { platform: Platform; runId: string; started: boolean; reason?: 'already_running' | 'cooldown' };
 
 /** Marks queued/running runs with no heartbeat for 20 minutes as failed, so a crashed worker never blocks refreshes. */
 export async function recoverStalledRuns(minutes = STALL_MINUTES): Promise<number> {
@@ -25,6 +26,20 @@ export async function createRuns(platforms: Platform[], trigger: 'manual' | 'sch
   await recoverStalledRuns();
   const out: StartedRun[] = [];
   for (const platform of [...new Set(platforms)].filter(p => ENABLED_PLATFORMS.includes(p))) {
+    if (platform === 'instagram') {
+      // DB-backed across worker restarts: manual clicks cannot bypass the platform cooldown.
+      // Check immediately before inserting, while the existing unique active-run index
+      // still prevents two workers executing the same platform concurrently.
+      const gate = await query<{ last_run: string | null; last_limited: string | null }>(
+        `SELECT
+          (SELECT MAX(started_at) FROM refresh_runs WHERE platform='instagram' AND status IN ('succeeded','partial','failed') AND started_at IS NOT NULL AND (counts->>'accounts')::int > 0) AS last_run,
+          (SELECT MAX(rr.created_at) FROM refresh_results rr JOIN refresh_runs r ON r.id=rr.run_id
+           WHERE r.platform='instagram' AND rr.outcome='rate_limited' AND rr.detail LIKE 'graph_code_%') AS last_limited`);
+      if (shouldHoldInstagramRun(gate.rows[0], Date.now())) {
+        out.push({ platform, runId: '', started: false, reason: 'cooldown' });
+        continue;
+      }
+    }
     try {
       const r = await query<{ id: string }>('INSERT INTO refresh_runs(platform,trigger,created_by) VALUES($1,$2,$3) RETURNING id', [platform, trigger, actorId]);
       out.push({ platform, runId: r.rows[0].id, started: true });
@@ -74,15 +89,33 @@ export async function processRun(runId: string, deps: Deps = realDeps()): Promis
   try {
     const provider = deps.providers[platform];
     if (!provider) throw new Error(`No provider for ${platform}`);
-    const rows = await query<{ id: string; external_id: string; handle: string }>('SELECT id, external_id, handle FROM accounts WHERE platform=$1 ORDER BY id', [platform]);
+    // Prioritize accounts never processed, then least recently processed, preventing starvation.
+    // The cap is per Instagram run; YouTube retains its existing full-refresh behavior.
+    const rows = platform === 'instagram'
+      ? await query<{ id: string; external_id: string; handle: string }>(
+        `SELECT a.id, a.external_id, a.handle FROM accounts a
+         LEFT JOIN LATERAL (
+           SELECT MAX(rr.created_at) AS last_processed FROM refresh_results rr
+           WHERE rr.account_id=a.id
+         ) prior ON true
+         WHERE a.platform=$1 ORDER BY prior.last_processed ASC NULLS FIRST, a.id LIMIT $2`, [platform, INSTAGRAM_PER_RUN])
+      : await query<{ id: string; external_id: string; handle: string }>('SELECT id, external_id, handle FROM accounts WHERE platform=$1 ORDER BY id', [platform]);
     const all: AccountRef[] = rows.rows.map(r => ({ id: r.id, platform, externalId: r.external_id, handle: r.handle }));
     const counts: Partial<Record<Outcome, number>> = {};
     let pending = all;
+    let instagramLimited = false;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS && pending.length; attempt++) {
       const retry: AccountRef[] = [];
       const size = CHUNK[platform] ?? 10;
       for (let i = 0; i < pending.length; i += size) {
         const chunk = pending.slice(i, i + size);
+        if (platform === 'instagram' && instagramLimited) {
+          for (const a of chunk) {
+            await persist(runId, { accountId: a.id, outcome: 'rate_limited', metrics: [], detail: 'skipped_after_rate_limit' }, attempt, deps.now());
+            counts.rate_limited = (counts.rate_limited ?? 0) + 1;
+          }
+          continue;
+        }
         await heartbeat(runId);
         let raw: FetchResult[];
         try { raw = await provider.fetch(chunk); }
@@ -90,12 +123,22 @@ export async function processRun(runId: string, deps: Deps = realDeps()): Promis
         const results = normalizeResults(chunk, raw);
         for (let j = 0; j < results.length; j++) {
           const r = results[j];
-          if (isRetryable(r.outcome) && attempt < MAX_ATTEMPTS) { retry.push(chunk[j]); continue; }
+          if (platform === 'instagram' && isInstagramLimit(r)) instagramLimited = true;
+          // A Meta rate limit must not cause another API burst during this run.
+          if (isRetryable(r.outcome) && attempt < MAX_ATTEMPTS && !(platform === 'instagram' && (instagramLimited || r.outcome === 'rate_limited'))) { retry.push(chunk[j]); continue; }
           await persist(runId, r, attempt, deps.now());
           counts[r.outcome] = (counts[r.outcome] ?? 0) + 1;
         }
       }
-      pending = retry;
+      // Earlier retryable failures must be recorded rather than silently lost
+      // when a later account encounters the Meta platform limit.
+      if (platform === 'instagram' && instagramLimited) {
+        for (const a of retry) {
+          await persist(runId, { accountId: a.id, outcome: 'rate_limited', metrics: [], detail: 'skipped_after_rate_limit' }, attempt, deps.now());
+          counts.rate_limited = (counts.rate_limited ?? 0) + 1;
+        }
+      }
+      pending = instagramLimited ? [] : retry;
       if (pending.length) await deps.sleep(deps.backoff(attempt));
     }
     const status = summarizeRun(all.length, counts);
