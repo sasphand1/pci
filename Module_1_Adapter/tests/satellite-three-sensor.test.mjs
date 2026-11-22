@@ -23,9 +23,17 @@ test('FIRMS public latest includes full 3-day acquisition period',()=>{
  const s=read('../src/modules/satellite/routes.ts');
  assert.match(s,/list\('fire','bounding-box',q,4\)/);
 });
-test('public UI does not show prominent empty hotspot card',()=>{
+test('FIRMS UI handles empty observations without inventing hotspots',async()=>{
  const s=read('../../Module_2_Public_Website/src/components/SatelliteDashboard.tsx');
- assert.match(s,/fireRows.length>0&&<article/);
+ const {summarizeThermalDetections}=await import('../../Module_2_Public_Website/src/lib/satelliteScience.mjs');
+ const empty=summarizeThermalDetections([]);
+ assert.equal(empty.count,0);
+ assert.match(empty.explanation,/No qualifying records/i);
+ assert.match(empty.explanation,/does not establish that no fires occurred/i);
+ assert.match(s,/fireInsight=summarizeThermalDetections\(fireRows\)/);
+ assert.match(s,/Finding title="Thermal observations" detail=\{fireInsight\.explanation\}/);
+ assert.match(s,/<details className=\{styles\.mapDisclosure\}>/);
+ assert.match(s,/fireRows\.filter\(p=>typeof p\.latitude/);
+ assert.doesNotMatch(s,/Thermal hotspots \(last 3 days\)/);
  assert.doesNotMatch(s,/No current records/);
- assert.match(s,/Pakistan satellite observation map/);
 });
