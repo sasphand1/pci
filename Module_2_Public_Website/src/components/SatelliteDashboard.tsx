@@ -1,28 +1,25 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import {compareDailySeries, summarizeThermalDetections} from '@/lib/satelliteScience.mjs';
+import styles from './SatelliteExperience.module.css';
 type Datum=Record<string,unknown>;
 const API='/api/satellite';
 const cityNames=['lahore','karachi','islamabad','peshawar','quetta','multan','faisalabad','hyderabad'];
 const scienceCategories=[
- {id:'agriculture',title:'Agriculture',audience:'Farmers and agricultural researchers',description:'Field condition, irrigation variability and crop recovery. Verified field-level assessments require cloud-masked imagery and field boundaries.',layers:'Daily regional rainfall and solar context are available now. Crop-stress, irrigation and harvest models are not yet operational.',needs:['Vegetation health','Irrigation variability','Crop recovery','Thermal activity']},
- {id:'land',title:'Land',audience:'Land buyers and property owners',description:'Review land-cover history and investigate changes before a major land decision.',layers:'NASA imagery is available when the imagery provider returns a valid tile layer. Historical land-cover and former-waterbody analysis are not yet operational.',needs:['Land history','Built-up change','Historical water extent','Vegetation loss']},
- {id:'water',title:'Water',audience:'Farmers, residents and water planners',description:'Inspect precipitation imagery and regional rainfall, then explore waterbody change when processing becomes available.',layers:'IMERG rainfall imagery is a visualization, not a field-scale flood or soil-water measurement.',needs:['Rainfall context','Waterbody change','Inundation history','Catchment analysis']},
- {id:'energy',title:'Energy',audience:'Households and solar installers',description:'Compare satellite-derived solar resource estimates; site-specific solar yield requires installation information.',layers:'Daily NASA POWER solar irradiation estimates are available for the selected city.',needs:['Solar resource','Seasonal solar patterns','Performance screening','Night lights']},
- {id:'environment',title:'Environment',audience:'Residents, scientists and conservation groups',description:'Inspect satellite thermal anomalies and natural event evidence without treating detections as confirmed impacts.',layers:'NASA FIRMS thermal anomalies and NASA EONET metadata are available when observations exist.',needs:['Thermal anomalies','Vegetation recovery','Atmospheric products','Snow changes']},
- {id:'cities',title:'Cities',audience:'Residents, architects and city planners',description:'Understand the physical transformation of urban places, including surfaces, vegetation and heat.',layers:'NASA imagery can be viewed now. Built-up change, vegetation loss and urban heat measurements require additional processing.',needs:['Urban expansion','Tree-cover deficit','Surface heat','Neighborhood history']},
- {id:'disasters',title:'Disasters',audience:'Communities, agencies and researchers',description:'View observational context around reported environmental incidents; not a real-time warning service.',layers:'Thermal anomalies, NASA natural events and rainfall imagery may be displayed. Flood extent, damage and recovery claims are not yet calculated.',needs:['Thermal detections','Natural events','Precipitation imagery','Recovery evidence']},
- {id:'discover',title:'Discover',audience:'Everyone',description:'Explore Pakistan through currently available satellite observations, with clear uncertainty and original sources.',layers:'Combines available imagery, thermal anomalies, natural events and rainfall overlays.',needs:['Satellite imagery','Thermal anomaly map','Natural-event records','Science discoveries']}
+ {id:'farm',title:'Farm Doctor',short:'Farms',description:'Understand recent rainfall, sunlight and available Earth-observation evidence before making farm decisions.',audience:'Farmers and agricultural advisers',needs:['Crop vegetation health','Irrigation demand','Crop recovery']},
+ {id:'land',title:'Land DNA',short:'Land',description:'Investigate the satellite record of a place. Scene discovery is available; verified land-change measurement is not yet online.',audience:'Landowners and buyers',needs:['Land-cover history','Former water extent','Urban expansion']},
+ {id:'water',title:'Water Guardian',short:'Water',description:'Compare observed regional rainfall history and explore precipitation imagery. These are not flood predictions.',audience:'Residents and water planners',needs:['Soil moisture measurement','Surface water mapping','Flood extent']},
+ {id:'solar',title:'Solar Advisor',short:'Solar',description:'Explore solar irradiation estimates and recent trends before commissioning site-specific yield analysis.',audience:'Homeowners and installers',needs:['Rooftop yield model','Panel tilt and shading','Seasonal yield projection']},
+ {id:'city',title:'City Health',short:'Cities',description:'Explore available thermal alerts and urban observation records. Neighborhood heat and air-quality maps are not yet measured.',audience:'City residents and researchers',needs:['Land-surface temperature','Nighttime radiance','Green-cover change']}
 ] as const;
 type ScienceCategory=(typeof scienceCategories)[number]['id'];
-
 function rows(d:unknown[]):Datum[]{return d.filter((x):x is Datum=>Boolean(x&&typeof x==='object'&&!Array.isArray(x)));}
 function shown(v:unknown){return typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('en-PK',{maximumFractionDigits:2}):'Not available';}
 function date(v:unknown){if(typeof v!=='string')return 'Not available';const d=new Date(v);return Number.isFinite(d.valueOf())?d.toLocaleString('en-PK',{timeZone:'Asia/Karachi',dateStyle:'medium',timeStyle:'short'})+' PKT':'Not available';}
 export function SatelliteDashboard({sources,fires,rain,solar}:{sources:unknown[];fires:unknown[];rain:unknown[];solar:unknown[]}){
  const [city,setCity]=useState('lahore'),[rainData,setRainData]=useState(rows(rain)),[solarData,setSolarData]=useState(rows(solar));
  const [error,setError]=useState('');
- const [category,setCategory]=useState<ScienceCategory>('agriculture');
+ const [category,setCategory]=useState<ScienceCategory>('farm');
  const [rainHistory,setRainHistory]=useState<Datum[]>([]),[solarHistory,setSolarHistory]=useState<Datum[]>([]);
  const [historyStatus,setHistoryStatus]=useState<'loading'|'ready'|'unavailable'>('loading');
  const mapFrame=useRef<HTMLIFrameElement>(null);
@@ -50,53 +47,83 @@ export function SatelliteDashboard({sources,fires,rain,solar}:{sources:unknown[]
  const selectedCategory=scienceCategories.find(c=>c.id===category)!;
  const postMap=()=>{const points=fireRows.filter(p=>typeof p.latitude==='number'&&typeof p.longitude==='number'&&Number.isFinite(p.latitude)&&Number.isFinite(p.longitude)&&p.latitude>=23&&p.latitude<=38&&p.longitude>=60&&p.longitude<=78).slice(0,200).map(p=>({latitude:p.latitude,longitude:p.longitude,observedAt:typeof p.observedAt==='string'?p.observedAt:null}));
  const events=naturalEvents.filter(e=>typeof e.latitude==='number'&&typeof e.longitude==='number').slice(0,100).map(e=>({latitude:e.latitude,longitude:e.longitude,title:typeof e.title==='string'?e.title:'Natural event'}));
- mapFrame.current?.contentWindow?.postMessage({type:'PCI_SATELLITE_POINTS_V1',points,events,imagery:imagery[0]?.tileTemplate,gpmImagery:gpmImagery[0]?.tileTemplate,category},window.location.origin);};
+ mapFrame.current?.contentWindow?.postMessage({type:'PCI_SATELLITE_POINTS_V1',points,events,imagery:imagery[0]?.tileTemplate,gpmImagery:gpmImagery[0]?.tileTemplate,category:'discover'},window.location.origin);};
  useEffect(()=>{postMap();},[naturalEvents,imagery,gpmImagery,category,fires]);
 
- return <div className="satellite-dashboard">
-  {providers.length===0&&<p className="satellite-notice" role="status">Satellite API unavailable or provider catalogue not loaded. Check Module 1 deployment and database migration.</p>}
-  {power?.enabled===false&&<p className="satellite-notice" role="status">NASA POWER ingestion is disabled. Enable it in PCI Management → Satellite APIs.</p>}
-  {power?.refreshQueued===true&&<p className="satellite-notice" role="status">NASA POWER refresh queued. Processing is handled by the existing PCI worker.</p>}
-  {power?.enabled===true&&power?.refreshQueued!==true&&power?.lastSuccessAt==null&&<p className="satellite-notice" role="status">NASA POWER has not completed a successful ingestion. Check the management panel for its last error.</p>}
-
-  <nav className="pci-science-tabs" aria-label="Satellite science categories">
-   {scienceCategories.map(c=><button key={c.id} type="button" className={category===c.id?'pci-science-tab is-active':'pci-science-tab'} aria-pressed={category===c.id} onClick={()=>setCategory(c.id)}>{c.title}</button>)}
+ const latestTime=category==='solar'?latestSolar?.observedAt:latestRain?.observedAt;
+ const providerFor=(id:string)=>providers.find(p=>p.id===id);
+ const sourceState=(id:string)=>{const p=providerFor(id);return !p?'Source not configured':p.enabled!==true?'Collection is off':p.lastSuccessAt?'Source refreshed':'Awaiting first refresh';};
+ const current=selectedCategory;
+ const rainfallReady=rainfallInsight.status==='ready';
+ const solarReady=solarInsight.status==='ready';
+ const heroValue=category==='solar'?shown(latestSolar?.value):category==='water'||category==='farm'?shown(latestRain?.value):category==='city'?String(fireInsight.count):'Scene records';
+ const heroUnit=category==='solar'?'kWh/m²/day':category==='water'||category==='farm'?'mm/day':category==='city'?'thermal observations':'Available catalogues';
+ return <main className={styles.root}>
+  {providers.length===0&&<p role="status" className={styles.alert}>Satellite provider information is currently unavailable. Historical observations may be incomplete.</p>}
+  {power?.enabled===false&&<p role="status" className={styles.alert}>NASA POWER ingestion is disabled. Enable it in PCI Management → Satellite APIs.</p>}
+  {power?.refreshQueued===true&&<p role="status" className={styles.alert}>NASA POWER refresh queued; the PCI worker processes queued refreshes.</p>}
+  {power?.enabled===true&&power?.refreshQueued!==true&&power?.lastSuccessAt==null&&<p role="status" className={styles.alert}>NASA POWER has not completed a successful ingestion.</p>}
+  <section className={styles.hero} aria-labelledby="satellite-hero-title">
+   <div><p className={styles.eyebrow}>EARTH OBSERVATIONS · PAKISTAN</p><h2 id="satellite-hero-title">Answers from above. Grounded in real data.</h2><p>Choose a problem, explore recent observations and see exactly which analysis is available. No fabricated risk scores or predictions.</p></div>
+   <div className={styles.heroAside}><span className={styles.liveDot}/> Live source status <strong>{providers.filter(p=>p.enabled===true&&p.lastSuccessAt).length} / {providers.length} reporting</strong><small>Reporting means ingestion succeeded, not that all scientific measurements are available.</small></div>
+  </section>
+  <nav className={styles.toolNav} aria-label="Satellite decision tools">
+   {scienceCategories.map((tool,i)=><button key={tool.id} type="button" className={`${styles.toolButton} ${category===tool.id?styles.selected:''}`} aria-pressed={category===tool.id} onClick={()=>setCategory(tool.id)}><span className={styles.toolNumber}>0{i+1}</span><strong>{tool.title}</strong><span>{tool.short}</span></button>)}
   </nav>
-  <section className="card pci-science-intro" aria-live="polite"><h2>{selectedCategory.title} intelligence</h2><p>{selectedCategory.description}</p><small>For: {selectedCategory.audience}</small></section>
-  <section className="card satellite-geo"><h2>Pakistan satellite observation map</h2><p>Fixed Pakistan overview. Categories change the visible verified data overlays; map zoom, pan and rotation are disabled.</p>{fireRows.length>0?<p>Dots represent NASA FIRMS thermal anomalies from the last 3 days, not confirmed fires. The bounding rectangle includes land outside Pakistan.</p>:<p>{providers.some(p=>p.id==='firms'&&p.enabled&&p.lastSuccessAt)?'No thermal detections are currently stored for this region. Explore NASA imagery and rainfall layers on the map.':'FIRMS hotspot ingestion is not yet available. Explore NASA imagery and rainfall layers on the map.'}</p>}
-   <iframe ref={mapFrame} className="satellite-map-frame" title="Fixed Pakistan science overlays map" src="/satellite-map.html" loading="lazy" onLoad={postMap} /></section>
-  <section className="satellite-controls"><label htmlFor="satellite-city">Select city</label><select id="satellite-city" value={city} onChange={e=>setCity(e.target.value)}>{cityNames.map(c=><option key={c} value={c}>{c[0].toUpperCase()+c.slice(1)}</option>)}</select><span>City values are satellite-derived / modeled regional estimates, not street measurements.</span></section>
-  {error&&<p role="alert">{error}</p>}
-  <div className="satellite-cards"><article className="card"><h2>Rainfall estimate</h2><strong>{shown(latestRain?.value)} {latestRain?.value==null?'':'mm/day'}</strong><p>NASA POWER daily corrected precipitation — NOT GPM or a live rain gauge.</p><small>Observed: {date(latestRain?.observedAt)}</small></article>
-   <article className="card"><h2>Solar resource</h2><strong>{shown(latestSolar?.value)} {latestSolar?.value==null?'':'kWh/m²/day'}</strong><p>NASA POWER daily satellite-derived solar estimate.</p><small>Observed: {date(latestSolar?.observedAt)}</small></article>
-   {fireRows.length>0&&<article className="card"><h2>Thermal hotspots (last 3 days)</h2><strong>{String(fireRows.length)} shown</strong><p>NASA FIRMS VIIRS thermal detections (up to 100). These are not confirmed fires.</p><small>Latest: {date(fireRows[0]?.observedAt)}</small></article>}</div>
-  <section className="card pci-science-analysis" aria-live="polite">
-   <h2>{selectedCategory.title}: scientific findings</h2>
-   <p>{selectedCategory.layers}</p>
-   <div className="pci-science-finding-grid">
-    {(category==='agriculture'||category==='water'||category==='energy'||category==='discover')&&<article className="pci-science-finding"><h3>Rainfall · 30-day observation comparison</h3><strong>{historyStatus==='loading'?'Checking observations':rainfallInsight.status==='ready'?rainfallInsight.summary:'Not enough verified history'}</strong><p>{rainfallInsight.explanation}</p><small>NASA POWER corrected daily precipitation (NOT GPM). {rainfallInsight.days} valid days; not a forecast or field measurement.</small></article>}
-    {(category==='energy'||category==='agriculture'||category==='discover')&&<article className="pci-science-finding"><h3>Solar resource · 30-day observation comparison</h3><strong>{solarInsight.status==='ready'?solarInsight.summary:'Not enough verified history'}</strong><p>{solarInsight.explanation}</p><small>NASA POWER regional solar estimate. {solarInsight.days} valid days; not rooftop power generation.</small></article>}
-    {(category==='agriculture'||category==='environment'||category==='disasters'||category==='discover')&&<article className="pci-science-finding"><h3>Regional thermal detections</h3><strong>{fireInsight.count} observations in available feed</strong><p>{fireInsight.explanation}</p><small>NASA FIRMS; bounded regional sample, NOT a nationwide fire count.</small></article>}
-    {(category==='disasters'||category==='discover')&&<article className="pci-science-finding"><h3>Recent reported earthquakes</h3><strong>{earthquakes.length?earthquakes.length+' USGS events in the available feed':'No current USGS report available'}</strong><p>{earthquakes.length?'Most recent: M '+String(earthquakes[0]?.magnitude??'?')+' · '+String(earthquakes[0]?.place??'Unknown'):'The source may be disabled or unavailable. Missing reports do not mean there were no earthquakes.'}</p><small>USGS catalog. Not an early warning, prediction or official local shaking assessment. Events may occur in neighboring countries.</small></article>}
-    {(category==='environment'||category==='disasters'||category==='discover')&&<article className="pci-science-finding"><h3>NASA natural-event records</h3><strong>{naturalEvents.length} records in available feed</strong><p>Event metadata is observational context, not an official alert or confirmed local impact.</p></article>}
-    {(category==='land'||category==='cities'||category==='water'||category==='disasters'||category==='agriculture')&&<article className="pci-science-finding"><h3>Scientific processing status</h3><strong>Advanced analysis not yet available</strong><p>Verified vegetation indices, flood-extent maps, built-up changes and land-cover assessments require calibrated raster processing. Scene catalogue entries do not provide these measurements.</p></article>}
+  <section className={styles.workspace} aria-live="polite">
+   <div className={styles.workspaceHead}><div><p className={styles.eyebrow}>YOUR SATELLITE WORKSPACE</p><h2>{current.title}</h2><p>{current.description}</p><small>Designed for {current.audience.toLowerCase()}</small></div>
+    <div className={styles.cityPicker}><label htmlFor="satellite-city">Location</label><select id="satellite-city" value={city} onChange={e=>setCity(e.target.value)}>{cityNames.map(c=><option key={c} value={c}>{c[0].toUpperCase()+c.slice(1)}</option>)}</select><small>Regional estimate, not a street or field measurement</small></div></div>
+   {error&&<p role="alert" className={styles.alert}>{error}</p>}
+   <div className={styles.metricGrid}>
+    <article className={`${styles.metricCard} ${styles.metricPrimary}`}><small>{category==='solar'?'Solar irradiation':category==='water'?'Daily rainfall':category==='farm'?'Recent rainfall context':category==='city'?'Regional thermal detections':'Scene discovery status'}</small><strong>{heroValue}</strong><span>{heroUnit}</span><p>{category==='city'?'NASA FIRMS detects thermal anomalies, not confirmed fires.':category==='land'?'Discovery metadata is not land-change analysis.':category==='solar'?'NASA POWER daily modeled / satellite-derived estimate.':'NASA POWER corrected daily precipitation — NOT GPM or a rain gauge.'}</p><small>Observed: {date(latestTime)}</small></article>
+    <article className={styles.metricCard}><small>{category==='solar'?'Rainfall context':'Solar resource'}</small><strong>{category==='solar'?shown(latestRain?.value):shown(latestSolar?.value)}</strong><span>{category==='solar'?'mm/day':'kWh/m²/day'}</span><p>{category==='solar'?'NASA POWER precipitation estimate':'NASA POWER regional daily solar estimate; not generation at a specific rooftop'}</p><small>Observed: {date(category==='solar'?latestRain?.observedAt:latestSolar?.observedAt)}</small></article>
+    <article className={styles.metricCard}><small>Satellite acquisition coverage</small><strong>{(['landsat','ecostress','smap','blackmarble'] as const).reduce((n,id)=>n+(scienceScenes[id]?.length??0),0)}</strong><span>recent discovery records</span><p>Combined recent scene/granule records, not processed vegetation, thermal or moisture measurements.</p><small>Collection status varies by source</small></article>
    </div>
-   <h3>Planned decision products</h3><div className="pci-science-chips">{selectedCategory.needs.map(n=><span key={n}>{n} · planned</span>)}</div>
-   <small>{historyStatus==='unavailable'?'Historical observations currently unavailable. No extrapolation has been performed.':'Scientific findings use only available observations and must not be used as emergency or financial guarantees.'}</small>
+   <div className={styles.analysisGrid}>
+    <section className={styles.chartCard}><div className={styles.sectionHeading}><div><p className={styles.eyebrow}>OBSERVATION HISTORY</p><h3>{category==='solar'?'Solar irradiation · daily history':'Daily rainfall · observed history'}</h3></div><span className={styles.note}>Available 30-day window</span></div>
+     <HistoryPlot data={category==='solar'?solarHistory:rainHistory} unit={category==='solar'?'kWh/m²/day':'mm/day'} name={category==='solar'?'solar':'rainfall'}/>
+     <p className={styles.insight}>{historyStatus==='loading'?'Loading observed history…':historyStatus==='unavailable'?'History unavailable. No trend inferred.':(category==='solar'?solarReady:rainfallReady)?(category==='solar'?solarInsight.summary:rainfallInsight.summary):'Insufficient verified observations for a comparison.'}</p>
+     <small>{category==='solar'?'Daily NASA POWER solar estimates, not panel output.':'Daily NASA POWER corrected rainfall estimates (NOT GPM).'} No forecast or seasonal anomaly is implied.</small>
+    </section>
+    <section className={styles.findings}><p className={styles.eyebrow}>WHAT WE CAN VERIFY</p><h3>Evidence, not guesses</h3>
+     {category==='farm'&&<><Finding title="Rainfall trend" detail={rainfallReady?rainfallInsight.explanation:'Not enough validated daily history yet.'}/><Finding title="Irrigation and crop stress" detail={`NASA SMAP: ${sourceState('smap')}. ECOSTRESS: ${sourceState('ecostress')}. Granule discovery does not measure conditions in an individual field.`}/></>}
+     {category==='land'&&<><Finding title="Satellite image catalogues" detail={`Sentinel-1: ${scenes.sentinel1?.length??0}; Sentinel-2: ${scenes.sentinel2?.length??0} recent scenes. Scene counts are not land-use changes.`}/><Finding title="Land history analysis" detail="No verified land-cover classification or historic waterbody comparison is available yet."/></>}
+     {category==='water'&&<><Finding title="Rainfall comparison" detail={rainfallReady?rainfallInsight.explanation:'Not enough validated daily history yet.'}/><Finding title="Regional soil-moisture source" detail={`SMAP: ${sourceState('smap')}. Available acquisition records: ${scienceScenes.smap?.length??0}. No extracted soil-moisture values yet.`}/></>}
+     {category==='solar'&&<><Finding title="Observed sunlight" detail={solarReady?solarInsight.explanation:'Not enough validated daily history yet.'}/><Finding title="Site-specific savings" detail="Roof orientation, shadows, panel efficiency, weather and tariff information are required before any yield or savings calculation."/></>}
+     {category==='city'&&<><Finding title="Thermal observations" detail={fireInsight.explanation}/><Finding title="Urban environment" detail={`Landsat: ${scienceScenes.landsat?.length??0} recent scenes; Black Marble: ${scienceScenes.blackmarble?.length??0} granules. No processed heat or nightlight intensity values yet.`}/></>}
+     <div className={styles.pending}><strong>Analysis still needed</strong><p>{current.needs.join(' · ')}</p><small>Requires validated raster processing. Not presented as operational.</small></div>
+    </section>
+   </div>
   </section>
-  <section className="card satellite-feed-details" aria-label="Additional satellite intelligence">
-   <h2>NASA natural events · Pakistan region</h2>
-   <p>NASA EONET event metadata (not an emergency alert). Only events with a point geometry within the region are shown.</p>
-   {naturalEvents.length?<ul>{naturalEvents.slice(0,8).map((e,i)=><li key={i}><strong>{String(e.title??'Natural event')}</strong> · {date(e.observedAt)}</li>)}</ul>:<p>No regional point events in the latest published feed, or feed disabled.</p>}
-   <h2>Additional Earth science acquisition records</h2>
-   <p>These counts indicate recently discoverable NASA/USGS granules or scenes, not processed soil moisture, surface temperature, water stress or nighttime brightness.</p>
-   <div className="satellite-scene-grid">{(['landsat','ecostress','smap','blackmarble'] as const).map(id=><div key={id}><h3>{({landsat:'Landsat thermal',ecostress:'ECOSTRESS',smap:'SMAP',blackmarble:'Black Marble'} as const)[id]}</h3><strong>{scienceScenes[id]?.length??0} recent acquisitions</strong><small>Most recent: {date(scienceScenes[id]?.[0]?.observedAt)}</small></div>)}</div>
-   <h2>Copernicus scene discovery</h2>
-   <p>Satellite scene catalogue entries are not flood extent, NDVI crop health or pollutant concentration measurements.</p>
-   <div className="satellite-scene-grid">{(['sentinel1','sentinel2','sentinel5p'] as const).map(mission=><div key={mission}><h3>{mission.replace('sentinel','Sentinel-')}</h3><strong>{scenes[mission]?.length??0} recent scenes</strong><small>Latest: {date(scenes[mission]?.[0]?.observedAt)}</small></div>)}</div>
-   <p>NASA GIBS: {imagery.length?'Satellite imagery available in map.':'Satellite imagery inactive or unavailable.'} NASA GPM IMERG: {gpmImagery.length?'Visualized precipitation-rate layer available in map.':'Precipitation imagery inactive or unavailable.'} Neither map layer is a district rainfall measurement.</p>
+  <section className={styles.moreEvidence}><div className={styles.sectionHeading}><div><p className={styles.eyebrow}>EXPLORE VERIFIED SOURCES</p><h2>What the satellites can currently show</h2></div></div>
+   <div className={styles.evidenceGrid}>
+    <article><span>01</span><h3>Weather & sunlight</h3><p>NASA POWER rainfall and solar daily estimates for eight cities.</p><strong>{power?.lastSuccessAt?'Last refresh: '+date(power.lastSuccessAt):'Refresh status unavailable'}</strong></article>
+    <article><span>02</span><h3>Earth-observation catalogues</h3><p>Sentinel scenes and NASA/USGS acquisition metadata. Not computed scientific measurements.</p><strong>{Object.values(scenes).reduce((n,a)=>n+a.length,0)} Sentinel scene records</strong></article>
+    <article><span>03</span><h3>Environmental reports</h3><p>FIRMS anomalies, EONET natural-event metadata and USGS earthquake reports (not an emergency alert).</p><strong>{earthquakes.length} recent USGS reports · {naturalEvents.length} natural-event records</strong></article>
+   </div>
   </section>
-  <section className="card satellite-source-list"><h2>Data sources and availability</h2><p>Disabled and unimplemented sources are never presented as operational. Missing data is not zero.</p><div className="satellite-source-grid">{providers.map(p=><div key={String(p.id)}><strong>{String(p.label)}</strong><span>{p.available?'Enabled · recently refreshed':!p.implemented?'Connector not implemented':!p.enabled?'Disabled by administrator':p.refreshQueued?'Refresh queued':'Enabled · awaiting successful retrieval'}</span><small>Last attempted: {date(p.lastAttemptAt)} · Last succeeded: {date(p.lastSuccessAt)}</small></div>)}</div></section>
-  <p className="satellite-disclaimer">Sources: NASA FIRMS, NASA POWER, NASA EONET, NASA GIBS, Copernicus catalogue. Observations may be delayed, incomplete or inaccurate. For emergency information, follow the Pakistan Meteorological Department and relevant disaster authorities. API results are public estimates, not official forecasts.</p>
- </div>;
+  <details className={styles.mapDisclosure}><summary><span><strong>Explore the Pakistan observation map</strong><small>Optional geographic context · NASA imagery and rainfall overlays</small></span><span>Open map</span></summary><div className={styles.mapBody}><p>Map markers represent regional observations, not precise property assessments. Thermal anomalies are not confirmed fires.</p><iframe ref={mapFrame} className={styles.map} title="Fixed Pakistan science overlays map" src="/satellite-map.html" loading="lazy" onLoad={postMap}/></div></details>
+  <details className={styles.sourceDisclosure}><summary><span><strong>Data source transparency</strong><small>Provider status, recent acquisitions, and original observation dates</small></span><span>View sources</span></summary>
+   <div className={styles.sourceBody}><p>Copernicus scene catalogue entries are not flood extent, NDVI crop health or pollutant concentration measurements. NASA EONET is not an emergency alert.</p><div className={styles.sourceGrid}>{providers.map(p=><article key={String(p.id)}><strong>{String(p.label)}</strong><span>{p.available?'Recently refreshed':!p.implemented?'Not implemented':!p.enabled?'Ingestion disabled':p.refreshQueued?'Refresh queued':'Awaiting first successful ingestion'}</span><small>Last success: {date(p.lastSuccessAt)}</small></article>)}</div><h3>Acquisition records</h3><div className={styles.sourceGrid}>{(['landsat','ecostress','smap','blackmarble'] as const).map(id=><article key={id}><strong>{({landsat:'Landsat',ecostress:'ECOSTRESS',smap:'SMAP',blackmarble:'Black Marble'} as const)[id]}</strong><span>{scienceScenes[id]?.length??0} recent acquisitions</span><small>{date(scienceScenes[id]?.[0]?.observedAt)}</small></article>)}</div><p>NASA GIBS imagery: {imagery.length?'Available':'Unavailable'} · GPM imagery: {gpmImagery.length?'Available':'Unavailable'}. Neither is a quantitative district rainfall measurement.</p></div>
+  </details>
+  <p className={styles.disclaimer}>Satellite and modeled regional observations can be incomplete or delayed. No output is an emergency alert, field diagnosis, property guarantee or financial forecast. For emergencies, follow relevant Pakistani authorities.</p>
+ </main>;
+}
+
+function Finding({title,detail}:{title:string;detail:string}){return <div className={styles.finding}><strong>{title}</strong><p>{detail}</p></div>;}
+
+function HistoryPlot({data,unit,name}:{data:Datum[];unit:string;name:string}){
+ const points=data.map(p=>({when:typeof p.observedAt==='string'?Date.parse(p.observedAt):NaN,value:typeof p.value==='number'?p.value:Number(p.value)})).filter(p=>Number.isFinite(p.when)&&Number.isFinite(p.value)&&p.value>=0).sort((a,b)=>a.when-b.when);
+ const unique=Array.from(new Map(points.map(p=>[p.when,p])).values()).slice(-30);
+ if(!unique.length)return <div className={styles.chartEmpty}>No verified daily observations available yet.</div>;
+ const highest=Math.max(...unique.map(p=>p.value),0.01);
+ const left=36,right=664,top=15,bottom=165;
+ const x=(i:number)=>unique.length===1?(left+right)/2:left+(i/(unique.length-1))*(right-left);
+ const y=(v:number)=>bottom-(v/highest)*(bottom-top);
+ const path=unique.map((p,i)=>`${i===0?'M':'L'} ${x(i).toFixed(1)} ${y(p.value).toFixed(1)}`).join(' ');
+ return <div className={styles.plot}><svg viewBox="0 0 700 207" role="img" aria-label={`${name} daily observations for ${unique.length} days. Maximum ${shown(highest)} ${unit}`} preserveAspectRatio="none">
+  {[0,0.5,1].map(t=><g key={t}><line x1={left} x2={right} y1={y(t*highest)} y2={y(t*highest)} className={styles.plotGrid}/><text x="3" y={y(t*highest)+4} className={styles.plotLabel}>{shown(t*highest)}</text></g>)}
+  <path d={path} className={styles.plotLine}/>{unique.map((p,i)=><circle key={p.when} cx={x(i)} cy={y(p.value)} r="3.3" className={styles.plotDot}/>) }
+  <text x={left} y="195" className={styles.plotLabel}>{new Date(unique[0].when).toLocaleDateString('en-PK',{day:'numeric',month:'short'})}</text><text x={right} y="195" textAnchor="end" className={styles.plotLabel}>{new Date(unique[unique.length-1].when).toLocaleDateString('en-PK',{day:'numeric',month:'short'})}</text>
+ </svg><div className={styles.plotCaption}><span>{unique.length} recorded days</span><span>Latest {shown(unique[unique.length-1].value)} {unit}</span></div></div>;
 }
