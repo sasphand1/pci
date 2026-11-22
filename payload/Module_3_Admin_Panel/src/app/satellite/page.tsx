@@ -1,0 +1,20 @@
+'use client';
+import {useState} from 'react';
+import {AdminPage,RoleGate,Status,useData} from '@/components/Shared';
+import {api,errorText,fmtDate} from '@/lib/api';
+import {useAuth} from '@/components/AuthProvider';
+type Provider={id:string;label:string;kind:string;enabled:boolean;implemented:boolean;configured:boolean;refresh_minutes:number;last_attempt_at:string|null;last_success_at:string|null;last_error:string|null;authLocation:string};
+function ProviderEditor({value,reload,csrf}:{value:Provider;reload:()=>void;csrf?:string}){const [enabled,setEnabled]=useState(value.enabled),[minutes,setMinutes]=useState(value.refresh_minutes),[busy,setBusy]=useState(false),[error,setError]=useState(''),[ok,setOk]=useState('');
+ async function save(){setBusy(true);setError('');setOk('');try{await api(`/admin/satellite/providers/${value.id}`,{method:'PATCH',csrf,body:{enabled,refreshMinutes:minutes}});setOk('Settings saved.');reload();}catch(e){setError(errorText(e));}finally{setBusy(false);}}
+ async function refresh(){setBusy(true);setError('');setOk('');try{const data=await api<{provider:string;queued:boolean}>(`/admin/satellite/providers/${value.id}/refresh`,{method:'POST',csrf});setOk(data.queued?'Refresh queued for the PCI worker.':'Refresh was not queued.');reload();}catch(e){setError(errorText(e));}finally{setBusy(false);}}
+ return <article className="admin-setting-card"><h3>{value.label}</h3><p>{value.kind} · {value.implemented?'Connector available':'Connector not implemented'} · {value.configured?'Credentials ready':'Credentials missing or unavailable'}</p>
+ <label className="admin-check"><input type="checkbox" checked={enabled} disabled={busy||!value.implemented} onChange={e=>setEnabled(e.target.checked)}/> Enable ingestion</label>
+ <div className="field"><label htmlFor={`minutes-${value.id}`}>Refresh interval (minutes)</label><input id={`minutes-${value.id}`} type="number" min={60} max={10080} value={minutes} disabled={busy||!value.implemented} onChange={e=>setMinutes(Number(e.target.value))}/></div>
+ <p className="fineprint">Last attempted: {fmtDate(value.last_attempt_at)} · Last succeeded: {fmtDate(value.last_success_at)}</p>{value.last_error&&<p role="alert">Most recent ingestion error: {value.last_error}</p>}
+ <Status error={error} ok={ok}/><div className="admin-actions"><button type="button" className="btn btn-primary" disabled={busy||!value.implemented} onClick={save}>Save source</button><button type="button" className="btn btn-secondary" disabled={busy||!value.enabled||!value.implemented||!value.configured} onClick={refresh}>Refresh now</button></div></article>;
+}
+export default function SatelliteAdmin(){const {identity}=useAuth();const state=useData<Provider[]>('/admin/satellite/providers');return <RoleGate roles={['owner']}><AdminPage title="Satellite API sources" description="Approved provider enable/disable, refresh frequency, ingestion health and manual updates. Only Owner can change sources." action={<button className="btn btn-secondary" onClick={state.reload}>Reload</button>}>
+ {state.error&&<p role="alert">{state.error}</p>}{state.loading&&<p role="status">Loading provider configuration…</p>}
+ <div className="admin-setting-grid">{state.data?.map(p=><ProviderEditor key={`${p.id}-${p.enabled}-${p.refresh_minutes}`} value={p} reload={state.reload} csrf={identity?.csrfToken}/>)}</div>
+ <div className="admin-callout">Provider endpoints are allowlisted in backend source code. Secrets are configured only in Hostinger environment variables. Sentinel/GPM integrations are deliberately disabled until implemented and verified. Never enter API keys here.</div>
+ </AdminPage></RoleGate>;}

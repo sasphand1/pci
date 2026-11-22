@@ -1,0 +1,12 @@
+/* Central management UI additions; imported through vendor/pci-ui shared stylesheet. */
+.pci-ei-source-directory{display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:12px;margin-top:16px}
+.pci-ei-source-directory .admin-setting-card{display:flex;flex-direction:column;gap:6px}
+.pci-ei-source-directory .admin-setting-card small{color:var(--ink-soft,#687780)}
+.pci-ei-source-directory .admin-setting-card p{font-size:12px;line-height:1.5;flex:1}
+.pci-ei-source-directory a,.pci-ei-leads a{color:var(--brand,#127b70);font-weight:600}
+.pci-ei-discovery-head{margin-top:28px}
+.pci-ei-leads{display:grid;gap:4px;margin-top:12px;max-height:340px;overflow:auto}
+.pci-ei-leads article{display:grid;grid-template-columns:30px 1fr auto;gap:12px;align-items:center;border-bottom:1px solid var(--border,#d9e5e2);padding:11px 8px;font-size:13px}
+.pci-ei-delete{border:1px solid #c44444!important;color:#a32626!important;background:transparent!important}
+.pci-ei-delete:hover{background:rgba(178,40,40,.06)!important}
+@media(max-width:640px){.pci-ei-leads article{grid-template-columns:25px 1fr}.pci-ei-leads a{grid-column:2}}

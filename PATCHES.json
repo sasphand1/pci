@@ -1,0 +1,219 @@
+[
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "</style>",
+    "new": "\n/* PCI V4 – map-accurate georeferenced fallback and unobtrusive venue pins. */\n.preview-world .country-art{display:none!important}\n.preview-world .pci-geo-reference{display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:fill;opacity:.85;pointer-events:none}\n.preview-arcs,.libre-hologram,.google-hologram-layer{display:none!important}\n.preview-markers .event-marker{transform:translate(-50%,-100%)}\n.gm-style .event-marker{transform:translate(-50%,-100%)}\n.event-marker{position:absolute;width:24px;height:28px;z-index:6;pointer-events:auto}\n.event-marker__hotspot{position:relative;inset:auto;display:flex;align-items:center;justify-content:flex-end;flex-direction:column;transform:none!important;width:24px;height:28px;min-height:28px;padding:0;border:0;background:none;cursor:pointer;outline:0}\n.event-marker__title,.event-marker__diamond-wrap,.event-marker__beam{display:none!important}\n.pci-venue-pin{position:relative;display:block;width:11px;height:11px;margin-bottom:3px;border:1.3px solid #ffd9e0;background:linear-gradient(140deg,#ff9bac,#f52952 45%,#9d123a);border-radius:50% 50% 50% 1px;transform:rotate(-45deg);box-shadow:0 0 0 2px #fc335347,0 0 9px 2px #e9254e99;animation:pciPinBlink 2.2s ease-in-out infinite}\n.pci-venue-pin::before{content:'';position:absolute;top:3px;left:3px;width:3px;height:3px;background:#fff9fb;border-radius:50%}\n.pci-venue-pin::after{content:'';position:absolute;inset:-6px;border:1px solid #ff5b77;border-radius:50%;animation:pciPinPulse 2.8s ease-out infinite;pointer-events:none}\n.pci-venue-count{position:absolute;bottom:22px;left:17px;min-width:18px;height:18px;padding:0 4px;display:grid;place-items:center;border-radius:10px;border:1px solid #fb829a;background:#721431;color:#fff;font:700 10px/1 system-ui;box-shadow:0 2px 8px #0009}\n.event-marker__hotspot:hover .pci-venue-pin,.event-marker.is-open .pci-venue-pin{box-shadow:0 0 0 3px #ff8aa766,0 0 14px 4px #ff577c;animation:none}\n.event-marker__hotspot:focus-visible{outline:2px solid #70dcff;outline-offset:4px;border-radius:8px}\n@keyframes pciPinBlink{0%,100%{opacity:1}45%{opacity:.55}60%{opacity:1}}\n@keyframes pciPinPulse{0%{transform:scale(.6);opacity:.72}85%,100%{transform:scale(1.55);opacity:0}}\n.pci-venue-card{max-height:min(490px,60vh);overflow-y:auto;padding:17px 19px 19px;color:#e7f6ff}\n.pci-venue-card h3{font:700 17px/1.35 'Space Grotesk',system-ui;margin:5px 0 7px;color:#f8fcff}\n.pci-venue-card small,.pci-venue-card .pci-venue-note{font-size:11px;color:#9db6c9}\n.pci-venue-card .pci-group-event{display:block;width:100%;margin:7px 0 0;padding:10px 12px;text-align:left;border:1px solid #30516a;border-radius:7px;background:#0e273b;color:#effaff;font:600 12px/1.3 system-ui;cursor:pointer}\n.pci-venue-card .pci-group-event:hover,.pci-venue-card .pci-group-event:focus-visible{border-color:#51cfff;background:#15425a}\n.pci-venue-card .pci-group-event span{display:block;margin-top:5px;font-weight:400;color:#8db5c7}\n.pci-venue-card .pci-venue-links{margin-top:13px;display:flex;gap:15px;flex-wrap:wrap;font-size:11px}\n.pci-venue-card a{color:#80e1ff;text-decoration:underline;text-underline-offset:3px}\n@media(prefers-reduced-motion:reduce){.pci-venue-pin,.pci-venue-pin::after{animation:none!important}}\n\n</style>",
+    "label": "style extension",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "<div id=\"preview-arcs\"",
+    "new": "<img class=\"pci-geo-reference\" src=\"/pci-geo-reference.svg\" alt=\"\" aria-hidden=\"true\" />\n            <div id=\"preview-arcs\"",
+    "label": "geo fallback SVG",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "function renderPreviewArcs(){\n  const container=$('#preview-arcs');\n  const svg=svgNode('svg',{class:'hologram-svg',viewBox:'0 0 1000 1000',preserveAspectRatio:'none','aria-hidden':'true'});\n  container.replaceChildren(svg);\n  const points=eligibleEvents().map(e=>({id:e.id,x:e.x*10,y:e.y*10}));\n  paintHologram(svg,points,'preview');\n}",
+    "new": "function renderPreviewArcs(){$('#preview-arcs').replaceChildren();}",
+    "label": "disable location illusion arcs",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "  const hologram=new GoogleHologramOverlay();hologram.setMap(state.map);state.overlays.push(hologram);\n",
+    "new": "",
+    "label": "disable google arcs",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "  scheduleLibreArcs();\n}\nfunction fitLibreEvents()",
+    "new": "  // Venue pins alone; decorative arcs intentionally disabled.\n}\nfunction fitLibreEvents()",
+    "label": "disable maplibre arcs",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "map.on('move',()=>{scheduleLibreArcs();positionDetailCard();});",
+    "new": "map.on('move',positionDetailCard);",
+    "label": "maplibre movement",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "map.on('resize',scheduleLibreArcs);",
+    "new": "map.on('resize',positionDetailCard);",
+    "label": "maplibre resize",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "state.libreSvg=svgNode('svg',{class:'hologram-svg','aria-hidden':'true'},$('#libre-hologram'));\n    $('#libre-hologram').style.display='block';",
+    "new": "$('#libre-hologram').style.display='none';",
+    "label": "hide maplibre arc overlay",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "center:[69.8,29.3],zoom:5.35,pitch:58,bearing:-12,",
+    "new": "center:[69.8,29.3],zoom:5.35,pitch:0,bearing:0,",
+    "label": "2D accurate map view",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "map.easeTo({center:[c.lng,c.lat],zoom:10.7,pitch:55,bearing:-13,duration:950});",
+    "new": "map.easeTo({center:[c.lng,c.lat],zoom:11.5,pitch:0,bearing:0,duration:500});",
+    "label": "city precise zoom",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "map.fitBounds(bounds,{padding:{top:150,bottom:170,left:100,right:110},maxZoom:6.1,pitch:58,bearing:-12,duration:1050});",
+    "new": "map.fitBounds(bounds,{padding:{top:100,bottom:110,left:80,right:80},maxZoom:6.5,pitch:0,bearing:0,duration:600});",
+    "label": "fit actual venue bounds",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "map.easeTo({center:[events[0].lng,events[0].lat],zoom:10.6,pitch:54,bearing:-13,duration:950});",
+    "new": "map.easeTo({center:[events[0].lng,events[0].lat],zoom:11.5,pitch:0,bearing:0,duration:500});",
+    "label": "single venue zoom",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "map.easeTo({center:[CENTERS.Pakistan.lng,CENTERS.Pakistan.lat],zoom:5.3,pitch:58,bearing:-12,duration:950});",
+    "new": "map.easeTo({center:[CENTERS.Pakistan.lng,CENTERS.Pakistan.lat],zoom:5.3,pitch:0,bearing:0,duration:500});",
+    "label": "fallback camera",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "const EVENTS_CITY_ANCHOR = {Karachi:{x:32,y:69},Lahore:{x:69,y:55},Islamabad:{x:72,y:35}};",
+    "new": "\nconst GEO_REFERENCE={west:59,east:78,south:20,north:39};\nfunction geoMercator(lat){return Math.log(Math.tan(Math.PI/4+lat*Math.PI/360));}\nfunction projectedVenue(lng,lat){\n const box=GEO_REFERENCE;\n return {x:100*(lng-box.west)/(box.east-box.west),\n  y:100*(geoMercator(box.north)-geoMercator(lat))/(geoMercator(box.north)-geoMercator(box.south))};\n}\nconst PHYSICAL_CITY_BOUNDS={Karachi:[24.6,25.3,66.6,67.5],Lahore:[31.1,31.8,74,74.7],Islamabad:[33.4,33.9,72.7,73.5]};\nfunction isPhysicalVenue(item){\n const venue=String(item.venue||'').trim();\n if(!venue||/^(online|virtual|remote|tba|to be announced|unknown|n\\/?a)$/i.test(venue)||/\\b(virtual event|online only|webinar|zoom meeting|google meet|livestream)\\b/i.test(venue))return false;\n if(item.online===true||item.is_online===true||item.location_verified===false)return false;\n const lat=item.latitude,lon=item.longitude;\n if(lat===null||lon===null||lat===undefined||lon===undefined||lat===''||lon==='')return false;\n const north=Number(lat),east=Number(lon),bounds=PHYSICAL_CITY_BOUNDS[item.city];\n if(!Number.isFinite(north)||!Number.isFinite(east)||!bounds)return false;\n if(north<bounds[0]||north>bounds[1]||east<bounds[2]||east>bounds[3])return false;\n // Never silently map a record to a generic city-centre placeholder.\n const city=CENTERS[item.city];\n if(Math.hypot((north-city.lat)*111000,(east-city.lng)*111000*Math.cos(north*Math.PI/180))<100)return false;\n return true;\n}\nfunction eventVenueGroups(events){\n const groups=new Map();\n for(const e of events){\n  // Same venue with identical published lat/lon => ONE accurate pin, NEVER staggered pins.\n  const key=[e.city,e.lat.toFixed(5),e.lng.toFixed(5)].join('|');\n  if(!groups.has(key))groups.set(key,{id:'venue-'+key,city:e.city,venue:e.venue,lat:e.lat,lng:e.lng,\n   ...projectedVenue(e.lng,e.lat),events:[]});\n  if(!groups.get(key).events.some(x=>x.id===e.id))groups.get(key).events.push(e);\n }\n return [...groups.values()].sort((a,b)=>a.city.localeCompare(b.city)||a.venue.localeCompare(b.venue));\n}\nfunction venueGroups(){return eventVenueGroups(eligibleEvents());}\n",
+    "label": "replace approximate positioning",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": " const lat=Number(item.latitude),lng=Number(item.longitude),t=Date.parse(item.start_at);",
+    "new": " if(!isPhysicalVenue(item))return null;\n const lat=Number(item.latitude),lng=Number(item.longitude),t=Date.parse(item.start_at);",
+    "label": "filter online and unverified",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": " const anchor=EVENTS_CITY_ANCHOR[item.city],center=CENTERS[item.city];\n // Static illustration preview approximates venue offsets; Waze uses exact coordinates.\n const approx={x:Math.max(10,Math.min(90,anchor.x+(lng-center.lng)*3)),y:Math.max(10,Math.min(90,anchor.y-(lat-center.lat)*3))};",
+    "new": " const approx=projectedVenue(lng,lat);",
+    "label": "project true coords",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "  eligibleEvents().forEach(event=>{\n    const marker=createMarker(event);\n    marker.style.left=event.x+'%';marker.style.top=event.y+'%';\n    container.append(marker);\n  });",
+    "new": "  venueGroups().forEach(venue=>{\n    const marker=createMarker(venue);\n    marker.style.left=venue.x+'%';marker.style.top=venue.y+'%';\n    container.append(marker);\n  });",
+    "label": "preview venue grouping",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "  eligibleEvents().forEach(event=>{const overlay=new GoogleCrystalOverlay(event);overlay.setMap(state.map);state.overlays.push(overlay);});",
+    "new": "  venueGroups().forEach(venue=>{const overlay=new GoogleCrystalOverlay(venue);overlay.setMap(state.map);state.overlays.push(overlay);});",
+    "label": "google venue grouping",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "  eligibleEvents().forEach(event=>{\n    const el=createMarker(event);\n    const marker=new maplibregl.Marker({element:el,anchor:'bottom'})\n      .setLngLat([event.lng,event.lat])",
+    "new": "  venueGroups().forEach(venue=>{\n    const el=createMarker(venue);\n    const marker=new maplibregl.Marker({element:el,anchor:'bottom'})\n      .setLngLat([venue.lng,venue.lat])",
+    "label": "MapLibre venue grouping",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "  const events=eligibleEvents();\n  if(state.city!=='All Cities'){\n    const c=CENTERS[state.city];",
+    "new": "  const events=venueGroups();\n  if(state.city!=='All Cities'){\n    const c=events[0]||CENTERS[state.city];",
+    "label": "MapLibre venue-focused zoom",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "  const visible=eligibleEvents();\n  if(!visible.length){state.map.panTo",
+    "new": "  const visible=venueGroups();\n  if(!visible.length){state.map.panTo",
+    "label": "google venue-focused zoom",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "  else if(state.city!=='All Cities'){state.map.panTo(CENTERS[state.city]);state.map.setZoom(11);}",
+    "new": "  else if(state.city!=='All Cities'){state.map.panTo({lat:visible[0].lat,lng:visible[0].lng});state.map.setZoom(11);}",
+    "label": "google correct city zoom",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "function showDetailCard(event,root){\n  cancelCardClose();\n  const card=$('#event-detail-card');\n  if(activeCardEvent?.id!==event.id){\n    card.innerHTML=eventCardMarkup(event);\n    card.querySelector('.mini-card-close').addEventListener('click',e=>{e.stopPropagation();state.pinnedId=null;closeDetailCard(true);});\n    const toggle=card.querySelector('.mini-card-share');\n    const menu=card.querySelector('.mini-share-menu');\n    toggle.addEventListener('click',e=>{\n      e.stopPropagation();menu.hidden=!menu.hidden;\n      toggle.setAttribute('aria-expanded',String(!menu.hidden));\n      positionDetailCard();\n    });\n    card.querySelectorAll('[data-event-share]').forEach(button=>button.addEventListener('click',e=>{\n      e.stopPropagation();\n      socialShare(button.dataset.eventShare,event);\n    }));\n  }\n  activeCardEvent=event;\n  activeCardMarker=root;\n  card.hidden=false;\n  document.querySelectorAll('.event-marker.is-open').forEach(el=>el.classList.remove('is-open'));\n  root.classList.add('is-open');\n  positionDetailCard();\n}\nfunction createMarker(event){\n  const root=document.createElement('div');\n  root.className='event-marker';root.dataset.eventId=event.id;\n  const hotspot=document.createElement('div');\n  hotspot.className='event-marker__hotspot';\n  hotspot.tabIndex=0;hotspot.setAttribute('role','button');\n  hotspot.setAttribute('aria-label',`${event.name}, ${event.city}. Show event details`);\n  const text=document.createElement('span');\n  text.className='event-marker__title';text.textContent=event.name;\n  const crystal=document.createElement('span');\n  crystal.className='event-marker__diamond-wrap';\n  crystal.innerHTML='<i class=\"event-marker__diamond\"></i><i class=\"event-marker__beam\"></i>';\n  hotspot.append(text,crystal);root.append(hotspot);\n  hotspot.addEventListener('mouseenter',()=>showDetailCard(event,root));\n  hotspot.addEventListener('mouseleave',scheduleCardClose);\n  hotspot.addEventListener('focus',()=>showDetailCard(event,root));\n  hotspot.addEventListener('blur',scheduleCardClose);\n  hotspot.addEventListener('click',e=>{\n    e.stopPropagation();\n    if(state.pinnedId===event.id){state.pinnedId=null;closeDetailCard(true);}\n    else{state.pinnedId=event.id;showDetailCard(event,root);}\n  });\n  hotspot.addEventListener('keydown',e=>{\n    if(e.key==='Enter'||e.key===' '){e.preventDefault();hotspot.click();}\n    if(e.key==='Escape'){e.stopPropagation();state.pinnedId=null;closeDetailCard(true);}\n  });\n  return root;\n}\n",
+    "new": "function groupCardMarkup(venue){\n const links=venue.events.map((event,index)=>`<button type=\"button\" class=\"pci-group-event\" data-group-item=\"${escapeHtml(event.id)}\">${escapeHtml(event.name)}<span>${escapeHtml(event.date)} · ${escapeHtml(categoryLabel(event.category))}</span></button>`).join('');\n const directions=`https://waze.com/ul?ll=${encodeURIComponent(venue.lat+','+venue.lng)}&navigate=yes`;\n return `<div class=\"pci-venue-card\"><div class=\"mini-card-top\"><span class=\"mini-card-category\">VERIFIED VENUE</span><button type=\"button\" class=\"mini-card-close\" aria-label=\"Close venue details\">×</button></div>\n  <h3>${escapeHtml(venue.venue)}</h3><p class=\"pci-venue-note\">${escapeHtml(venue.city)}, Pakistan · ${venue.events.length} upcoming events at this exact venue</p>\n  <div role=\"list\">${links}</div><div class=\"pci-venue-links\"><a href=\"${directions}\" target=\"_blank\" rel=\"noopener noreferrer\">Directions to venue</a><small>Coordinates: ${venue.lat.toFixed(5)}, ${venue.lng.toFixed(5)}</small></div></div>`;\n}\nfunction showDetailCard(event,root){\n cancelCardClose();\n const card=$('#event-detail-card');\n if(activeCardEvent?.id!==event.id){\n  card.innerHTML=Array.isArray(event.events)?groupCardMarkup(event):eventCardMarkup(event);\n  const close=card.querySelector('.mini-card-close');\n  if(close)close.addEventListener('click',e=>{e.stopPropagation();state.pinnedId=null;closeDetailCard(true);});\n  const toggle=card.querySelector('.mini-card-share'),menu=card.querySelector('.mini-share-menu');\n  if(toggle&&menu)toggle.addEventListener('click',e=>{e.stopPropagation();menu.hidden=!menu.hidden;toggle.setAttribute('aria-expanded',String(!menu.hidden));positionDetailCard();});\n  card.querySelectorAll('[data-event-share]').forEach(button=>button.addEventListener('click',e=>{e.stopPropagation();socialShare(button.dataset.eventShare,event);}));\n  card.querySelectorAll('[data-group-item]').forEach(button=>button.addEventListener('click',e=>{\n   e.stopPropagation();const chosen=event.events.find(x=>x.id===button.dataset.groupItem);\n   if(chosen){state.pinnedId=chosen.id;showDetailCard(chosen,root);}\n  }));\n }\n activeCardEvent=event;activeCardMarker=root;card.hidden=false;\n document.querySelectorAll('.event-marker.is-open').forEach(el=>el.classList.remove('is-open'));\n root.classList.add('is-open');positionDetailCard();\n}\nfunction createMarker(venue){\n const root=document.createElement('div');root.className='event-marker';root.dataset.eventId=venue.id;\n root.dataset.eventIds=venue.events.map(e=>e.id).join(',');\n const hotspot=document.createElement('button');hotspot.type='button';hotspot.className='event-marker__hotspot';\n hotspot.setAttribute('aria-label',`${venue.events.length} event(s) at ${venue.venue}, ${venue.city}. Show details`);\n const pin=document.createElement('span');pin.className='pci-venue-pin';pin.setAttribute('aria-hidden','true');hotspot.append(pin);\n if(venue.events.length>1){const count=document.createElement('span');count.className='pci-venue-count';count.textContent=String(venue.events.length);hotspot.append(count);}\n root.append(hotspot);\n const show=()=>showDetailCard(venue.events.length===1?venue.events[0]:venue,root);\n hotspot.addEventListener('mouseenter',show);hotspot.addEventListener('mouseleave',scheduleCardClose);\n hotspot.addEventListener('focus',show);hotspot.addEventListener('blur',scheduleCardClose);\n hotspot.addEventListener('click',e=>{e.stopPropagation();\n  if(state.pinnedId===venue.id){state.pinnedId=null;closeDetailCard(true);}\n  else{state.pinnedId=venue.id;show();}\n });\n hotspot.addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();state.pinnedId=null;closeDetailCard(true);}});\n return root;\n}\n",
+    "label": "venue cards & tiny pins",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "function currentMarkerForEvent(id){\n  const markers=[...document.querySelectorAll('.event-marker')].filter(node=>node.dataset.eventId===id);\n  if(state.mode==='libre')return markers.find(el=>el.closest('#libre-map'))||null;\n  if(state.mode==='google')return markers.find(el=>el.closest('#google-map'))||null;\n  return markers.find(el=>el.closest('#preview-map'))||null;\n}\nfunction updatePinned(){\n  if(!state.pinnedId){\n    if(activeCardEvent&&!$('#event-detail-card').matches(':hover'))closeDetailCard(true);\n    return;\n  }\n  const event=eligibleEvents().find(e=>e.id===state.pinnedId);\n  const marker=currentMarkerForEvent(state.pinnedId);\n  if(event&&marker)showDetailCard(event,marker);\n  else closeDetailCard(true);\n}\n",
+    "new": "function currentMarkerForEvent(id){\n const markers=[...document.querySelectorAll('.event-marker')].filter(el=>el.dataset.eventId===id || el.dataset.eventIds?.split(',').includes(id));\n if(state.mode==='libre')return markers.find(el=>el.closest('#libre-map'))||null;\n if(state.mode==='google')return markers.find(el=>el.closest('#google-map'))||null;\n return markers.find(el=>el.closest('#preview-map'))||null;\n}\nfunction updatePinned(){\n if(!state.pinnedId){if(activeCardEvent&&!$('#event-detail-card').matches(':hover'))closeDetailCard(true);return;}\n const group=venueGroups().find(g=>g.id===state.pinnedId||g.events.some(e=>e.id===state.pinnedId));\n const marker=currentMarkerForEvent(state.pinnedId);\n if(group&&marker){const event=group.events.find(e=>e.id===state.pinnedId)|| (group.events.length===1?group.events[0]:group);showDetailCard(event,marker);}\n else closeDetailCard(true);\n}\n",
+    "label": "pinned markers find grouped venue",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "  if(!PUBLIC_EVENTS.length)summary.textContent='NO VERIFIED UPCOMING EVENTS';",
+    "new": "  if(!PUBLIC_EVENTS.length)summary.textContent='NO VERIFIED PHYSICAL EVENTS';",
+    "label": "physical only summary",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "if(watermark)watermark.textContent='INTERACTIVE VERIFIED MARKERS · MAP TILES UNAVAILABLE';",
+    "new": "if(watermark)watermark.textContent='GEOGRAPHIC POSITIONING · STREET TILES UNAVAILABLE';",
+    "label": "correct fallback note",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "VERIFIED EVENT LOCATIONS · STATIC MAP",
+    "new": "VERIFIED EVENT LOCATIONS · GEOREFERENCED MAP",
+    "label": "fallback status",
+    "count": 2
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "LIVE OPENSTREETMAP · 3D VIEW",
+    "new": "LIVE OPENSTREETMAP · EXACT VENUE PINS",
+    "label": "MapLibre status",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "const count=eligibleEvents().length;\n  $('#results-summary').textContent=`${count} VERIFIED EVENT${count===1?'':'S'} FOUND`;",
+    "new": "const count=eligibleEvents().length,locations=venueGroups().length;\n  $('#results-summary').textContent=`${count} VERIFIED EVENT${count===1?'':'S'} · ${locations} VENUE${locations===1?'':'S'}`;",
+    "label": "accurate status",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "3D SIGNAL ARCS</div>",
+    "new": "ONE PIN PER VENUE</div>",
+    "label": "legend update",
+    "count": 1
+  },
+  {
+    "path": "Module_2_Public_Website/public/events-radar.html",
+    "old": "HOVER A SIGNAL",
+    "new": "HOVER A VENUE",
+    "label": "hover instruction",
+    "count": 1
+  }
+]

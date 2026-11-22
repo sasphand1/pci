@@ -1,0 +1,178 @@
+[
+  {
+    "file": "Module_1_Adapter/src/modules/events/routes.ts",
+    "before": "import {syncSource,testSource,type EventSource} from './service.js';",
+    "after": "import {syncSource,testSource,type EventSource} from './service.js';\nimport {EVENT_FEED_CATALOG,catalogEntry,catalogSourceInput} from './catalog.js';",
+    "phase": "catalog"
+  },
+  {
+    "file": "Module_1_Adapter/src/modules/events/routes.ts",
+    "before": "adminEventsRoutes.use(requireAdmin,roles('owner','editor'));",
+    "after": "adminEventsRoutes.use(requireAdmin,roles('owner','editor'));\n// Provider presets contain genuine endpoint URLs, not events or implied permissions.\nadminEventsRoutes.get('/catalog',(_req,res)=>res.json({data:EVENT_FEED_CATALOG}));\nadminEventsRoutes.post('/catalog/:key/test',roles('owner'),handler(async(req,res)=>{\n const preset=catalogEntry(req.params.key);\n if(!preset)throw new HttpError(404,'CATALOG_SOURCE_UNKNOWN','Unknown public data feed');\n try{res.json({data:await testSource(catalogSourceInput(preset))});}\n catch(e){throw new HttpError(422,'CATALOG_TEST_FAILED',e instanceof Error?e.message:'Provider cannot be read');}\n}));\nadminEventsRoutes.post('/catalog/:key/install',roles('owner'),handler(async(req,res)=>{\n const preset=catalogEntry(req.params.key);\n if(!preset)throw new HttpError(404,'CATALOG_SOURCE_UNKNOWN','Unknown public data feed');\n const previous=await query('SELECT * FROM event_sources WHERE feed_url=$1 ORDER BY created_at LIMIT 1',[preset.feed_url]);\n if(previous.rows[0])return res.json({data:previous.rows[0],alreadyInstalled:true});\n // All new sources are disabled. The owner must verify rights, content and origin.\n const result=await query(`INSERT INTO event_sources(name,feed_type,feed_url,category,city_hint,enabled,official_confirmed,rights_confirmed)\n VALUES($1,$2,$3,$4,$5,false,false,false) RETURNING *`,\n [preset.name,preset.feed_type,preset.feed_url,preset.category,preset.city_hint]);\n await audit(actor(res),'events.catalog.install',result.rows[0].id,{key:preset.key});\n res.status(201).json({data:result.rows[0],alreadyInstalled:false});\n}));",
+    "phase": "catalog"
+  },
+  {
+    "file": "Module_1_Adapter/src/modules/events/routes.ts",
+    "before": "res.setHeader('Cache-Control','public, max-age=60');res.json({data:r.rows});",
+    "after": "const status=await query(`SELECT\n  (SELECT COUNT(*)::int FROM event_sources) AS sources_configured,\n  (SELECT COUNT(*)::int FROM event_sources WHERE enabled AND official_confirmed AND rights_confirmed) AS sources_enabled,\n  (SELECT COUNT(*)::int FROM pci_events WHERE approved=false AND active AND start_at>=now()) AS awaiting_review`);\n res.setHeader('Cache-Control','public, max-age=60');res.json({data:r.rows,meta:status.rows[0]});",
+    "phase": "catalog"
+  },
+  {
+    "file": "Module_1_Adapter/src/modules/events/parse.ts",
+    "before": "const payload=JSON.parse(text);const list=Array.isArray(payload)?payload:(Array.isArray(payload.events)?payload.events:(Array.isArray(payload.data)?payload.data:[]));",
+    "after": "const payload=JSON.parse(text);const list=Array.isArray(payload)?payload:(Array.isArray(payload?.events)?payload.events:(Array.isArray(payload?.data)?payload.data:(Array.isArray(payload?.results)?payload.results:[])));",
+    "phase": "catalog"
+  },
+  {
+    "file": "Module_1_Adapter/src/modules/events/parse.ts",
+    "before": "return {externalId:String(e.id??e.uid??e.url??''),name:clean(e.title??e.name),start:e.startDate??e.start_at??e.start??e.date,description:clean(e.description??''),venue:clean(e.venue??location.name??e.locationName),city:String(e.city??location.city??''),...c,link:String(e.url??e.link??''),ticket:String(e.ticketType??e.ticket_type??'unknown'),price:clean(e.price??e.priceText??''),organizer:clean(e.organizer??'')};",
+    "after": "return {externalId:String(e.id??e.uid??e.url??e.source_url??''),name:clean(e.title??e.name),start:e.startDate??e.start_at??e.start??e.date,description:clean(e.description??''),venue:clean(e.venue??location.name??e.locationName),city:String(e.city??location.city??''),country:String(e.country??location.country??''),...c,link:String(e.url??e.link??e.source_url??''),ticket:String(e.ticketType??e.ticket_type??'unknown'),price:clean(e.price??e.priceText??''),organizer:clean(e.organizer??'')};",
+    "phase": "catalog"
+  },
+  {
+    "file": "Module_1_Adapter/src/modules/events/parse.ts",
+    "before": "if(raw.country&& !/^pakistan$/i.test(String(raw.country).trim()))return {ok:false,reason:'Event country is not Pakistan'};",
+    "after": "if(raw.country&& !/^(pakistan|pk)$/i.test(String(raw.country).trim()))return {ok:false,reason:'Event country is not Pakistan'};",
+    "phase": "catalog"
+  },
+  {
+    "file": "Module_1_Adapter/src/modules/events/parse.mjs",
+    "before": "const payload=JSON.parse(text);const list=Array.isArray(payload)?payload:(Array.isArray(payload.events)?payload.events:(Array.isArray(payload.data)?payload.data:[]));",
+    "after": "const payload=JSON.parse(text);const list=Array.isArray(payload)?payload:(Array.isArray(payload?.events)?payload.events:(Array.isArray(payload?.data)?payload.data:(Array.isArray(payload?.results)?payload.results:[])));",
+    "phase": "catalog"
+  },
+  {
+    "file": "Module_1_Adapter/src/modules/events/parse.mjs",
+    "before": "return {externalId:String(e.id??e.uid??e.url??''),name:clean(e.title??e.name),start:e.startDate??e.start_at??e.start??e.date,description:clean(e.description??''),venue:clean(e.venue??location.name??e.locationName),city:String(e.city??location.city??''),...c,link:String(e.url??e.link??''),ticket:String(e.ticketType??e.ticket_type??'unknown'),price:clean(e.price??e.priceText??''),organizer:clean(e.organizer??'')};",
+    "after": "return {externalId:String(e.id??e.uid??e.url??e.source_url??''),name:clean(e.title??e.name),start:e.startDate??e.start_at??e.start??e.date,description:clean(e.description??''),venue:clean(e.venue??location.name??e.locationName),city:String(e.city??location.city??''),country:String(e.country??location.country??''),...c,link:String(e.url??e.link??e.source_url??''),ticket:String(e.ticketType??e.ticket_type??'unknown'),price:clean(e.price??e.priceText??''),organizer:clean(e.organizer??'')};",
+    "phase": "catalog"
+  },
+  {
+    "file": "Module_1_Adapter/src/modules/events/parse.mjs",
+    "before": "if(raw.country&& !/^pakistan$/i.test(String(raw.country).trim()))return {ok:false,reason:'Event country is not Pakistan'};",
+    "after": "if(raw.country&& !/^(pakistan|pk)$/i.test(String(raw.country).trim()))return {ok:false,reason:'Event country is not Pakistan'};",
+    "phase": "catalog"
+  },
+  {
+    "file": "Module_2_Public_Website/src/app/api/events/route.ts",
+    "before": "return NextResponse.json({data:value.data},{headers:{'Cache-Control':'no-store'}});",
+    "after": "return NextResponse.json({data:value.data,meta:value.meta??null},{headers:{'Cache-Control':'no-store'}});",
+    "phase": "catalog"
+  },
+  {
+    "file": "Module_2_Public_Website/public/events-radar.html",
+    "before": "if(!PUBLIC_EVENTS.length)summary.textContent='NO VERIFIED UPCOMING EVENTS';",
+    "after": "if(!PUBLIC_EVENTS.length){\n   const health=body.meta||{};\n   if(health.sources_configured===0)summary.textContent='NO SOURCES CONNECTED · OPEN EVENT SOURCES IN ADMIN';\n   else if(health.sources_enabled===0)summary.textContent='FEEDS ADDED · AWAITING OWNER ACTIVATION';\n   else if(Number(health.awaiting_review)>0)summary.textContent=`${Number(health.awaiting_review)} EVENTS WAITING FOR OWNER REVIEW`;\n   else summary.textContent='SOURCES CONNECTED · NO APPROVED UPCOMING EVENTS';\n  }",
+    "phase": "catalog"
+  },
+  {
+    "file": "Module_3_Admin_Panel/src/app/events/sources/page.tsx",
+    "before": "type Run={id:string;source_name:string;status:string;imported:number;rejected:number;detail:string|null;created_at:string};",
+    "after": "type Run={id:string;source_name:string;status:string;imported:number;rejected:number;detail:string|null;created_at:string};\ntype ProviderPreset={key:string;name:string;feed_type:'json'|'ics'|'rss';category:string;feed_url:string;documentation:string;attribution:string;notes:string;verification:string};\ntype FeedProbe={inspected:number;candidates:number;rejected:number;geolocated:number;published:number;note:string};",
+    "phase": "catalog"
+  },
+  {
+    "file": "Module_3_Admin_Panel/src/app/events/sources/page.tsx",
+    "before": "const [sources,setSources]=useState<Source[]>([]),[events,setEvents]=useState<EventItem[]>([]),[runs,setRuns]=useState<Run[]>([]);",
+    "after": "const [sources,setSources]=useState<Source[]>([]),[events,setEvents]=useState<EventItem[]>([]),[runs,setRuns]=useState<Run[]>([]),[catalog,setCatalog]=useState<ProviderPreset[]>([]),[probes,setProbes]=useState<Record<string,string>>({});",
+    "phase": "catalog"
+  },
+  {
+    "file": "Module_3_Admin_Panel/src/app/events/sources/page.tsx",
+    "before": "const [a,b,c]=await Promise.all([\n api<Source[]>('/admin/events/sources'),api<EventItem[]>('/admin/events/list?limit=300'),api<Run[]>('/admin/events/runs')]);",
+    "after": "const [a,b,c,d]=await Promise.all([\n api<Source[]>('/admin/events/sources'),api<EventItem[]>('/admin/events/list?limit=300'),api<Run[]>('/admin/events/runs'),api<ProviderPreset[]>('/admin/events/catalog')]);",
+    "phase": "catalog"
+  },
+  {
+    "file": "Module_3_Admin_Panel/src/app/events/sources/page.tsx",
+    "before": "setRuns(c);",
+    "after": "setRuns(c);setCatalog(d);",
+    "phase": "catalog"
+  },
+  {
+    "file": "Module_3_Admin_Panel/src/app/events/sources/page.tsx",
+    "before": "async function save(body:typeof empty){",
+    "after": "async function probePreset(key:string){\n setWorking(key+'-probe');setError('');\n try{const result=await api<FeedProbe>('/admin/events/catalog/'+encodeURIComponent(key)+'/test',{method:'POST',csrf:identity?.csrfToken});\n  setProbes(p=>({...p,[key]:`${result.candidates} suitable Pakistan event candidates · ${result.inspected} scanned · ${result.rejected} rejected · ${result.geolocated} geolocated. No records published.`}));\n }catch(e){setProbes(p=>({...p,[key]:'Feed test failed: '+errorText(e)}));}\n finally{setWorking('');}\n}\n async function save(body:typeof empty){",
+    "phase": "catalog"
+  },
+  {
+    "file": "Module_3_Admin_Panel/src/app/events/sources/page.tsx",
+    "before": "  <Card><div className=\"pci-ef-heading\"><h2>Source connections</h2>",
+    "after": "  <Card><div className=\"pci-ef-heading\"><h2>Live data integrations</h2><span className=\"muted\">Free public feed endpoints · verify coverage before activation</span></div>\n    <p className=\"muted\">These are real, documented third-party feeds, not seeded events. Test each feed to see whether it contains future Pakistan events. Adding a source never authorizes publication: the Owner must confirm provenance and reuse rights, enable the source, sync, and approve event coordinates.</p>\n    <div className=\"pci-ef-source-list\">{catalog.map(p=><article key={p.key} className=\"pci-ef-source\">\n      <div className=\"pci-ef-source-main\"><div><h3>{p.name}</h3><p className=\"fineprint\">{p.feed_type.toUpperCase()} · {p.category} · {p.attribution}</p><p className=\"fineprint\">{p.notes}</p>\n      <a className=\"pci-ef-url\" href={p.documentation} target=\"_blank\" rel=\"noopener noreferrer\">Provider documentation</a></div>\n      <span className=\"pci-ef-status\">{sources.some(s=>s.feed_url===p.feed_url)?'Installed':'Available'}</span></div>\n      {probes[p.key]&&<p role=\"status\" className=\"fineprint\">{probes[p.key]}</p>}\n      {owner&&<div className=\"pci-ef-actions\"><button type=\"button\" className=\"btn btn-secondary\" disabled={!!working} onClick={()=>void probePreset(p.key)}>{working===p.key+'-probe'?'Testing…':'Test live feed'}</button>\n      <button type=\"button\" className=\"btn btn-primary\" disabled={!!working||sources.some(s=>s.feed_url===p.feed_url)} onClick={()=>void action(p.key+'-install',()=>api('/admin/events/catalog/'+encodeURIComponent(p.key)+'/install',{method:'POST',csrf:identity?.csrfToken}),'Feed added in DISABLED state. Verify rights, activate, synchronize and review results below.')}>Add to my sources</button></div>}\n     </article>)}</div>\n    {!catalog.length&&!loading&&<p className=\"muted\">No catalog response. Check backend deployment and reload.</p>}\n  </Card>\n  <Card><div className=\"pci-ef-heading\"><h2>Source connections</h2>",
+    "phase": "catalog"
+  },
+  {
+    "file": "Module_1_Adapter/src/lib/events-schema.ts",
+    "before": "await client.query(sql);",
+    "after": "await client.query(sql);\n  const editorialSql=await readFile(fileURLToPath(new URL('../../database/migrations/098_editorial_events.sql',import.meta.url)),'utf8');\n  await client.query(editorialSql);",
+    "phase": "operational"
+  },
+  {
+    "file": "Module_1_Adapter/src/modules/events/routes.ts",
+    "before": "adminEventsRoutes.use(requireAdmin,roles('owner','editor'));",
+    "after": "adminEventsRoutes.use(requireAdmin,roles('owner','editor'));\n// Editorial notices are individual owner-confirmed records, not third-party feed imports.\n// An explicit source link and a venue coordinate check are required before publication.\nconst editorialBounds:Record<string,[number,number,number,number]>={Karachi:[24.6,25.3,66.6,67.5],Lahore:[31.1,31.8,74,74.7],Islamabad:[33.4,33.9,72.7,73.5]};\nconst editorialInput=z.object({\n name:z.string().trim().min(4).max(180),\n start_at:z.string().datetime({offset:true}),end_at:z.string().datetime({offset:true}),\n city,category,venue:z.string().trim().min(3).max(200),\n latitude:z.number().finite(),longitude:z.number().finite(),\n source_url:z.string().url().max(1900),\n organizer:z.string().trim().max(160).default(''),\n description:z.string().trim().max(500).default(''),\n confirmed_official:z.literal(true)\n}).strict();\nadminEventsRoutes.get('/editorial',handler(async(_req,res)=>{\n const r=await query(`SELECT id,name,start_at,end_at,city,category,venue,latitude,longitude,source_url,organizer,approved,verified_at\n FROM pci_editorial_events WHERE end_at>=now()-interval '30 days' ORDER BY start_at LIMIT 200`);\n res.json({data:r.rows});\n}));\nadminEventsRoutes.post('/editorial',roles('owner'),handler(async(req,res)=>{\n const event=editorialInput.parse(req.body);\n if(!event.source_url.startsWith('https://')||!new URL(event.source_url).hostname.includes('.'))\n   throw new HttpError(400,'SOURCE_URL_REQUIRED','Provide a genuine HTTPS organizer or venue announcement');\n const start=Date.parse(event.start_at),end=Date.parse(event.end_at);\n if(!Number.isFinite(start)||!Number.isFinite(end)||start<=Date.now()||end<=start)\n   throw new HttpError(422,'INVALID_EVENT_DATE','Event must start in the future and end after it starts');\n const box=editorialBounds[event.city];\n if(!box||event.latitude<box[0]||event.latitude>box[1]||event.longitude<box[2]||event.longitude>box[3])\n   throw new HttpError(422,'VENUE_COORDINATES','Verify the real event venue location; city centre coordinates are not a substitute');\n const created=await query(`INSERT INTO pci_editorial_events\n (name,start_at,end_at,city,category,venue,latitude,longitude,source_url,organizer,description,approved)\n VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true)\n ON CONFLICT(name,start_at,city) DO UPDATE SET end_at=EXCLUDED.end_at,category=EXCLUDED.category,venue=EXCLUDED.venue,\n latitude=EXCLUDED.latitude,longitude=EXCLUDED.longitude,source_url=EXCLUDED.source_url,organizer=EXCLUDED.organizer,\n description=EXCLUDED.description,approved=true,verified_at=now(),updated_at=now()\n RETURNING *`,[event.name,event.start_at,event.end_at,event.city,event.category,event.venue,event.latitude,event.longitude,event.source_url,event.organizer,event.description]);\n await audit(actor(res),'events.editorial.publish',created.rows[0].id,{sourceUrl:event.source_url,city:event.city});\n res.status(201).json({data:created.rows[0]});\n}));\nadminEventsRoutes.patch('/editorial/:id/visibility',roles('owner'),handler(async(req,res)=>{\n const id=uuid.parse(req.params.id);const {approved}=z.object({approved:z.boolean()}).strict().parse(req.body);\n const updated=await query('UPDATE pci_editorial_events SET approved=$2,updated_at=now() WHERE id=$1 RETURNING *',[id,approved]);\n if(!updated.rows[0])throw new HttpError(404,'EDITORIAL_NOT_FOUND','Editorial event not found');\n await audit(actor(res),'events.editorial.visibility',id,{approved});\n res.json({data:updated.rows[0]});\n}));",
+    "phase": "operational"
+  },
+  {
+    "file": "Module_1_Adapter/src/modules/events/routes.ts",
+    "before": "publicEventsRoutes.get('/events',handler(async(_req,res)=>{\n const r=await query(`SELECT e.id,e.name,e.start_at,e.all_day,e.city,e.category,e.venue,e.latitude,e.longitude,e.description,e.event_url,e.organizer,e.ticket_type,e.price_text,s.name AS source_name\n FROM pci_events e JOIN event_sources s ON s.id=e.source_id\n WHERE e.approved=true AND e.active=true AND e.start_at>=now() AND s.enabled=true AND s.official_confirmed=true AND s.rights_confirmed=true\n AND e.latitude IS NOT NULL AND e.longitude IS NOT NULL\n ORDER BY e.start_at ASC LIMIT 400`);\n res.setHeader('Cache-Control','public, max-age=60');res.json({data:r.rows});\n}));\n",
+    "after": "publicEventsRoutes.get('/events',handler(async(_req,res)=>{\n // Source feeds are restricted to approved, geolocated, future entries.\n const [feed,editorial,status]=await Promise.all([\n  query(`SELECT e.id,e.name,e.start_at,e.start_at AS end_at,e.all_day,e.city,e.category,e.venue,e.latitude,e.longitude,e.description,e.event_url,e.organizer,e.ticket_type,e.price_text,s.name AS source_name\n   FROM pci_events e JOIN event_sources s ON s.id=e.source_id\n   WHERE e.approved=true AND e.active=true AND e.start_at>=now() AND s.enabled=true AND s.official_confirmed=true AND s.rights_confirmed=true\n   AND e.latitude IS NOT NULL AND e.longitude IS NOT NULL ORDER BY e.start_at ASC LIMIT 400`),\n  query(`SELECT id,name,start_at,end_at,false AS all_day,city,category,venue,latitude,longitude,description,\n   source_url AS event_url,organizer,'unknown'::text AS ticket_type,''::text AS price_text,\n   'PCI editorial · verified official source'::text AS source_name\n   FROM pci_editorial_events WHERE approved=true AND end_at>now() ORDER BY start_at ASC LIMIT 200`),\n  query(`SELECT (SELECT COUNT(*)::int FROM event_sources) AS sources_configured,\n   (SELECT COUNT(*)::int FROM event_sources WHERE enabled AND official_confirmed AND rights_confirmed) AS sources_enabled,\n   (SELECT COUNT(*)::int FROM pci_events WHERE approved=false AND active AND start_at>=now()) AS awaiting_review`)\n ]);\n const data=[...feed.rows,...editorial.rows].sort((a,b)=>new Date(a.start_at).valueOf()-new Date(b.start_at).valueOf());\n res.setHeader('Cache-Control','public, max-age=60');\n res.json({data,meta:{...status.rows[0],editorial_published:editorial.rows.length,feed_published:feed.rows.length}});\n}));\n",
+    "kind": "replace_public_route",
+    "phase": "operational"
+  },
+  {
+    "file": "Module_2_Public_Website/public/events-radar.html",
+    "before": "if(!Number.isFinite(lat)||!Number.isFinite(lng)||!Number.isFinite(t)||t<=Date.now())return null;",
+    "after": "const end=Date.parse(item.end_at||item.start_at);\n if(!Number.isFinite(lat)||!Number.isFinite(lng)||!Number.isFinite(t)||!Number.isFinite(end)||end<=Date.now())return null;",
+    "phase": "operational"
+  },
+  {
+    "file": "Module_2_Public_Website/public/events-radar.html",
+    "before": "const approx=EVENTS_CITY_ANCHOR[item.city];",
+    "after": "const anchor=EVENTS_CITY_ANCHOR[item.city],center=CENTERS[item.city];\n // Static illustration preview approximates venue offsets; Waze uses exact coordinates.\n const approx={x:Math.max(10,Math.min(90,anchor.x+(lng-center.lng)*3)),y:Math.max(10,Math.min(90,anchor.y-(lat-center.lat)*3))};",
+    "phase": "operational"
+  },
+  {
+    "file": "Module_2_Public_Website/public/events-radar.html",
+    "before": "$('#engine-status').textContent='OFFLINE DESIGN PREVIEW';",
+    "after": "$('#engine-status').textContent='VERIFIED EVENT LOCATIONS · STATIC MAP';",
+    "all": 2,
+    "phase": "operational"
+  },
+  {
+    "file": "Module_2_Public_Website/public/events-radar.html",
+    "before": "if(watermark)watermark.textContent='LIVE MAP UNAVAILABLE · DESIGN FALLBACK';",
+    "after": "if(watermark)watermark.textContent='INTERACTIVE VERIFIED MARKERS · MAP TILES UNAVAILABLE';",
+    "phase": "operational"
+  },
+  {
+    "file": "Module_3_Admin_Panel/src/app/events/sources/page.tsx",
+    "before": "type Run={id:string;source_name:string;status:string;imported:number;rejected:number;detail:string|null;created_at:string};",
+    "after": "type Run={id:string;source_name:string;status:string;imported:number;rejected:number;detail:string|null;created_at:string};\ntype EditorialEvent={id:string;name:string;city:string;venue:string;start_at:string;source_url:string;approved:boolean};",
+    "phase": "operational"
+  },
+  {
+    "file": "Module_3_Admin_Panel/src/app/events/sources/page.tsx",
+    "before": "const [loading,setLoading]=useState(true),[working,setWorking]=useState(''),[error,setError]=useState(''),[ok,setOk]=useState('');",
+    "after": "const [loading,setLoading]=useState(true),[working,setWorking]=useState(''),[error,setError]=useState(''),[ok,setOk]=useState('');\n const [editorialRows,setEditorialRows]=useState<EditorialEvent[]>([]);\n const [editorialDraft,setEditorialDraft]=useState({name:'',start_local:'',end_local:'',city:'Islamabad',category:'expos',venue:'',latitude:'',longitude:'',source_url:'',organizer:'',confirmed_official:false});",
+    "phase": "operational"
+  },
+  {
+    "file": "Module_3_Admin_Panel/src/app/events/sources/page.tsx",
+    "before": "setRuns(c);",
+    "after": "setRuns(c);\n const editorials=await api<EditorialEvent[]>('/admin/events/editorial');setEditorialRows(editorials);",
+    "phase": "operational"
+  },
+  {
+    "file": "Module_3_Admin_Panel/src/app/events/sources/page.tsx",
+    "before": " async function save(body:typeof empty){",
+    "after": "async function publishEditorial(){\n  const v=editorialDraft;\n  if(!v.confirmed_official){setError('Verify the primary announcement and real venue before publishing.');return;}\n  const iso=(s:string)=>/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$/.test(s)?s+':00+05:00':s;\n  const body={name:v.name,start_at:iso(v.start_local),end_at:iso(v.end_local),city:v.city,category:v.category,\n   venue:v.venue,latitude:Number(v.latitude),longitude:Number(v.longitude),source_url:v.source_url,\n   organizer:v.organizer,description:'',confirmed_official:true};\n  const saved=await action('editorial-publish',()=>api('/admin/events/editorial',{method:'POST',csrf:identity?.csrfToken,body}),\n   'Verified event published. It will appear on the public map.');\n  if(saved)setEditorialDraft({name:'',start_local:'',end_local:'',city:'Islamabad',category:'expos',venue:'',latitude:'',longitude:'',source_url:'',organizer:'',confirmed_official:false});\n }\n async function setEditorialVisibility(id:string,approved:boolean){\n  await action('editorial-'+id,()=>api('/admin/events/editorial/'+id+'/visibility',{method:'PATCH',csrf:identity?.csrfToken,body:{approved}}),\n   approved?'Verified event republished.':'Editorial event unpublished.');\n }\n async function save(body:typeof empty){",
+    "phase": "operational"
+  },
+  {
+    "file": "Module_3_Admin_Panel/src/app/events/sources/page.tsx",
+    "before": "  <Card><div className=\"pci-ef-heading\"><h2>Source connections</h2>",
+    "after": "\n  <Card><div className=\"pci-ef-heading\"><h2>Publish verified organiser announcement</h2><span className=\"muted\">Owner only · direct, source-linked event publication</span></div>\n   <p className=\"fineprint\">Use this when the organizer has a real announcement but no machine-readable feed. Confirm the actual venue, date and coordinates using the official announcement. No fabricated tickets, maps or dates.</p>\n   {owner&&<form className=\"pci-ef-form\" onSubmit={e=>{e.preventDefault();void publishEditorial();}}>\n     <div className=\"pci-ef-grid\">\n       <label className=\"pci-ef-wide\">Official event name<input required maxLength={180} value={editorialDraft.name} onChange={e=>setEditorialDraft(p=>({...p,name:e.target.value}))} placeholder=\"Name exactly as announced\"/></label>\n       <label>Start (Pakistan time)<input required type=\"datetime-local\" value={editorialDraft.start_local} onChange={e=>setEditorialDraft(p=>({...p,start_local:e.target.value}))}/></label>\n       <label>End (Pakistan time)<input required type=\"datetime-local\" value={editorialDraft.end_local} onChange={e=>setEditorialDraft(p=>({...p,end_local:e.target.value}))}/></label>\n       <label>City<select value={editorialDraft.city} onChange={e=>setEditorialDraft(p=>({...p,city:e.target.value}))}><option>Karachi</option><option>Lahore</option><option>Islamabad</option></select></label>\n       <label>Category<select value={editorialDraft.category} onChange={e=>setEditorialDraft(p=>({...p,category:e.target.value}))}>{CATEGORY_OPTIONS.map(([id,title])=><option key={id} value={id}>{title}</option>)}</select></label>\n       <label className=\"pci-ef-wide\">Verified venue<input required maxLength={200} value={editorialDraft.venue} onChange={e=>setEditorialDraft(p=>({...p,venue:e.target.value}))}/></label>\n       <label>Venue latitude<input required type=\"number\" step=\"any\" value={editorialDraft.latitude} onChange={e=>setEditorialDraft(p=>({...p,latitude:e.target.value}))}/></label>\n       <label>Venue longitude<input required type=\"number\" step=\"any\" value={editorialDraft.longitude} onChange={e=>setEditorialDraft(p=>({...p,longitude:e.target.value}))}/></label>\n       <label className=\"pci-ef-wide\">Official organizer or venue announcement URL<input required type=\"url\" pattern=\"https://.*\" value={editorialDraft.source_url} onChange={e=>setEditorialDraft(p=>({...p,source_url:e.target.value}))} placeholder=\"https://official-organizer.example/event\"/></label>\n       <label className=\"pci-ef-wide\">Organizer (optional)<input value={editorialDraft.organizer} onChange={e=>setEditorialDraft(p=>({...p,organizer:e.target.value}))}/></label>\n     </div>\n     <div className=\"pci-ef-checks\"><label><input required type=\"checkbox\" checked={editorialDraft.confirmed_official} onChange={e=>setEditorialDraft(p=>({...p,confirmed_official:e.target.checked}))}/> I checked the organizer announcement and exact venue coordinates</label></div>\n     <button type=\"submit\" className=\"btn btn-primary\" disabled={!!working}>{working==='editorial-publish'?'Publishing…':'Publish verified event'}</button>\n   </form>}\n   {!owner&&<p className=\"muted\">Only the Owner can publish or unpublish editorial events.</p>}\n   {editorialRows.length>0&&<div className=\"table-wrap\"><table className=\"data-table admin-table\"><thead><tr><th>Verified event</th><th>City</th><th>Start</th><th>Original source</th><th>Publication</th></tr></thead><tbody>{editorialRows.map(ev=><tr key={ev.id}><td><strong>{ev.name}</strong><div className=\"fineprint\">{ev.venue}</div></td><td>{ev.city}</td><td>{fmtDate(ev.start_at)}</td><td><a target=\"_blank\" rel=\"noopener noreferrer\" href={ev.source_url}>Original announcement</a></td><td>{owner?<button className=\"btn btn-secondary\" type=\"button\" disabled={!!working} onClick={()=>void setEditorialVisibility(ev.id,!ev.approved)}>{ev.approved?'Unpublish':'Republish'}</button>:(ev.approved?'Published':'Unpublished')}</td></tr>)}</tbody></table></div>}\n  </Card>\n  <Card><div className=\"pci-ef-heading\"><h2>Source connections</h2>",
+    "phase": "operational"
+  }
+]

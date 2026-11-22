@@ -145,3 +145,72 @@ body{font-family:'Segoe UI Variable Text','Segoe UI Variable','Segoe UI',system-
  .site-shell .pci-home-white{padding:var(--sp-5) 0}
 }
 
+
+
+/* PCI footer: preserve the established deep-teal palette and site typography. */
+.site-shell .pci-corporate-footer .footer-grid {
+  grid-template-columns: minmax(0, 1.75fr) minmax(0, .85fr) minmax(0, .8fr) minmax(0, 1.45fr);
+  column-gap: clamp(20px, 3.2vw, 44px);
+  row-gap: 28px;
+  padding: 32px 0 30px;
+  align-items: start;
+}
+.site-shell .pci-corporate-footer .footer-grid > * { min-width: 0; }
+.site-shell .pci-corporate-footer h3 {
+  font-family: inherit;
+  font-size: .88rem;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: 0;
+  margin: 0 0 13px;
+}
+.site-shell .pci-corporate-footer .pci-footer-column > a,
+.site-shell .pci-corporate-footer .pci-footer-contact {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0;
+  margin: 0 0 9px;
+  font-size: .8rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.site-shell .pci-corporate-footer .pci-footer-intro p,
+.site-shell .pci-corporate-footer .pci-footer-company p {
+  max-width: 330px;
+  margin: 0 0 12px;
+  font-size: .8rem;
+  line-height: 1.6;
+}
+.site-shell .pci-corporate-footer .pci-footer-intro .pci-footer-disclaimer {
+  font-size: .73rem;
+  opacity: .84;
+  margin-top: 14px;
+}
+.site-shell .pci-corporate-footer .pci-footer-bottom-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+.site-shell .pci-corporate-footer .footer-bottom { padding: 15px 0; }
+.site-shell .pci-corporate-footer .footer-bottom a { display: inline; padding: 0; color: inherit; font-weight: 600; }
+.site-shell .pci-corporate-footer a:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+@media (max-width: 950px) {
+  .site-shell .pci-corporate-footer .footer-grid {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: 26px 32px;
+  }
+  .site-shell .pci-corporate-footer .footer-grid > :first-child { grid-column: auto; }
+}
+@media (max-width: 560px) {
+  .site-shell .pci-corporate-footer .footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px 20px;
+    padding: 28px 0;
+  }
+  .site-shell .pci-corporate-footer .pci-footer-intro,
+  .site-shell .pci-corporate-footer .pci-footer-company { grid-column: 1 / -1; }
+  .site-shell .pci-corporate-footer .pci-footer-bottom-inner { align-items: flex-start; flex-direction: column; }
+}

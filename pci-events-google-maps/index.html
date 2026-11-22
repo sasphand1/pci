@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#07101f" />
+  <title>PCI — Pakistan Events Radar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="config.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="header">
+      <div class="brand" aria-label="Pakistan Creator Index Events">
+        <div class="brand__icon"><span>PCI</span><i></i></div>
+        <div class="brand__text"><span class="brand__name">PAKISTAN CREATOR INDEX</span><span class="brand__sub">EVENT INTELLIGENCE <b> / </b> RADAR</span></div>
+      </div>
+      <div class="header__mid"><span class="status-light"></span><span>EXPLORE WHAT'S NEXT</span></div>
+      <div class="header__right"><span class="edition-tag">CONCEPT / 01</span><span class="header__date">THREE CITIES. ONE MAP.</span></div>
+    </header>
+
+    <nav class="category-nav" aria-label="Event categories">
+      <div class="category-nav__caption"><span class="tiny-line"></span> DISCOVER BY CATEGORY</div>
+      <div id="category-tabs" class="tabs" role="tablist"></div>
+    </nav>
+
+    <main class="workspace">
+      <aside class="sidebar" aria-label="City filter">
+        <div class="sidebar__header"><div class="eyebrow">01 / LOCATION FILTER</div><h2>Choose a city<span class="heading-dot">.</span></h2><p>Pinpoint what's happening across Pakistan's three major hubs.</p></div>
+        <div class="sidebar__label">EXPLORE LOCATIONS <span>03 CITIES</span></div>
+        <div id="city-list" class="city-list"></div>
+        <div class="sidebar__separator"></div>
+        <div class="sidebar__brief"><div class="sidebar__brief-icon">✦</div><div><strong>Made for the curious.</strong><p>Hover a glowing event to see dates, venue and ticket details. Tap to keep a card open.</p></div></div>
+        <div class="sidebar__bottom"><span class="small-green-dot"></span><span>DEMO EVENTS · NOT REAL LISTINGS</span></div>
+      </aside>
+
+      <section class="map-panel" aria-label="Interactive events map">
+        <div id="google-map" aria-label="Google Maps displaying event locations"></div>
+        <div id="preview-map" class="preview-map">
+          <div class="map-grid"></div>
+          <div class="map-glow map-glow--one"></div><div class="map-glow map-glow--two"></div>
+          <div class="preview-world" id="preview-world">
+            <img class="country-art" src="assets/pakistan-network-reference.jpg" alt="Decorative neon map silhouette of Pakistan" />
+            <div id="preview-markers" class="preview-markers"></div>
+          </div>
+          <div class="preview-map__watermark">DESIGN PREVIEW <span>•</span> GOOGLE MAPS NOT CONNECTED</div>
+        </div>
+
+        <div class="map-top-left"><span class="locator-glyph">⌖</span> <span id="map-location-label">PAKISTAN / ALL CITIES</span></div>
+        <div class="map-top-right"><div class="live-indicator"><span class="radar-pulse"></span><span id="engine-status">DESIGN PREVIEW</span></div></div>
+        <div class="map-heading"><span class="eyebrow">DISCOVER / INTERACTIVE MAP</span><h1>Every event.<br /><em>One constellation.</em></h1><p>Explore the city. Follow the signal.</p></div>
+        <div class="map-side-controls"><button id="zoom-in" type="button" title="Zoom in" aria-label="Zoom in">+</button><button id="zoom-out" type="button" title="Zoom out" aria-label="Zoom out">−</button><span class="vertical-rule"></span><button id="map-reset" type="button" title="Reset map" aria-label="Reset map">⌖</button></div>
+        <div class="map-legend"><span class="legend-crystal"></span> HOVER A SIGNAL <span class="legend-sep"></span> <span class="legend-blue"></span> UPCOMING EVENT</div>
+        <div class="map-coordinate">24°–34° N &nbsp; / &nbsp; 67°–75° E</div>
+        <div class="map-bottom-gradient"></div>
+
+        <div class="map-foot">
+          <div class="map-foot__main"><div class="map-foot__title">ON THE RADAR <span class="foot-arrow">↗</span></div><div id="results-summary" class="map-foot__summary">9 DEMO EVENTS FOUND</div></div>
+          <label class="search-field" aria-label="Search demo events"><span>⌕</span><input id="search-input" type="search" placeholder="Search events or venues" autocomplete="off" /></label>
+          <div class="map-foot__tags"><span class="filter-tag"><span class="filter-tag-dot"></span> NEON SIGNALS</span><span class="filter-tag filter-tag--muted">2027 DEMO DATA</span></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer"><span>PCI <b>●</b> EVENTS RADAR</span><span>PROTOTYPE UI · ALL EVENTS ARE FICTIONAL PLACEHOLDERS</span><button type="button" id="open-key-dialog">CONNECT GOOGLE MAPS <span>↗</span></button></footer>
+  </div>
+
+  <div class="modal-backdrop" id="key-dialog" aria-hidden="true">
+    <div class="key-modal" role="dialog" aria-modal="true" aria-labelledby="key-title">
+      <button id="close-key-dialog" class="modal-close" type="button" aria-label="Close">×</button>
+      <div class="eyebrow">REAL GOOGLE MAP INTEGRATION</div>
+      <h2 id="key-title">Connect the live map<span class="heading-dot">.</span></h2>
+      <p>This prototype works in preview mode. Enter a browser-restricted <strong>Google Maps JavaScript API key</strong> to display the real interactive Google map with the same crystal event pins and filters.</p>
+      <label for="api-key">GOOGLE MAPS API KEY</label>
+      <input id="api-key" type="password" spellcheck="false" placeholder="Paste your Google Maps JavaScript API key" autocomplete="off" />
+      <div class="key-error" id="key-error" role="alert"></div>
+      <button class="connect-btn" id="connect-key" type="button">LOAD GOOGLE MAPS <span>↗</span></button>
+      <div class="key-help">Enable <strong>Maps JavaScript API</strong> and configure billing (or use an eligible Google Maps demo key). Restrict the key to your website's domain and Maps JavaScript API. <a href="https://developers.google.com/maps/documentation/javascript/get-api-key" target="_blank" rel="noopener noreferrer">Google setup guide ↗</a></div>
+    </div>
+  </div>
+</body>
+</html>
