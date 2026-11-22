@@ -36,7 +36,7 @@ function coords(raw){
 }
 function getLocation(e){return typeof e.location==='object'&&e.location!==null?e.location:{};}
 export function parseJsonFeed(text){
- const payload=JSON.parse(text);const list=Array.isArray(payload)?payload:(Array.isArray(payload.events)?payload.events:(Array.isArray(payload.data)?payload.data:[]));
+ const payload=JSON.parse(text);const list=Array.isArray(payload)?payload:(Array.isArray(payload?.events)?payload.events:(Array.isArray(payload?.data)?payload.data:(Array.isArray(payload?.results)?payload.results:[])));
  if(!Array.isArray(list))return [];
  return list.slice(0,300).map(e=>{
  if(!e||typeof e!=='object')return null;
@@ -47,7 +47,7 @@ export function parseJsonFeed(text){
   return {externalId:String(e.idEvent||''),name:clean(e.strEvent),start,description:clean(e.strDescriptionEN||''),venue:clean(e.strVenue||''),city:clean(e.strCity||''),country:clean(e.strCountry||''),lat:e.strLatitude??null,lng:e.strLongitude??null,link:'',ticket:'unknown',price:'',organizer:clean(e.strLeague||'')};
  }
  const location=getLocation(e),c=coords({...e,...location});
- return {externalId:String(e.id??e.uid??e.url??''),name:clean(e.title??e.name),start:e.startDate??e.start_at??e.start??e.date,description:clean(e.description??''),venue:clean(e.venue??location.name??e.locationName),city:String(e.city??location.city??''),...c,link:String(e.url??e.link??''),ticket:String(e.ticketType??e.ticket_type??'unknown'),price:clean(e.price??e.priceText??''),organizer:clean(e.organizer??'')};
+ return {externalId:String(e.id??e.uid??e.url??e.source_url??''),name:clean(e.title??e.name),start:e.startDate??e.start_at??e.start??e.date,description:clean(e.description??''),venue:clean(e.venue??location.name??e.locationName),city:String(e.city??location.city??''),country:String(e.country??location.country??''),...c,link:String(e.url??e.link??e.source_url??''),ticket:String(e.ticketType??e.ticket_type??'unknown'),price:clean(e.price??e.priceText??''),organizer:clean(e.organizer??'')};
  }).filter(Boolean);
 }
 export function parseRssFeed(xml){
@@ -71,7 +71,7 @@ export function parseIcsFeed(text){
 }
 export function normalizeEvent(raw,source,now=Date.now()){
  const name=clean(raw.name).slice(0,180),venue=clean(raw.venue).slice(0,200),description=clean(raw.description).slice(0,1000);
- if(raw.country&& !/^pakistan$/i.test(String(raw.country).trim()))return {ok:false,reason:'Event country is not Pakistan'};
+ if(raw.country&& !/^(pakistan|pk)$/i.test(String(raw.country).trim()))return {ok:false,reason:'Event country is not Pakistan'};
  const start=isoDate(/^\d{4}-\d{2}-\d{2}$/.test(String(raw.start||''))?String(raw.start)+'T00:00:00+05:00':String(raw.start??''));const city=normalizeCity(`${raw.city||''} ${venue}`,source.city_hint);
  if(!name||!start||Date.parse(start)<=now||!venue||!city)return {ok:false,reason:'Missing future date, title, venue, or recognized city'};
  if(!CATEGORIES.includes(source.category))return {ok:false,reason:'Unsupported category'};

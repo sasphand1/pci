@@ -68,9 +68,14 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
      if(values.sync_schedule_enabled!==false&&time===(values.sync_schedule_time??'09:00'))await enqueueSync('scheduled');
    }catch(e){logger.error({err:e},'schedule failed');}
  },{timezone:'Asia/Karachi'}));
- tasks.push(cron.schedule('*/15 * * * *',()=>void satelliteTick()));
- // Verified official event feeds only; synchronized daily in Pakistan local time.
- tasks.push(cron.schedule('30 7 * * *',()=>{void syncApprovedEventSources().catch(err=>logger.error({err},'Daily event sync failed'));},{timezone:'Asia/Karachi'}));
+ // Satellite jobs are claimed in PostgreSQL; frequent polling reduces queue latency.
+ tasks.push(cron.schedule('* * * * *',()=>void satelliteTick()));
+ void satelliteTick();
+ tasks.push(cron.schedule('30 7 * * *',()=>{
+   void syncApprovedEventSources().catch(err=>
+     logger.error({err},'Daily event sync failed')
+   );
+ },{timezone:'Asia/Karachi'}));
  tasks.push(cron.schedule('20 4 * * *',()=>query("DELETE FROM satellite.observations WHERE observed_at<now()-interval '90 days'").catch(err=>logger.warn({err},'Satellite retention cleanup unavailable')),{timezone:'Asia/Karachi'}));
  tasks.push(cron.schedule('*/10 * * * *',()=>recoverStalledJobs().catch(e=>logger.error({err:e},'stalled job recovery failed'))));
  tasks.push(cron.schedule('*/10 * * * *',()=>recoverStalledRuns().catch(e=>logger.error({err:e},'stalled refresh recovery failed'))));

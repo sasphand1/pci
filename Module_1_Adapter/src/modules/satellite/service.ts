@@ -42,9 +42,9 @@ export async function ingest(id:string){if(!allowed[id]?.implemented)throw Error
 }
 // Database claim prevents concurrent API/worker refresh, even across processes.
 export async function satelliteTick(){if(running)return;running=true;try{
- const due=await query<ProviderRow>(`SELECT * FROM satellite.providers WHERE enabled=true AND (refresh_requested_at IS NOT NULL OR last_attempt_at IS NULL OR last_attempt_at < now()-make_interval(mins=>refresh_minutes)) ORDER BY id`);
+ const due=await query<ProviderRow>(`SELECT * FROM satellite.providers WHERE enabled=true AND ((refresh_requested_at IS NOT NULL AND (last_attempt_at IS NULL OR last_attempt_at<refresh_requested_at OR last_attempt_at < now()-interval '5 minutes')) OR (refresh_requested_at IS NULL AND (last_attempt_at IS NULL OR last_attempt_at < now()-make_interval(mins=>refresh_minutes)))) ORDER BY id`);
  for(const p of due.rows){if(!allowed[p.id]?.implemented||!configured(p.id))continue;
-  const claimed=await query(`UPDATE satellite.providers SET last_attempt_at=now(),refresh_requested_at=NULL WHERE id=$1 AND enabled=true AND (refresh_requested_at IS NOT NULL OR last_attempt_at IS NULL OR last_attempt_at < now()-make_interval(mins=>refresh_minutes)) RETURNING id`,[p.id]);
+  const claimed=await query(`UPDATE satellite.providers SET last_attempt_at=now() WHERE id=$1 AND enabled=true AND ((refresh_requested_at IS NOT NULL AND (last_attempt_at IS NULL OR last_attempt_at<refresh_requested_at OR last_attempt_at < now()-interval '5 minutes')) OR (refresh_requested_at IS NULL AND (last_attempt_at IS NULL OR last_attempt_at < now()-make_interval(mins=>refresh_minutes)))) RETURNING id`,[p.id]);
   if(!claimed.rowCount)continue;
   try{await ingest(p.id);}catch(e){logger.warn({provider:p.id,reason:e instanceof Error?e.message:'unavailable'},'Satellite ingestion failed');}
  }

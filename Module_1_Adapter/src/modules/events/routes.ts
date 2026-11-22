@@ -5,6 +5,7 @@ import {handler,HttpError} from '../../lib/errors.js';
 import {requireAdmin,roles,audit,type AdminIdentity} from '../auth/auth.js';
 import {validateHttpsUrl} from './parse.js';
 import {syncSource,testSource,type EventSource} from './service.js';
+import {EVENT_FEED_CATALOG,catalogEntry,catalogSourceInput} from './catalog.js';
 
 export const publicEventsRoutes=Router();
 export const adminEventsRoutes=Router();
@@ -19,6 +20,26 @@ function safeSource(body:unknown){const v=input.parse(body);try{validateHttpsUrl
 async function sourceById(id:string){const r=await query<EventSource>('SELECT * FROM event_sources WHERE id=$1',[id]);if(!r.rows[0])throw new HttpError(404,'SOURCE_NOT_FOUND','Unknown event source');return r.rows[0];}
 const actor=(res:any)=>(res.locals.admin as AdminIdentity).id;
 adminEventsRoutes.use(requireAdmin,roles('owner','editor'));
+// Provider presets contain genuine endpoint URLs, not events or implied permissions.
+adminEventsRoutes.get('/catalog',(_req,res)=>res.json({data:EVENT_FEED_CATALOG}));
+adminEventsRoutes.post('/catalog/:key/test',roles('owner'),handler(async(req,res)=>{
+ const preset=catalogEntry(req.params.key);
+ if(!preset)throw new HttpError(404,'CATALOG_SOURCE_UNKNOWN','Unknown public data feed');
+ try{res.json({data:await testSource(catalogSourceInput(preset))});}
+ catch(e){throw new HttpError(422,'CATALOG_TEST_FAILED',e instanceof Error?e.message:'Provider cannot be read');}
+}));
+adminEventsRoutes.post('/catalog/:key/install',roles('owner'),handler(async(req,res)=>{
+ const preset=catalogEntry(req.params.key);
+ if(!preset)throw new HttpError(404,'CATALOG_SOURCE_UNKNOWN','Unknown public data feed');
+ const previous=await query('SELECT * FROM event_sources WHERE feed_url=$1 ORDER BY created_at LIMIT 1',[preset.feed_url]);
+ if(previous.rows[0])return res.json({data:previous.rows[0],alreadyInstalled:true});
+ // All new sources are disabled. The owner must verify rights, content and origin.
+ const result=await query(`INSERT INTO event_sources(name,feed_type,feed_url,category,city_hint,enabled,official_confirmed,rights_confirmed)
+ VALUES($1,$2,$3,$4,$5,false,false,false) RETURNING *`,
+ [preset.name,preset.feed_type,preset.feed_url,preset.category,preset.city_hint]);
+ await audit(actor(res),'events.catalog.install',result.rows[0].id,{key:preset.key});
+ res.status(201).json({data:result.rows[0],alreadyInstalled:false});
+}));
 adminEventsRoutes.get('/sources',handler(async(_req,res)=>{
  const r=await query(`SELECT s.*, (SELECT COUNT(*)::int FROM pci_events e WHERE e.source_id=s.id) AS total_events,
   (SELECT COUNT(*)::int FROM pci_events e WHERE e.source_id=s.id AND e.approved) AS reviewed_events
@@ -84,5 +105,9 @@ publicEventsRoutes.get('/events',handler(async(_req,res)=>{
  WHERE e.approved=true AND e.active=true AND e.start_at>=now() AND s.enabled=true AND s.official_confirmed=true AND s.rights_confirmed=true
  AND e.latitude IS NOT NULL AND e.longitude IS NOT NULL
  ORDER BY e.start_at ASC LIMIT 400`);
- res.setHeader('Cache-Control','public, max-age=60');res.json({data:r.rows});
+ const status=await query(`SELECT
+  (SELECT COUNT(*)::int FROM event_sources) AS sources_configured,
+  (SELECT COUNT(*)::int FROM event_sources WHERE enabled AND official_confirmed AND rights_confirmed) AS sources_enabled,
+  (SELECT COUNT(*)::int FROM pci_events WHERE approved=false AND active AND start_at>=now()) AS awaiting_review`);
+ res.setHeader('Cache-Control','public, max-age=60');res.json({data:r.rows,meta:status.rows[0]});
 }));
