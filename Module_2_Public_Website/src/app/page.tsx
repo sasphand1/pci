@@ -29,7 +29,7 @@ export default async function Home(){
    categoryRows={categoryRows}
    reach={reach==='N/A'?null:reach}
    eventsCount={eventRows?eventRows.length:null}/></FifiPage>
-  <FifiPage><div className="page-main pb-10">
+  <FifiPage><div className="site-container space-y-3 pb-10 pt-4">
    <section id="top-100" aria-label="Top 100 creators"><PublishedTop100 initial={initial} categories={(categories??[]).filter(c=>c.hasRanking).map(c=>({slug:c.slug,label:c.label}))}/></section>
    <SnapshotStatus publishedAt={status?.publishedAt}/>
   </div></FifiPage>

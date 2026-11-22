@@ -132,3 +132,6 @@
 .fifi ::selection { background: var(--color-gold-soft); color: var(--color-primary); }
 .fifi-skip { position: absolute; left: -9999px; top: 8px; z-index: 100; }
 .fifi-skip:focus { left: 8px; }
+
+/* Never let one wide element zoom the whole page out on phones. */
+html, body { max-width: 100%; overflow-x: hidden; }
