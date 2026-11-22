@@ -41,7 +41,7 @@ test('shared header page and admin events-source controls exist',()=>{
 });
 
 test('runtime TypeScript parser stays identical to the tested ES module parser',()=>{
- const runtime=read('Module_1_Adapter/src/modules/events/parse.ts').replace(/^\/\/ @ts-nocheck\n/,'');
+ const runtime=read('Module_1_Adapter/src/modules/events/parse.ts').replace(/^\/\/ @ts-nocheck\r?\n/,'');
  const tested=read('Module_1_Adapter/src/modules/events/parse.mjs');
  assert.equal(runtime,tested);
 });
