@@ -46,7 +46,7 @@ export default function EventsIntelligence(){
  const {identity}=useAuth();const owner=identity?.role==='owner';
  const [overview,setOverview]=useState<Overview|null>(null);
  const [bucket,setBucket]=useState<BucketEvent[]>([]);
- const [category,setCategory]=useState('all'),[status,setStatus]=useState('pending'),[search,setSearch]=useState('');
+ const [category,setCategory]=useState('all'),[status,setStatus]=useState('all'),[search,setSearch]=useState('');
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState('');
  async function load(){setLoading(true);try{
   const q=new URLSearchParams({category,status,search,limit:'100'});
@@ -84,7 +84,7 @@ export default function EventsIntelligence(){
  const categories=overview?.categories??[];
  const counts=overview?.counts;
  const stats=useMemo(()=>[
-  ['Imported',counts?.total??0],['Pending',counts?.pending??0],['Published',(counts?.published??0)+(counts?.editorial_published??0)],
+  ['Feed imports',counts?.total??0],['Pending',counts?.pending??0],['Published',(counts?.published??0)+(counts?.editorial_published??0)],
   ['Ambiguous',counts?.ambiguous??0],['Unclassified',counts?.unclassified??0],['Rejected',counts?.rejected??0]
  ],[counts]);
  return <RoleGate roles={['owner','editor']}><AdminPage title="Events Intelligence" description="Ten-category event classification, safe review buckets, data-source health and controlled publication. Same management layout as Satellite APIs." action={<button className="btn btn-secondary" disabled={loading||busy} onClick={()=>void load()}>Refresh</button>}>
@@ -103,7 +103,7 @@ export default function EventsIntelligence(){
    <p className="fineprint">Displays up to 100 records per view. Missing coordinates can be corrected at <Link href="/events/sources">Event sources</Link>; they are never guessed.</p>
   </section>
   <section className="pci-ei-section"><div className="pci-ei-heading"><div><h2>Ten Categories</h2><p className="muted">Central classification labels; no extra top-level public navigation tabs.</p></div></div><div className="pci-ei-category-grid">
-   {categories.map(c=>{const b=overview?.breakdown.find(x=>x.category===c.id);return <div className="admin-setting-card" key={c.id}><strong>{c.label}</strong><p>{b?.total??0} imported · {b?.published??0} published</p></div>;})}
+   {categories.map(c=>{const b=overview?.breakdown.find(x=>x.category===c.id);return <div className="admin-setting-card" key={c.id}><strong>{c.label}</strong><p>{b?.total??0} records · {b?.published??0} published</p></div>;})}
   </div></section>
   <EventsSourcesDiscovery/>
   <section className="pci-ei-section"><div className="pci-ei-heading"><div><h2>Sources & Engine Health</h2><p className="muted">Read-only health summary. Source edits, test fetch and sync remain in the existing Events Sources page.</p></div><Link className="btn btn-secondary" href="/events/sources">Manage sources</Link></div><div className="admin-setting-grid">

@@ -960,7 +960,7 @@ function asPublishedEvent(item){
  const end=Date.parse(item.end_at||item.start_at);
  if(!Number.isFinite(lat)||!Number.isFinite(lng)||!Number.isFinite(t)||!Number.isFinite(end)||end<=Date.now())return null;
  const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Karachi',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(t));
- const time=item.all_day?'All day':new Intl.DateTimeFormat('en-PK',{timeZone:'Asia/Karachi',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date(t));
+ const time=item.all_day?'Time: see organiser':new Intl.DateTimeFormat('en-PK',{timeZone:'Asia/Karachi',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date(t));
  const anchor=EVENTS_CITY_ANCHOR[item.city],center=CENTERS[item.city];
  // Static illustration preview approximates venue offsets; Waze uses exact coordinates.
  const approx={x:Math.max(10,Math.min(90,anchor.x+(lng-center.lng)*3)),y:Math.max(10,Math.min(90,anchor.y-(lat-center.lat)*3))};
