@@ -1,6 +1,7 @@
 import { query } from '../../lib/db.js';
 import { logger } from '../../lib/errors.js';
 import { collectCreatorVideoSnapshots } from '../creator-analytics/videos.js';
+import {mirrorApiRefresh,mirrorVideoSamples} from '../ingest/store.js';
 import { createRuns, processRun, type Deps } from '../refresh/service.js';
 import { defaultProviders } from '../../providers/index.js';
 import { activeRefreshCount, buildBatch, publishBatch, recordAlert } from './service.js';
@@ -41,6 +42,10 @@ export async function executePipeline(id: string, trigger: Trigger, actorId: str
       const runs = await createRuns(['youtube', 'instagram'], trigger, actorId);
       const started = runs.filter(r => r.started);
       await Promise.all(started.map(r => processRun(r.runId, deps)));
+      // Mirror successful source observations into PCI Ingest; legacy ranking inputs are unchanged.
+      for(const r of started){
+        try{await mirrorApiRefresh(r.runId);}catch(err){logger.warn({err,runId:r.runId},'Ingest API mirror unavailable');}
+      }
       const done = started.length ? (await query('SELECT status FROM refresh_runs WHERE id=ANY($1::uuid[])', [started.map(r => r.runId)])).rows.map(r => r.status as string) : [];
       const notes = runs.filter(r => !r.started).map(r => `${r.platform} refresh was already running`);
       const failed = done.filter(s => s === 'failed').length, partial = done.filter(s => s === 'partial').length;
@@ -63,8 +68,10 @@ export async function executePipeline(id: string, trigger: Trigger, actorId: str
   } catch (e) { logger.error({ err: e, id }, 'pipeline crashed'); status = 'failed'; }
   await save(true);
   // Analytics is independent of the published rankings. A collection error never fails publication.
-  void collectCreatorVideoSnapshots().then(s=>logger.info(s,'Creator video samples collected'))
-    .catch(err=>logger.warn({err},'Creator video analytics collection unavailable'));
+  void collectCreatorVideoSnapshots().then(async s=>{
+    try{await mirrorVideoSamples();}catch(err){logger.warn({err},'Ingest video mirror unavailable');}
+    logger.info(s,'Creator video samples collected');
+  }).catch(err=>logger.warn({err},'Creator video analytics collection unavailable'));
   return status;
 }
 

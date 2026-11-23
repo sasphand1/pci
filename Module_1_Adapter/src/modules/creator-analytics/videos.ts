@@ -7,7 +7,7 @@ import {videoMilestones,velocityPerHour,breakoutFactor} from './engine.js';
 const MAX_CHANNELS=150;
 const VIDEOS_PER_CHANNEL=50;
 type ChannelAccount={id:string;external_id:string};
-type Sample={videoId:string;accountId:string;title:string;publishedAt:string|null;thumbnailUrl:string|null;durationIso:string|null;views:string|null};
+type Sample={videoId:string;accountId:string;title:string;description:string;publishedAt:string|null;thumbnailUrl:string|null;durationIso:string|null;views:string|null;likes:string|null;comments:string|null};
 
 /** Read-only video observation collector; does not modify any rankings or legacy video records.
  * Runs after the daily pipeline; only real YouTube Data API cumulative counts are stored.
@@ -41,22 +41,27 @@ export async function collectCreatorVideoSnapshots():Promise<{channels:number;vi
             if(video.snippet?.channelId!==account.external_id)continue;
             samples.push({videoId:video.id,accountId:account.id,
               title:(video.snippet?.title??'Untitled video').slice(0,500),
+              description:(video.snippet?.description??'').slice(0,10000),
               publishedAt:dateOrNull(video.snippet?.publishedAt),
               thumbnailUrl:thumbUrl(video.snippet),durationIso:video.contentDetails?.duration??null,
-              views:countOrNull(video.statistics?.viewCount)});
+              views:countOrNull(video.statistics?.viewCount),likes:countOrNull(video.statistics?.likeCount),
+              comments:countOrNull(video.statistics?.commentCount)});
           }
         }
         if(!samples.length)continue;
         await transaction(async tx=>{
           for(const s of samples) {
             await tx.query(`INSERT INTO creator_video_catalogue
-              (video_id,account_id,title,published_at,thumbnail_url,duration_iso,view_count,last_observed_at)
-              VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+              (video_id,account_id,title,description,published_at,thumbnail_url,duration_iso,view_count,like_count,comment_count,last_observed_at)
+              VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
               ON CONFLICT(video_id) DO UPDATE SET account_id=EXCLUDED.account_id,title=EXCLUDED.title,
-              published_at=EXCLUDED.published_at,thumbnail_url=EXCLUDED.thumbnail_url,
+              description=EXCLUDED.description,published_at=EXCLUDED.published_at,thumbnail_url=EXCLUDED.thumbnail_url,
               duration_iso=EXCLUDED.duration_iso,view_count=EXCLUDED.view_count,
+              like_count=COALESCE(EXCLUDED.like_count,creator_video_catalogue.like_count),
+              comment_count=COALESCE(EXCLUDED.comment_count,creator_video_catalogue.comment_count),
               last_observed_at=EXCLUDED.last_observed_at`,
-              [s.videoId,s.accountId,s.title,s.publishedAt,s.thumbnailUrl,s.durationIso,s.views,observedAt]);
+              [s.videoId,s.accountId,s.title,s.description,s.publishedAt,s.thumbnailUrl,s.durationIso,
+                s.views,s.likes,s.comments,observedAt]);
             if(s.views!==null)await tx.query(`INSERT INTO creator_video_view_observations(video_id,observed_at,view_count)
               VALUES($1,$2,$3) ON CONFLICT(video_id,observed_at) DO NOTHING`,[s.videoId,observedAt,s.views]);
           }

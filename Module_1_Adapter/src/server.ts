@@ -1,4 +1,5 @@
 import {ensureSatelliteSchema} from './lib/satellite-schema.js';
+import {ensureIngestSchema} from './lib/ingest-schema.js';
 import {ensureEventsSchema} from './lib/events-schema.js';
 import {adminEventsRoutes,publicEventsRoutes} from './modules/events/routes.js';
 import {SATELLITE_RATE_WINDOW_SECONDS,isPublicSatelliteRead,satellitePermission} from './modules/satellite/guard.mjs';
@@ -19,6 +20,7 @@ import {bucketAdminRoutes} from './modules/bucket/routes.js';
 import {ensureObservationsSchema} from './lib/observations-schema.js';
 import {ensureCreatorAnalyticsSchema} from './lib/creator-analytics-schema.js';
 import {refreshAdminRoutes} from './modules/refresh/routes.js';
+import {ingestAdminRoutes} from './modules/ingest/routes.js';
 import {ensurePublicationSchema} from './lib/publication-schema.js';
 import {publishAdminRoutes} from './modules/publish/routes.js';
 import {ensurePublicSchema} from './lib/public-schema.js';
@@ -129,6 +131,7 @@ export function makeApp() {
   app.use('/api/v1/admin/events',adminEventsRoutes);
   app.use('/api/v1/admin',bucketAdminRoutes);
   app.use('/api/v1/admin',refreshAdminRoutes);
+  app.use('/api/v1/admin',ingestAdminRoutes);
   app.use('/api/v1/admin',publishAdminRoutes);
   app.use('/api/v1/admin',shadowAdminRoutes);
   app.use('/api/v1/admin',unifiedAdminRoutes);
@@ -196,6 +199,8 @@ async function main(){
         }
         try {await ensureCreatorAnalyticsSchema();logger.info('Creator video analytics schema verified');}
         catch(err){logger.error({err},'Creator video analytics schema unavailable; video analytics will show no data');}
+        try {await ensureIngestSchema();logger.info('PCI Ingest schema verified');}
+        catch(err){logger.error({err},'PCI Ingest schema unavailable; legacy collection remains active');}
         await ensureRedis();
         try{await ensureEventsSchema();logger.info('Events schema verified');}
         catch(err){logger.error({err},'Events schema unavailable; event endpoints may fail until the migration is applied');}

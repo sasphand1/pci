@@ -12,6 +12,7 @@ import {recoverStalledRuns} from '../refresh/service.js';
 import {runRetention} from '../refresh/retention.js';
 import {startPipeline} from '../publish/pipeline.js';
 import {collectCreatorVideoSnapshots} from '../creator-analytics/videos.js';
+import {mirrorVideoSamples} from '../ingest/store.js';
 import {pruneRankRuns} from '../publish/service.js';
 import {cleanupRetention,enqueueSync,ensureFreshness,recoverStalledJobs,takeNextJob,performSync} from './service.js';
 
@@ -71,6 +72,7 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
            AND v.last_observed_at>now()-interval '20 hours')`);
      if(!(Number(pending.rows[0]?.missing)>0))return;
      const result=await collectCreatorVideoSnapshots();
+     try{await mirrorVideoSamples();}catch(err){logger.warn({err},'Ingest video mirror unavailable');}
      logger.info({...result,pendingAccounts:pending.rows[0].missing},'Creator earnings video sample refresh');
    }catch(err){logger.warn({err},'Creator video sample refresh unavailable');}
  }
