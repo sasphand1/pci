@@ -14,6 +14,7 @@ export const NAV_GROUPS:NavGroup[]=[
   {title:'Events Intelligence',href:'/events/intelligence',icon:'settings',roles:['owner','editor']},
   {title:'Live wall',href:'/wall',icon:'chat',roles:['owner','moderator']}]},
  {label:'Administration',items:[
+  {title:'Data Hub',href:'/hub',icon:'pulse',roles:['owner','editor']},
   {title:'Satellite APIs',href:'/satellite',icon:'settings',roles:['owner']},
   {title:'System health',href:'/system',icon:'pulse',roles:['owner']},
   {title:'Audit log',href:'/audit',icon:'clock',roles:['owner']},
