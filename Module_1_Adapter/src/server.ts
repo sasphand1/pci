@@ -1,5 +1,6 @@
 import {ensureSatelliteSchema} from './lib/satellite-schema.js';
 import {ensureIngestSchema} from './lib/ingest-schema.js';
+import {ensureHubSchema} from './lib/hub-schema.js';
 import {ensureEventsSchema} from './lib/events-schema.js';
 import {adminEventsRoutes,publicEventsRoutes} from './modules/events/routes.js';
 import {SATELLITE_RATE_WINDOW_SECONDS,isPublicSatelliteRead,satellitePermission} from './modules/satellite/guard.mjs';
@@ -201,6 +202,8 @@ async function main(){
         catch(err){logger.error({err},'Creator video analytics schema unavailable; video analytics will show no data');}
         try {await ensureIngestSchema();logger.info('PCI Ingest schema verified');}
         catch(err){logger.error({err},'PCI Ingest schema unavailable; legacy collection remains active');}
+        try {await ensureHubSchema();logger.info('PCI Hub schema verified');}
+        catch(err){logger.error({err},'PCI Hub schema unavailable; hub monitoring disabled until it is applied');}
         await ensureRedis();
         try{await ensureEventsSchema();logger.info('Events schema verified');}
         catch(err){logger.error({err},'Events schema unavailable; event endpoints may fail until the migration is applied');}

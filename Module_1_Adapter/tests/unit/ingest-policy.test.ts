@@ -23,3 +23,25 @@ test('refresh due calculation has exact boundaries',()=>{
  assert.equal(due(a,24,Date.parse('2026-11-24T09:00:00Z')),true);
  assert.equal(due(a,24,Date.parse('2026-11-23T18:00:00Z')),false);
 });
+import {isDiscrepancy,isStale} from '../../src/modules/ingest/policy.ts';
+test('HTTP fills in when the API source is down',()=>{
+ assert.equal(decideValue(api,{method:'http',value:99,precision:'exact',observedAt:b},now,{apiHealthy:false}),'accept');
+});
+test('HTTP fills in when the stored API value is older than the max age',()=>{
+ const old={...api,observedAt:'2026-11-01T00:00:00Z'};
+ assert.equal(decideValue(old,{method:'http',value:99,precision:'exact',observedAt:b},now),'accept');
+});
+test('healthy recent API still beats HTTP',()=>{
+ assert.equal(decideValue(api,{method:'http',value:99,precision:'exact',observedAt:b},now,{apiHealthy:true}),'reject_lower_priority');
+});
+test('discrepancy needs more than 5% difference',()=>{
+ assert.equal(isDiscrepancy(1000,1040),false);
+ assert.equal(isDiscrepancy(1000,1200),true);
+ assert.equal(isDiscrepancy(0,0),false);
+ assert.equal(isDiscrepancy(-1,5),false);
+});
+test('stale means older than twice the window',()=>{
+ assert.equal(isStale('2026-11-23T10:00:00Z',24,now),false);
+ assert.equal(isStale('2026-11-20T10:00:00Z',24,now),true);
+ assert.equal(isStale('garbage',24,now),true);
+});

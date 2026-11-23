@@ -7,7 +7,11 @@ export type Decision = 'accept'|'reject_stale'|'reject_lower_priority'|'reject_u
 export function validCount(v:unknown):v is number {
   return typeof v==='number' && Number.isSafeInteger(v) && v>=0;
 }
-export function decideValue(current:Snapshot|null, candidate:Snapshot, now=Date.now()):Decision {
+export type DecideOptions={apiHealthy?:boolean;apiMaxAgeMs?:number};
+/** Per-field API-first rule. An HTTP value may replace a stored API value only when the API
+ * source is unhealthy (or down) OR the stored API value is older than apiMaxAgeMs (default 7 days,
+ * i.e. the API is not supplying this field). A healthy, recent API value always wins. */
+export function decideValue(current:Snapshot|null, candidate:Snapshot, now=Date.now(), opts:DecideOptions={}):Decision {
   const at=Date.parse(candidate.observedAt);
   if(!Number.isFinite(at) || at>now+5*60_000 || at<0 ||
     (typeof candidate.value==='number' && !validCount(candidate.value)) ||
@@ -17,10 +21,25 @@ export function decideValue(current:Snapshot|null, candidate:Snapshot, now=Date.
   const old=Date.parse(current.observedAt);
   if(!Number.isFinite(old))return 'accept';
   if(at<old)return 'reject_stale';
-  // A successful official API reading dominates a same-age HTTP reading.
-  if(candidate.method==='http'&&current.method==='api' && at-old<7*86_400_000)return 'reject_lower_priority';
-  if(at===old && candidate.method==='http'&&current.method==='api')return 'reject_lower_priority';
+  if(candidate.method==='http'&&current.method==='api'){
+    const healthy=opts.apiHealthy!==false;
+    const maxAge=opts.apiMaxAgeMs??7*86_400_000;
+    if(healthy&&now-old<maxAge)return 'reject_lower_priority';
+  }
   return 'accept';
+}
+
+/** True when two numeric readings of the same field disagree by more than tolerance (default 5%). */
+export function isDiscrepancy(a:number,b:number,tolerance=0.05):boolean {
+  if(!validCount(a)||!validCount(b))return false;
+  if(a===b)return false;
+  const base=Math.max(a,b);
+  return base>0 && Math.abs(a-b)/base>tolerance;
+}
+/** A reading is stale when older than twice its refresh window. */
+export function isStale(observedAt:string,windowHours:number,now=Date.now()):boolean {
+  const t=Date.parse(observedAt);
+  return !Number.isFinite(t) || now-t>2*windowHours*3_600_000;
 }
 
 export type RefreshPolicy={profileHours:number;recentContentHours:number;olderContentHours:number;minIntervalMinutes:number};

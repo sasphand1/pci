@@ -1,0 +1,118 @@
+diff --git a/Module_1_Adapter/src/server.ts b/Module_1_Adapter/src/server.ts
+--- a/Module_1_Adapter/src/server.ts
++++ b/Module_1_Adapter/src/server.ts
+@@ -1,2 +1,3 @@
+ import {ensureSatelliteSchema} from './lib/satellite-schema.js';
++import {ensureIngestSchema} from './lib/ingest-schema.js';
+ import {ensureEventsSchema} from './lib/events-schema.js';
+@@ -24,2 +25,3 @@
+ import {refreshAdminRoutes} from './modules/refresh/routes.js';
++import {ingestAdminRoutes} from './modules/ingest/routes.js';
+ import {ensurePublicationSchema} from './lib/publication-schema.js';
+@@ -47,2 +49,3 @@
+   app.use('/api/v1/admin',refreshAdminRoutes);
++  app.use('/api/v1/admin',ingestAdminRoutes);
+   app.use('/api/v1/admin',publishAdminRoutes);
+@@ -71 +74,3 @@
+         catch(err){logger.error({err},'Creator video analytics schema unavailable; video analytics will show no data');}
++        try {await ensureIngestSchema();logger.info('PCI Ingest schema verified');}
++        catch(err){logger.error({err},'PCI Ingest schema unavailable; legacy collection remains active');}
+diff --git a/Module_1_Adapter/src/worker.ts b/Module_1_Adapter/src/worker.ts
+--- a/Module_1_Adapter/src/worker.ts
++++ b/Module_1_Adapter/src/worker.ts
+@@ -1,2 +1,3 @@
+ import { ensureCreatorAnalyticsSchema } from './lib/creator-analytics-schema.js';
++import {ensureIngestSchema} from './lib/ingest-schema.js';
+ import { ensurePublicationSchema } from './lib/publication-schema.js';
+@@ -24,2 +25,3 @@
+  try{await ensureCreatorAnalyticsSchema();}catch(err){logger.error({err},'Creator video analytics schema unavailable');}
++ try{await ensureIngestSchema();}catch(err){logger.error({err},'PCI Ingest schema unavailable; legacy collection remains active');}
+  try{await ensureSatelliteSchema();}
+diff --git a/Module_1_Adapter/src/modules/publish/pipeline.ts b/Module_1_Adapter/src/modules/publish/pipeline.ts
+--- a/Module_1_Adapter/src/modules/publish/pipeline.ts
++++ b/Module_1_Adapter/src/modules/publish/pipeline.ts
+@@ -1,2 +1,3 @@
+ import { collectCreatorVideoSnapshots } from '../creator-analytics/videos.js';
++import {mirrorApiRefresh,mirrorVideoSamples} from '../ingest/store.js';
+ import { createRuns, processRun, type Deps } from '../refresh/service.js';
+@@ -24,2 +25,6 @@
+       await Promise.all(started.map(r => processRun(r.runId, deps)));
++      // Mirror successful source observations into PCI Ingest; legacy ranking inputs are unchanged.
++      for(const r of started){
++        try{await mirrorApiRefresh(r.runId);}catch(err){logger.warn({err,runId:r.runId},'Ingest API mirror unavailable');}
++      }
+       const done = started.length
+@@ -46,3 +51,5 @@
+ 
+-  void collectCreatorVideoSnapshots().then(s=>logger.info(s,'Creator video samples collected'))
+-    .catch(err=>logger.warn({err},'Creator video analytics collection unavailable'));
++  void collectCreatorVideoSnapshots().then(async s=>{
++    try{await mirrorVideoSamples();}catch(err){logger.warn({err},'Ingest video mirror unavailable');}
++    logger.info(s,'Creator video samples collected');
++  }).catch(err=>logger.warn({err},'Creator video analytics collection unavailable'));
+diff --git a/Module_1_Adapter/src/modules/sync/scheduler.ts b/Module_1_Adapter/src/modules/sync/scheduler.ts
+--- a/Module_1_Adapter/src/modules/sync/scheduler.ts
++++ b/Module_1_Adapter/src/modules/sync/scheduler.ts
+@@ -1,2 +1,3 @@
+ import {collectCreatorVideoSnapshots} from '../creator-analytics/videos.js';
++import {mirrorVideoSamples} from '../ingest/store.js';
+ import {pruneRankRuns} from '../publish/service.js';
+@@ -24,2 +25,3 @@
+      const result=await collectCreatorVideoSnapshots();
++     try{await mirrorVideoSamples();}catch(err){logger.warn({err},'Ingest video mirror unavailable');}
+      logger.info({...result,pendingAccounts:pending.rows[0].missing},'Creator earnings video sample refresh');
+diff --git a/Module_1_Adapter/src/modules/creator-analytics/videos.ts b/Module_1_Adapter/src/modules/creator-analytics/videos.ts
+--- a/Module_1_Adapter/src/modules/creator-analytics/videos.ts
++++ b/Module_1_Adapter/src/modules/creator-analytics/videos.ts
+@@ -1,2 +1,2 @@
+-type Sample={videoId:string;accountId:string;title:string;publishedAt:string|null;thumbnailUrl:string|null;durationIso:string|null;views:string|null};
++type Sample={videoId:string;accountId:string;title:string;description:string;publishedAt:string|null;thumbnailUrl:string|null;durationIso:string|null;views:string|null;likes:string|null;comments:string|null};
+ // unrelated block 000
+@@ -24,5 +24,7 @@
+               title:(video.snippet?.title??'Untitled video').slice(0,500),
++              description:(video.snippet?.description??'').slice(0,10000),
+               publishedAt:dateOrNull(video.snippet?.publishedAt),
+               thumbnailUrl:thumbUrl(video.snippet),durationIso:video.contentDetails?.duration??null,
+-              views:countOrNull(video.statistics?.viewCount)});
++              views:countOrNull(video.statistics?.viewCount),likes:countOrNull(video.statistics?.likeCount),
++              comments:countOrNull(video.statistics?.commentCount)});
+ // unrelated block 000
+@@ -49,8 +51,11 @@
+             await tx.query(`INSERT INTO creator_video_catalogue
+-              (video_id,account_id,title,published_at,thumbnail_url,duration_iso,view_count,last_observed_at)
+-              VALUES($1,$2,$3,$4,$5,$6,$7,$8)
++              (video_id,account_id,title,description,published_at,thumbnail_url,duration_iso,view_count,like_count,comment_count,last_observed_at)
++              VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+               ON CONFLICT(video_id) DO UPDATE SET account_id=EXCLUDED.account_id,title=EXCLUDED.title,
+-              published_at=EXCLUDED.published_at,thumbnail_url=EXCLUDED.thumbnail_url,
++              description=EXCLUDED.description,published_at=EXCLUDED.published_at,thumbnail_url=EXCLUDED.thumbnail_url,
+               duration_iso=EXCLUDED.duration_iso,view_count=EXCLUDED.view_count,
++              like_count=COALESCE(EXCLUDED.like_count,creator_video_catalogue.like_count),
++              comment_count=COALESCE(EXCLUDED.comment_count,creator_video_catalogue.comment_count),
+               last_observed_at=EXCLUDED.last_observed_at`,
+-              [s.videoId,s.accountId,s.title,s.publishedAt,s.thumbnailUrl,s.durationIso,s.views,observedAt]);
++              [s.videoId,s.accountId,s.title,s.description,s.publishedAt,s.thumbnailUrl,s.durationIso,
++                s.views,s.likes,s.comments,observedAt]);
+diff --git a/Module_1_Adapter/src/modules/publish/service.ts b/Module_1_Adapter/src/modules/publish/service.ts
+--- a/Module_1_Adapter/src/modules/publish/service.ts
++++ b/Module_1_Adapter/src/modules/publish/service.ts
+@@ -1,2 +1,9 @@
+-    db.query(`SELECT DISTINCT ON (account_id, metric) account_id, metric, value::text AS value, accuracy, observed_at
++    db.query(process.env.PCI_INGEST_RANKING==='true'
++      ? `SELECT a.id AS account_id,l.metric,l.value_numeric::text AS value,
++           CASE WHEN l.accuracy='rounded' THEN 'rounded3' ELSE 'exact' END AS accuracy,l.observed_at
++         FROM ingest_latest l JOIN accounts a
++           ON l.entity_kind='account' AND l.entity_id=a.platform||':'||a.external_id
++         WHERE l.metric IN ('followers','views','posts_30d') AND l.value_numeric IS NOT NULL
++           AND l.accuracy<>'unverified' AND l.observed_at >= $1 AND l.observed_at <= $2`
++      : `SELECT DISTINCT ON (account_id, metric) account_id, metric, value::text AS value, accuracy, observed_at
+               FROM metric_observations WHERE observed_at >= $1 AND observed_at <= $2
+diff --git a/Module_1_Adapter/.env.example b/Module_1_Adapter/.env.example
+--- a/Module_1_Adapter/.env.example
++++ b/Module_1_Adapter/.env.example
+@@ -2 +2,5 @@
+ RUN_WORKER_IN_API=true
++# PCI Ingest: ranking reads still use the legacy view until shadow comparisons pass.
++PCI_INGEST_RANKING=false
++# Explicit opt-in only after Instagram public HTTP use is verified as permitted.
++PCI_INSTAGRAM_HTTP_AVATARS=false

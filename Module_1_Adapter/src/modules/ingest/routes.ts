@@ -5,9 +5,11 @@ import {query} from '../../lib/db.js';
 import {boundedLimit} from '../../lib/redis.js';
 import {requireAdmin,roles,type AdminIdentity} from '../auth/auth.js';
 import {backfillRecentMetrics,ingestStatus,mirrorApiRefresh,mirrorVideoSamples,recordObservation} from './store.js';
-import {parseCreatorPinnedComment} from './pinned.js';
 import {boundedResponseText,requestPublicInstagramAvatar} from './http.js';
 import {POLICY} from './policy.js';
+import {reportSourceResult} from './monitor.js';
+import {classifyHttpFailure} from './monitor-rules.js';
+import {registerHubReadRoutes} from './read-routes.js';
 
 export const ingestAdminRoutes=Router();
 ingestAdminRoutes.use('/ingest',requireAdmin);
@@ -63,7 +65,8 @@ ingestAdminRoutes.post('/ingest/instagram/avatar/:accountId',roles('owner','edit
   if(a.avatar_url)return res.json({data:{status:'already_present'}});
   await budget(`igavatar:${id}`,2);
   let url:string|null=null;
-  try{url=await requestPublicInstagramAvatar(a.handle);}catch{/* no bad URL or transient error is promoted */}
+  try{url=await requestPublicInstagramAvatar(a.handle);}
+  catch{await reportSourceResult('instagram.http',false,'UNAVAILABLE');/* no bad URL or transient error is promoted */}
   if(!url)return res.json({data:{status:'unavailable',avatarUrl:null}});
   // Do not replace a newer API image obtained while the HTTP request was in flight.
   const r=await query(`UPDATE accounts SET avatar_url=$2 WHERE id=$1 AND avatar_url IS NULL RETURNING id`,[a.id,url]);
@@ -73,53 +76,8 @@ ingestAdminRoutes.post('/ingest/instagram/avatar/:accountId',roles('owner','edit
       valueNumeric:null,valueText:url,accuracy:'exact',observedAt:new Date().toISOString(),
       metadata:{method:'public-og-image',identityMatch:true}});
   }
-  if(r.rowCount)await query(`UPDATE ingest_sources SET last_attempt_at=now(),last_success_at=now(),last_error=NULL WHERE id='instagram.http'`);
+  if(r.rowCount)await reportSourceResult('instagram.http',true);
   res.json({data:{status:r.rowCount?'updated':'already_present',avatarUrl:r.rowCount?url:null}});
-}));
-
-/** Parser preview for an authorized diagnostic payload. No network access, no DB claims. */
-ingestAdminRoutes.post('/ingest/youtube/pinned-preview',roles('owner','editor'),handler(async(req,res)=>{
-  const body=z.object({videoId:z.string().regex(/^[a-zA-Z0-9_-]{11}$/),
-    creatorChannelId:z.string().regex(/^UC[a-zA-Z0-9_-]{22}$/),response:z.record(z.unknown())}).strict().parse(req.body);
-  const candidate=parseCreatorPinnedComment(body.response);
-  res.json({data:{videoId:body.videoId,
-    pinned: candidate&&candidate.authorChannelId===body.creatorChannelId?candidate:null,
-    note:'Preview only. Stored/public claims require verified permitted source collection.'}});
-}));
-
-/** Import a diagnostic HTTP comment payload into a review-only evidence record.
- * Input from an admin is not proof of live platform authenticity: never publish automatically. */
-ingestAdminRoutes.post('/ingest/youtube/pinned-import',roles('owner','editor'),handler(async(req,res)=>{
-  const b=z.object({videoId:z.string().regex(/^[A-Za-z0-9_-]{11}$/),
-    creatorChannelId:z.string().regex(/^UC[A-Za-z0-9_-]{22}$/),response:z.record(z.unknown())}).strict().parse(req.body);
-  if(!(await enabled('youtube.http')))throw new HttpError(409,'SOURCE_DISABLED','YouTube HTTP evidence source is disabled');
-  const pinned=parseCreatorPinnedComment(b.response);
-  if(!pinned||pinned.authorChannelId!==b.creatorChannelId)
-    throw new HttpError(422,'PINNED_NOT_VERIFIED','No creator-authored pinned comment found');
-  const registered=await query<{id:string}>(`SELECT a.id FROM ingest_content c JOIN accounts a ON a.id=c.account_id
-    WHERE c.platform='youtube' AND c.content_id=$1 AND a.platform='youtube' AND a.external_id=$2`,
-    [b.videoId,b.creatorChannelId]);
-  const accountId=registered.rows[0]?.id;
-  if(!accountId)throw new HttpError(409,'VIDEO_OWNERSHIP_UNVERIFIED','Video not linked to the claimed registered channel');
-  await query(`INSERT INTO ingest_creator_pinned_comments
-    (content_id,comment_id,author_channel_id,author_name,comment_text,likes,reply_count,is_creator,is_pinned,observed_at,source_id)
-    VALUES($1,$2,$3,$4,$5,$6,$7,true,true,now(),'youtube.http')
-    ON CONFLICT(platform,content_id,comment_id) DO UPDATE SET
-    author_name=EXCLUDED.author_name,comment_text=EXCLUDED.comment_text,likes=EXCLUDED.likes,
-    reply_count=EXCLUDED.reply_count,observed_at=EXCLUDED.observed_at
-    WHERE ingest_creator_pinned_comments.verification_state='submitted'`,
-    [b.videoId,pinned.commentId,pinned.authorChannelId,pinned.authorName,pinned.text,pinned.likes,pinned.replies]);
-  const stamp=new Date().toISOString();
-  for(const [metric,value] of [['likes',pinned.likes],['replies',pinned.replies]] as const){
-    if(value===null)continue;
-    await recordObservation({sourceId:'youtube.http',sourceRunRef:`pinned:${b.videoId}:${stamp}`,
-      accountId,entityKind:'comment',entityId:`youtube:${pinned.commentId}`,metric,
-      valueNumeric:value,valueText:null,accuracy:'unverified',observedAt:stamp,
-      metadata:{method:'admin-submitted-http-evidence',verification:'pending'}});
-  }
-  await query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',
-    [actor(res),'ingest.pinned_evidence',b.videoId,JSON.stringify({commentId:pinned.commentId,status:'submitted'})]);
-  res.status(202).json({data:{status:'submitted',commentId:pinned.commentId,publiclyVerified:false}});
 }));
 
 /** TikTok key-free official embed metadata: identity/thumbnail only, NOT engagement counts. */
@@ -132,14 +90,19 @@ ingestAdminRoutes.post('/ingest/tiktok/embed',roles('owner','editor'),handler(as
   const clean=`https://www.tiktok.com/@${match[1]}/video/${match[2]}`;
   const endpoint=`https://www.tiktok.com/oembed?url=${encodeURIComponent(clean)}`;
   let data:Record<string,unknown>;
+  let httpStatus:number|null=null;
   try {
     const r=await fetch(endpoint,{headers:{accept:'application/json'},redirect:'manual',signal:AbortSignal.timeout(8000)});
+    httpStatus=r.status;
     if(!r.ok||!r.headers.get('content-type')?.includes('json')||Number(r.headers.get('content-length')??0)>30_000)
       throw new Error('unavailable');
     const text=await boundedResponseText(r,30_000);if(!text)throw new Error('oversized response');
     const json=JSON.parse(text) as unknown;if(!json||typeof json!=='object'||Array.isArray(json))throw new Error('bad response');
     data=json as Record<string,unknown>;
-  }catch{throw new HttpError(502,'TIKTOK_OEMBED_UNAVAILABLE','Public TikTok embed metadata unavailable');}
+  }catch{
+    await reportSourceResult('tiktok.http',false,classifyHttpFailure(httpStatus));
+    throw new HttpError(502,'TIKTOK_OEMBED_UNAVAILABLE','Public TikTok embed metadata unavailable');
+  }
   const title=typeof data.title==='string'?data.title.slice(0,500):null;
   const thumb=typeof data.thumbnail_url==='string'&&/^https:\/\//.test(data.thumbnail_url)?data.thumbnail_url.slice(0,2000):null;
   const author=typeof data.author_url==='string'?data.author_url:'';
@@ -147,13 +110,15 @@ ingestAdminRoutes.post('/ingest/tiktok/embed',roles('owner','editor'),handler(as
   try{const a=new URL(author);exactAuthor=a.protocol==='https:'&&['www.tiktok.com','tiktok.com'].includes(a.hostname)&&
     a.pathname.replace(/\/$/,'').toLowerCase()===`/@${match[1].toLowerCase()}`;}
   catch{/* invalid source identity */}
-  if(!exactAuthor)throw new HttpError(502,'IDENTITY_MISMATCH','TikTok embed creator identity did not match requested URL');
+  if(!exactAuthor){await reportSourceResult('tiktok.http',false,'SHAPE_CHANGED');throw new HttpError(502,'IDENTITY_MISMATCH','TikTok embed creator identity did not match requested URL');}
   await query(`INSERT INTO ingest_content(platform,content_id,content_type,title,url,thumbnail_url,source_id)
     VALUES('tiktok',$1,'video',$2,$3,$4,'tiktok.http')
     ON CONFLICT(platform,content_id) DO UPDATE SET title=EXCLUDED.title,url=EXCLUDED.url,
       thumbnail_url=COALESCE(EXCLUDED.thumbnail_url,ingest_content.thumbnail_url),last_observed_at=now()`,
     [match[2],title,clean,thumb]);
-  await query(`UPDATE ingest_sources SET last_attempt_at=now(),last_success_at=now(),last_error=NULL WHERE id='tiktok.http'`);
+  await reportSourceResult('tiktok.http',true);
   res.json({data:{status:'stored',platform:'tiktok',contentId:match[2],title,thumbnailUrl:thumb,
     engagement:'not available from public oEmbed'}});
 }));
+
+registerHubReadRoutes(ingestAdminRoutes);

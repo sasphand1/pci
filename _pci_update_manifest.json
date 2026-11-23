@@ -1,0 +1,46 @@
+{
+  "name": "PCI Instagram Sponsor Scenario",
+  "targetBranch": "main",
+  "files": [
+    {
+      "path": "Module_1_Adapter/src/modules/creator-analytics/engine.ts",
+      "baseGitSha": "1a4d889bd0fff1f40c4e7f3890616f35447c22d2",
+      "sha256": "149d3aa136504bc158b89e23c6285bc05e0bca0d6a39bd21411886ea2bb9cce9"
+    },
+    {
+      "path": "Module_1_Adapter/src/modules/creator-analytics/data.ts",
+      "baseGitSha": "cbe54900c386aaddaa82202ba17a52254c671e2a",
+      "sha256": "44a748e18e5fa98d93f84d64b90bd8533a3fbce2c7017619d3ad18351862d28f"
+    },
+    {
+      "path": "Module_1_Adapter/src/modules/public/queries.ts",
+      "baseGitSha": "32089af547ac2cc30e98742c05085f3d34321c61",
+      "sha256": "041fad13a9486e91d58911024afefd92335f31928633e79fcf3e7cc6f1ebda73"
+    },
+    {
+      "path": "Module_1_Adapter/tests/engine/creator-analytics.test.ts",
+      "baseGitSha": "ad7fdadf45a03a29d257036c77933e4a2536c9a5",
+      "sha256": "85a54819bac78afc80507be390353577cd789fab67fe8343444dd07682526b95"
+    },
+    {
+      "path": "Module_2_Public_Website/src/components/PublishedWheel.tsx",
+      "baseGitSha": "fafb794d7692253e5722208b4fe7ecce79ea11d2",
+      "sha256": "c6d8e9c55fdaeae9922fce73f9a025b3e90705dd4291012daa53808785090bdd"
+    },
+    {
+      "path": "Module_2_Public_Website/src/components/CreatorAnalyticsPanel.tsx",
+      "baseGitSha": "7b5f99a0884bb661ce51d78292cb439f0f4b83be",
+      "sha256": "86c0b1a06e5531aa5a8ae96e56a33a0b73dad791cbd995aa611a89868096a462"
+    },
+    {
+      "path": "Module_2_Public_Website/src/lib/public.ts",
+      "baseGitSha": "cf4e590618110c850892f9170e2190d726c4c2be",
+      "sha256": "67a5cf6a2f9ca7717934104245a49a2cddaacddf37b3ae4dabc5ed2c9d436a96"
+    },
+    {
+      "path": "Module_2_Public_Website/tests/creator-analytics.test.mjs",
+      "baseGitSha": "a71d4dd9d24283191855ef559e51214c47031423",
+      "sha256": "b5ed869561103bf6619530e68ce5b4d2c9ef3154ec2c78601faa6f667d978022"
+    }
+  ]
+}

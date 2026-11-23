@@ -1,6 +1,6 @@
 import type pg from 'pg';
 import {query,transaction} from '../../lib/db.js';
-import {decideValue,validCount,type Precision,type SourceMethod,type Snapshot} from './policy.js';
+import {decideValue,isDiscrepancy,validCount,type Precision,type SourceMethod,type Snapshot} from './policy.js';
 
 export type MetricObservation={
   sourceId:'youtube.api'|'instagram.api'|'youtube.http'|'instagram.http'|'tiktok.http';
@@ -42,7 +42,29 @@ async function updateLatest(tx:pg.PoolClient, v:MetricObservation){
   const prior:Snapshot|null=last?{method:last.method as SourceMethod,
     value:last.value_numeric!==null?Number(last.value_numeric):last.value_text,
     precision:last.accuracy,observedAt:new Date(last.observed_at).toISOString()}:null;
-  if(decideValue(prior,candidate)!=='accept')return;
+  // Health of the API source for this platform decides whether HTTP may fill in. Fail open to "healthy"
+  // (API wins) if the hub tables are not there yet.
+  let apiHealthy=true;
+  if(candidate.method==='http'&&prior?.method==='api'){
+    const platform=v.entityId.split(':')[0];
+    try{
+      await tx.query('SAVEPOINT hub_health');
+      const h=await tx.query<{status:string}>('SELECT status FROM hub_source_health WHERE source_id=$1',[`${platform}.api`]);
+      apiHealthy=h.rows[0]?.status!=='down';
+      await tx.query('RELEASE SAVEPOINT hub_health');
+    }catch{await tx.query('ROLLBACK TO SAVEPOINT hub_health');}
+  }
+  const decision=decideValue(prior,candidate,Date.now(),{apiHealthy});
+  if(decision==='reject_lower_priority'&&prior&&typeof prior.value==='number'&&typeof candidate.value==='number'&&
+    isDiscrepancy(prior.value,candidate.value)){
+    try{
+      await tx.query('SAVEPOINT hub_disc');
+      await tx.query('INSERT INTO hub_discrepancies(entity_kind,entity_id,metric,api_value,http_value) VALUES($1,$2,$3,$4,$5)',
+        [v.entityKind,v.entityId,v.metric,prior.value,candidate.value]);
+      await tx.query('RELEASE SAVEPOINT hub_disc');
+    }catch{await tx.query('ROLLBACK TO SAVEPOINT hub_disc');}
+  }
+  if(decision!=='accept')return;
   await tx.query(`INSERT INTO ingest_latest(entity_kind,entity_id,metric,source_id,value_numeric,value_text,accuracy,observed_at)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8)
     ON CONFLICT(entity_kind,entity_id,metric) DO UPDATE SET
@@ -160,8 +182,7 @@ export async function ingestStatus(){
     query(`SELECT id,platform,method,enabled,last_success_at AS "lastSuccessAt",last_error AS "lastError" FROM ingest_sources ORDER BY id`),
     query(`SELECT (SELECT count(*)::int FROM ingest_observations) AS observations,
       (SELECT count(*)::int FROM ingest_latest) AS latest,
-      (SELECT count(*)::int FROM ingest_content) AS content,
-      (SELECT count(*)::int FROM ingest_creator_pinned_comments) AS pinned_comments`),
+      (SELECT count(*)::int FROM ingest_content) AS content`),
     query(`SELECT platform,count(*)::int AS accounts FROM accounts GROUP BY platform ORDER BY platform`)
   ]);
   return {sources:sources.rows,counts:counts.rows[0],registeredAccounts:coverage.rows,
