@@ -23,3 +23,10 @@ test('dates handle invalid/missing values and stale snapshots',()=>{
  assert.equal(displayDate('2026-11-12T08:00:00Z'),'12 Nov 2026');assert.equal(displayTime('2026-11-12T08:00:00Z'),'13:00 PKT');assert.equal(isStale(null),true);
  assert.equal(isStale(new Date().toISOString()),false);
 });
+
+test('safeCreatorImage accepts the own-copy picture path and nothing else on unknown hosts',async()=>{
+  const {safeCreatorImage}=await import('../src/lib/format.mjs');
+  assert.ok(safeCreatorImage('https://api.example.com/api/v1/public/avatars/123e4567-e89b-12d3-a456-426614174000?v=1'));
+  assert.equal(safeCreatorImage('https://api.example.com/other/123e4567-e89b-12d3-a456-426614174000'),null);
+  assert.equal(safeCreatorImage('https://evil.example.com/a.jpg'),null);
+});

@@ -2,6 +2,7 @@ import { query } from '../../lib/db.js';
 import {monthlyEstimates,instagramSponsorScenarios,personAnalytics} from '../creator-analytics/data.js';
 import { FRESHNESS_DAYS_DEFAULT } from '../../engine/index.js';
 import { safeAvatarUrl } from '../../providers/avatar.js';
+import { cachedAvatarUrl } from '../ingest/avatar-cache-rules.js';
 import { accountUrl, isStale, scopeInfo, toEntries, type PublicEntry, type SlotRow } from './shape.js';
 
 export type PublicPerson = { slug: string; displayName: string; avatarUrl: string | null; estimatedMonthlyEarningsUsd?:number|null; earningsStatus?:'ready'|'needs_history'|'no_view_data'|'stale'|'invalid'|'no_youtube'; earningsBasis?:'observed_view_gain'|'recent_uploads_floor'|null; instagramSponsorScenarioUsd?:number|null; categories: { slug: string; label: string }[]; accounts: { platform: string; handle: string; url: string | null }[] };
@@ -23,13 +24,13 @@ export async function peopleByIds(ids: string[]): Promise<Map<string, PublicPers
   const out = new Map<string, PublicPerson>(); if (!ids.length) return out;
   const [p, a, c] = await Promise.all([
     query('SELECT id,slug,display_name FROM people WHERE id = ANY($1::uuid[])', [ids]),
-    query('SELECT person_id,platform,external_id,handle,avatar_url FROM accounts WHERE person_id = ANY($1::uuid[]) ORDER BY platform', [ids]),
+    query('SELECT a.id,a.person_id,a.platform,a.external_id,a.handle,a.avatar_url,c.fetched_at AS cached_at FROM accounts a LEFT JOIN avatar_cache c ON c.account_id=a.id AND c.source_url=a.avatar_url WHERE a.person_id = ANY($1::uuid[]) ORDER BY a.platform', [ids]),
     query(`SELECT pc.person_id,c.slug,c.label FROM person_categories pc JOIN categories c ON c.id=pc.category_id WHERE pc.person_id = ANY($1::uuid[]) AND c.active=true ORDER BY pc.is_primary DESC, c.label`, [ids])
   ]);
   for (const r of p.rows) out.set(r.id, { slug: r.slug, displayName: r.display_name, avatarUrl: null, categories: [], accounts: [] });
   for (const r of a.rows) { const x = out.get(r.person_id); if (!x) continue;
     x.accounts.push({ platform: r.platform, handle: r.handle, url: accountUrl(r.platform, r.external_id, r.handle) });
-    if (!x.avatarUrl) x.avatarUrl = safeAvatarUrl(r.avatar_url); }
+    if (!x.avatarUrl) x.avatarUrl = (r.cached_at ? cachedAvatarUrl(process.env.PCI_PUBLIC_API_URL, r.id, r.cached_at) : null) ?? safeAvatarUrl(r.avatar_url); }
   for (const r of c.rows) out.get(r.person_id)?.categories.push({ slug: r.slug, label: r.label });
   return out;
 }

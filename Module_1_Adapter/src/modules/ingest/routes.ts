@@ -8,6 +8,7 @@ import {backfillRecentMetrics,ingestStatus,mirrorApiRefresh,mirrorVideoSamples,r
 import {boundedResponseText,probeInstagramAvatar} from './http.js';
 import {fillInstagramAvatars} from './avatar-fill.js';
 import {fillGraphInstagramAvatars} from './graph-avatar-fill.js';
+import {cacheInstagramAvatars} from './avatar-cache.js';
 import {POLICY} from './policy.js';
 import {reportSourceResult} from './monitor.js';
 import {classifyHttpFailure} from './monitor-rules.js';
@@ -88,6 +89,12 @@ ingestAdminRoutes.post('/ingest/instagram/avatar/:accountId',roles('owner','edit
 ingestAdminRoutes.post('/ingest/instagram/avatars/graph/fill',roles('owner','editor'),handler(async(req,res)=>{
   const {limit}=z.object({limit:z.number().int().min(1).max(5).default(5)}).strict().parse(req.body??{});
   res.json({data:await fillGraphInstagramAvatars({limit})});
+}));
+
+/** Store our own copy of Instagram pictures. Image servers only, no Meta API quota. */
+ingestAdminRoutes.post('/ingest/instagram/avatars/cache',roles('owner','editor'),handler(async(req,res)=>{
+  const {limit}=z.object({limit:z.number().int().min(1).max(30).default(20)}).strict().parse(req.body??{});
+  res.json({data:await cacheInstagramAvatars({limit})});
 }));
 
 /** Fill missing Instagram pictures from public pages, a few at a time. Same gates as the single-account route. */

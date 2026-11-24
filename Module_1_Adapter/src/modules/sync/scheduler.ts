@@ -16,6 +16,7 @@ import {mirrorVideoSamples} from '../ingest/store.js';
 import {runHubCheck} from '../ingest/monitor.js';
 import {fillInstagramAvatars} from '../ingest/avatar-fill.js';
 import {fillGraphInstagramAvatars} from '../ingest/graph-avatar-fill.js';
+import {cacheInstagramAvatars} from '../ingest/avatar-cache.js';
 import {pruneRankRuns} from '../publish/service.js';
 import {cleanupRetention,enqueueSync,ensureFreshness,recoverStalledJobs,takeNextJob,performSync} from './service.js';
 
@@ -114,6 +115,8 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
    if(process.env.PCI_INSTAGRAM_GRAPH_AVATARS_AUTOFILL!=='true')return;
    void fillGraphInstagramAvatars({limit:5}).then(r=>logger.info({status:r.status,reason:r.reason,tried:r.tried,filled:r.filled},'Meta avatar recovery')).catch(err=>logger.warn({err},'Meta avatar recovery unavailable'));
  }));
+ // Keep our own copy of Instagram pictures (image servers only, no Meta API quota).
+ tasks.push(cron.schedule('10,40 * * * *',()=>{void cacheInstagramAvatars({limit:20}).catch(err=>logger.warn({err},'Avatar cache unavailable'));}));
  tasks.push(cron.schedule('*/15 * * * *',()=>{void runHubCheck().catch(err=>logger.warn({err},'Hub check unavailable'));}));
  tasks.push(cron.schedule('15 */6 * * *',()=>{void refreshCreatorVideoSamples();},{timezone:'Asia/Karachi'}));
  tasks.push(cron.schedule('30 4 * * *',()=>runRetention().then(r=>logger.info(r,'Observation retention done')).then(()=>pruneRankRuns()).catch(e=>logger.error({err:e},'observation retention failed')),{timezone:'Asia/Karachi'}));

@@ -26,6 +26,7 @@ import {ensurePublicationSchema} from './lib/publication-schema.js';
 import {publishAdminRoutes} from './modules/publish/routes.js';
 import {ensurePublicSchema} from './lib/public-schema.js';
 import {publicRankingRoutes} from './modules/public/routes.js';
+import {publicAvatarRoutes} from './modules/public/avatar-routes.js';
 import {docsRoutes} from './modules/public/docs.js';
 import {shadowAdminRoutes} from './modules/public/shadow-routes.js';
 import {legacyGate} from './modules/public/legacy-gate.js';
@@ -117,6 +118,7 @@ export function makeApp() {
   // PCI_ZIP_4: the public site reads only published rankings. Old ranking endpoints answer 410 unless PCI_LEGACY_PUBLIC=true.
   app.use('/api/v1',legacyGate());
   app.use(docsRoutes);
+  app.use('/api/v1/public/avatars',publicAvatarRoutes);
   app.use('/api/v1/public',publicRankingRoutes);
   app.use('/api/v1/public',publicEventsRoutes);
   app.use('/api/v1',publicRoutes);
