@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "@/fifi/router";
 import { ArrowRight, BadgeCheck, BarChart3, Building2, CalendarDays, Flame, MapPin, Star, UsersRound } from "lucide-react";
 
 import { FifiAssistant } from "@/fifi/components/fifi-assistant";
-import { SaveButton, Pic } from "@/fifi/components/page-elements";
+import { Pic } from "@/fifi/components/page-elements";
 import { PulseSlideshow } from "@/fifi/components/pulse-slideshow";
-import { businesses, type EventItem } from "@/fifi/lib/fifi-data";
+import { type EventItem } from "@/fifi/lib/fifi-data";
+import { filterPlaces, flattenPlaces } from "@/lib/local.mjs";
+import type { PubLocalCity } from "@/lib/public";
 import type { RealCreator } from "@/fifi/lib/real";
 import { cn } from "@/fifi/lib/utils";
 
@@ -20,9 +22,10 @@ export type HomeProps = {
   categoryRows: CategoryRow[];
   reach: string | null; // sum of published ranks, or null when it cannot be stated honestly
   eventsCount: number | null;
+  local: PubLocalCity[];
 };
 
-export function HomePage({ creators, events, categoryRows, reach, eventsCount }: HomeProps) {
+export function HomePage({ creators, events, categoryRows, reach, eventsCount, local }: HomeProps) {
   const kpis = [
     { label: "Creator Reach", value: reach ?? "Not available", delta: "Live", sub: "published ranking", icon: UsersRound, tint: "bg-secondary text-primary" },
     // Sample content from the design: no local-business source exists yet.
@@ -32,6 +35,10 @@ export function HomePage({ creators, events, categoryRows, reach, eventsCount }:
     { label: "Top Trend in Pakistan", value: "#LahoreEats", delta: "↑ +145%", sub: "in conversations", icon: Flame, tint: "bg-gold-soft text-gold-foreground" },
   ];
   const [region, setRegion] = useState("All Pakistan");
+  const topPlaces = useMemo(() => {
+    const all = filterPlaces(flattenPlaces(local), { city: region === "All Pakistan" ? "" : region.toLowerCase(), sort: "rank" });
+    return all.filter((p) => !p.pick).slice(0, 4);
+  }, [local, region]);
   const [tab, setTab] = useState<"creators" | "businesses" | "events">("creators");
   const [followed, setFollowed] = useState<Record<number, boolean>>({});
 
@@ -39,7 +46,7 @@ export function HomePage({ creators, events, categoryRows, reach, eventsCount }:
     <main className="page-main pb-10 pt-5">
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.58fr_1fr] lg:items-start">
         <div className="space-y-5">
-          <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-soft">
+          <section className="rounded-2xl border border-primary/10 bg-secondary/60 p-5 shadow-soft">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gold-soft text-gold-foreground">
@@ -52,17 +59,7 @@ export function HomePage({ creators, events, categoryRows, reach, eventsCount }:
               </div>
               <div className="flex items-center gap-2.5">
                 <span className="hidden text-[11px] text-muted-foreground sm:inline">Sunday, 22 Nov 2026</span>
-                <select
-                  value={region}
-                  onChange={(e) => setRegion(e.target.value)}
-                  aria-label="Filter region"
-                  className="h-8 rounded-full border border-border bg-secondary/50 px-3 text-xs font-semibold text-primary outline-none"
-                >
-                  <option>All Pakistan</option>
-                  <option>Lahore</option>
-                  <option>Karachi</option>
-                  <option>Islamabad</option>
-                </select>
+                <span className="inline-flex h-8 items-center rounded-full border border-border bg-background/70 px-3 text-xs font-semibold text-primary">All Pakistan</span>
               </div>
             </div>
 
@@ -97,7 +94,7 @@ export function HomePage({ creators, events, categoryRows, reach, eventsCount }:
                 {(
                   [
                     ["creators", "Creators", UsersRound],
-                    ["businesses", "Local Businesses", Building2],
+                    ["businesses", "Restaurants", Building2],
                     ["events", "Upcoming Events", CalendarDays],
                   ] as const
                 ).map(([key, label, Icon]) => (
@@ -179,36 +176,38 @@ export function HomePage({ creators, events, categoryRows, reach, eventsCount }:
             <div className="mt-6 border-t border-border/70 pt-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-sm font-bold text-foreground">Featured Local Businesses in {region === "All Pakistan" ? "Lahore" : region}</h2>
-                  <p className="text-[11px] text-muted-foreground">Support local. Find verified places and offers.</p>
+                  <h2 className="text-sm font-bold text-foreground">Top Restaurants{region === "All Pakistan" ? "" : ` in ${region}`}</h2>
+                  <p className="text-[11px] text-muted-foreground">Best rated on Google Maps. Real ratings, with the date collected.</p>
                 </div>
-                <Link to="/local" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
-                  View all <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+                <div className="flex items-center gap-3">
+                  <select value={region} onChange={(e) => setRegion(e.target.value)} aria-label="Choose city for local businesses" className="h-8 rounded-full border border-border bg-secondary/50 px-3 text-xs font-semibold text-primary outline-none">
+                    <option>All Pakistan</option>
+                    <option>Karachi</option>
+                    <option>Lahore</option>
+                    <option>Islamabad</option>
+                  </select>
+                  <Link to="/local" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                    View all <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
-                {businesses.slice(0, 4).map((biz) => (
-                  <article key={biz.id} className="overflow-hidden rounded-xl border border-border/70 bg-background/50">
-                    <div className="relative aspect-[3/2] sm:aspect-[4/3] overflow-hidden bg-muted">
-                      <img src={biz.image} alt={biz.name} className="h-full w-full object-cover" />
-                      <div className="absolute right-2 top-2 scale-75"><SaveButton label={biz.name} /></div>
-                    </div>
-                    <div className="p-2.5">
-                      <p className="flex items-center gap-1 truncate text-xs font-bold text-foreground">
-                        {biz.name}
-                        <BadgeCheck className="h-3 w-3 shrink-0 fill-primary text-primary-foreground" />
-                      </p>
-                      <p className="truncate text-[10px] text-muted-foreground">{biz.category} · {biz.area}</p>
-                      <p className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-gold-foreground">
-                        <Star className="h-2.5 w-2.5 fill-gold text-gold" /> {biz.rating}
-                      </p>
-                      <span className="mt-2 inline-block rounded-md bg-gold-soft px-2 py-0.5 text-[9px] font-bold uppercase text-gold-foreground">
-                        {biz.offer}
-                      </span>
-                    </div>
-                  </article>
-                ))}
-              </div>
+              {topPlaces.length === 0 ? (
+                <p className="mt-3 rounded-xl border border-dashed border-border bg-background/60 px-4 py-6 text-center text-xs text-muted-foreground">Restaurant rankings will appear here after the first collection from Google Maps.</p>
+              ) : (
+                <div className="mt-3 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
+                  {topPlaces.map((p) => (
+                    <article key={`${p.city}:${p.placeId}`} className="rounded-xl border border-border/70 bg-background/50 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="rounded-full bg-background px-2 py-0.5 text-[10px] font-bold text-primary ring-1 ring-border/70">{p.pick ? "Our pick" : `#${p.rank} in ${p.cityLabel}`}</span>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gold-foreground"><Star className="h-2.5 w-2.5 fill-gold text-gold" />{p.rating === null ? "—" : p.rating.toFixed(1)}</span>
+                      </div>
+                      <p className="mt-2 truncate text-xs font-bold text-foreground">{p.name}</p>
+                      <p className="truncate text-[10px] text-muted-foreground">{p.cityLabel}{p.area ? ` · ${p.area}` : ""}</p>
+                      <p className="mt-1 text-[10px] text-muted-foreground">{p.reviewCount === null ? "" : `${p.reviewCount.toLocaleString("en-US")} Google reviews`}</p>
+                    </article>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
 

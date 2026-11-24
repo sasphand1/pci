@@ -35,11 +35,11 @@ test('compare maths: missing never wins and never becomes a bar of zero',()=>{
  assert.equal(accountFollowers({accounts:[{platform:'instagram',followers:null}]},'instagram'),null);
 });
 test('the Creators page reads published data, has the compare tray and no inline styles',()=>{
- const page=read('../src/app/creators/page.tsx'),ui=read('../src/fifi/pages/creators.tsx'),panel=read('../src/fifi/pages/creators-compare.tsx');
+ const page=read('../src/app/creators/page.tsx'),ui=read('../src/fifi/pages/creators.tsx'),panel=read('../src/fifi/pages/creators-compare.tsx'),kit=read("../src/fifi/components/explorer-kit.tsx");
  assert.match(page,/pubCreatorIndex/);
- assert.match(ui,/Head to head/);assert.match(ui,/MAX_COMPARE/);
- assert.match(panel,/role="dialog"/);assert.match(panel,/Escape/);
- for(const s of [ui,panel])assert.doesNotMatch(s,/style=\{/);
+ assert.match(ui,/HeadToHeadCard/);assert.match(kit,/Head to head/);assert.match(ui,/MAX_COMPARE/);
+ assert.match(panel,/VsDialog/);assert.match(kit,/role="dialog"/);assert.match(kit,/Escape/);
+ for(const s of [ui,panel,kit])assert.doesNotMatch(s,/style=\{/);
  assert.doesNotMatch(ui,/12\.4M|editorial relevance/);
 });
 test('old compare links redirect to the Creators page',()=>{
