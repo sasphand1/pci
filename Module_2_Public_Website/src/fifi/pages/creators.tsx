@@ -6,7 +6,7 @@ import { Link } from "@/fifi/router";
 import { Check, Instagram, LayoutGrid, List, Plus, Scale, Search, UsersRound, X, Youtube } from "lucide-react";
 
 import { EmptyState, Pagination, Pic } from "@/fifi/components/page-elements";
-import { ComparePanel } from "@/fifi/pages/creators-compare";
+import { ComparePanel, firstPlatform, platsOf, PLAT_LABEL, type Plat } from "@/fifi/pages/creators-compare";
 import { cn } from "@/fifi/lib/utils";
 import { formatCount } from "@/lib/format.mjs";
 import { MAX_COMPARE, accountFollowers, asOfLabel, creatorsHref, toggleSlug } from "@/lib/creators.mjs";
@@ -45,7 +45,7 @@ function CompareToggle({ row, selected, full, onToggle }: { row: PubCreatorRow; 
   return (
     <button type="button" onClick={() => onToggle(row.slug)} disabled={blocked} aria-pressed={selected}
       aria-label={selected ? `Remove ${row.displayName} from comparison` : `Add ${row.displayName} to comparison`}
-      title={blocked ? `You can compare up to ${MAX_COMPARE} creators` : undefined}
+      title={blocked ? `Head to head compares ${MAX_COMPARE} creators` : undefined}
       className={cn("inline-flex h-7 items-center justify-center gap-1 rounded-lg px-2.5 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-40",
         selected ? "bg-primary text-primary-foreground" : "bg-secondary text-primary hover:bg-secondary/70")}>
       {selected ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3" />}{selected ? "Added" : "Compare"}
@@ -58,6 +58,7 @@ export function CreatorsPage(props: CreatorsProps) {
   const router = useRouter();
   const [query, setQuery] = useState(search);
   const [selected, setSelected] = useState<string[]>(props.compare);
+  const [plats, setPlats] = useState<Record<string, Plat>>({});
   const [open, setOpen] = useState(props.open && props.compare.length >= 2);
   const [known, setKnown] = useState<Record<string, PubCreatorRow>>(() => Object.fromEntries([...rows, ...compareRows].map((r) => [r.slug, r])));
   const full = selected.length >= MAX_COMPARE;
@@ -78,37 +79,71 @@ export function CreatorsPage(props: CreatorsProps) {
   const kpis = [
     { label: "Creators in the index", value: totals ? String(totals.creators) : "Not available", sub: "all categories", icon: UsersRound, tint: "bg-secondary text-primary" },
     { label: "On YouTube", value: totals ? String(totals.youtube) : "Not available", sub: "channels tracked", icon: Youtube, tint: "bg-gold-soft text-gold-foreground" },
-    { label: "On Instagram", value: totals ? String(totals.instagram) : "Not available", sub: "accounts tracked", icon: Instagram, tint: "bg-gold-soft text-gold-foreground" },
-    { label: "Compare side by side", value: `Up to ${MAX_COMPARE}`, sub: "pick creators below", icon: Scale, tint: "bg-secondary text-primary" },
+    { label: "On Instagram", value: totals ? String(totals.instagram) : "Not available", sub: "accounts tracked", icon: Instagram, tint: "bg-gold-soft text-gold-foreground" }
   ];
   const tabs = [{ id: "", label: "All creators", icon: UsersRound }, { id: "youtube", label: "YouTube", icon: Youtube }, { id: "instagram", label: "Instagram", icon: Instagram }] as const;
 
   return (
-    <main className="page-main pb-28 pt-5">
+    <main className="page-main pb-10 pt-5">
       <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-soft">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gold-soft text-gold-foreground"><UsersRound className="h-5 w-5" /></div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-primary sm:text-2xl">Creator Index</h1>
-              <p className="text-xs text-muted-foreground">Search, filter and compare Pakistani creators. Every figure shows the date it was last updated.</p>
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gold-soft text-gold-foreground"><UsersRound className="h-5 w-5" /></div>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight text-primary sm:text-2xl">Creator Index</h1>
+                <p className="text-xs text-muted-foreground">Search and filter Pakistani creators. Every figure shows the date it was last updated.</p>
+              </div>
+            </div>
+            <form className="relative mt-4" onSubmit={(e) => { e.preventDefault(); go({ search: query.trim() }); }} role="search">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} className="h-9 w-full rounded-full border border-border bg-secondary/50 pl-9 pr-3 text-xs font-medium text-primary outline-none placeholder:text-muted-foreground focus:border-primary/40" placeholder="Search by name or handle…" aria-label="Search creators" />
+            </form>
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              {kpis.map((item) => (
+                <div key={item.label} className="rounded-xl border border-border/70 bg-background/60 p-3.5">
+                  <div className="flex items-start gap-2.5">
+                    <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-lg", item.tint)}><item.icon className="h-4 w-4" /></span>
+                    <div className="min-w-0"><p className="truncate text-base font-bold leading-tight text-foreground">{item.value}</p><p className="truncate text-[10px] font-medium text-muted-foreground">{item.label}</p></div>
+                  </div>
+                  <p className="mt-2.5 truncate text-[10px] text-muted-foreground">{item.sub}</p>
+                </div>
+              ))}
             </div>
           </div>
-          <form className="relative w-full sm:w-72" onSubmit={(e) => { e.preventDefault(); go({ search: query.trim() }); }} role="search">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} className="h-9 w-full rounded-full border border-border bg-secondary/50 pl-9 pr-3 text-xs font-medium text-primary outline-none placeholder:text-muted-foreground focus:border-primary/40" placeholder="Search by name or handle…" aria-label="Search creators" />
-          </form>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
-          {kpis.map((item) => (
-            <div key={item.label} className="rounded-xl border border-border/70 bg-background/60 p-3.5">
-              <div className="flex items-start gap-2.5">
-                <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-lg", item.tint)}><item.icon className="h-4 w-4" /></span>
-                <div className="min-w-0"><p className="truncate text-base font-bold leading-tight text-foreground">{item.value}</p><p className="truncate text-[10px] font-medium text-muted-foreground">{item.label}</p></div>
-              </div>
-              <p className="mt-2.5 truncate text-[10px] text-muted-foreground">{item.sub}</p>
+
+          <aside className="rounded-2xl border border-border/70 bg-secondary/40 p-4" aria-label="Head to head">
+            <div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-lg bg-gold-soft text-gold-foreground"><Scale className="h-4 w-4" /></span><div><p className="text-sm font-bold text-primary">Head to head</p><p className="text-[10px] text-muted-foreground">Pick two creators, any platform</p></div></div>
+            <div className="mt-3 space-y-2">
+              {[0, 1].map((i) => {
+                const c = chosen[i];
+                if (!c) return (
+                  <label key={i} className="block rounded-xl border border-dashed border-border bg-background/60 p-2.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Creator {i === 0 ? "A" : "B"}</span>
+                    <select value="" onChange={(e) => { if (e.target.value) onToggle(e.target.value); }} className="mt-1 h-8 w-full rounded-lg border border-border bg-card px-2 text-xs font-semibold text-primary outline-none" aria-label={`Choose creator ${i === 0 ? "A" : "B"}`}>
+                      <option value="">Choose a creator…</option>
+                      {Object.values(known).filter((k) => !selected.includes(k.slug)).map((k) => <option key={k.slug} value={k.slug}>{k.displayName}</option>)}
+                    </select>
+                  </label>
+                );
+                const cur = (plats[c.slug] ?? firstPlatform(c)) as Plat;
+                return (
+                  <div key={c.slug} className="rounded-xl border border-border/70 bg-background/60 p-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-muted"><Pic src={c.avatarUrl} alt={c.displayName} className="h-full w-full object-cover" /></span>
+                      <span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-foreground">{c.displayName}</span><span className="block text-[10px] text-muted-foreground">Creator {i === 0 ? "A" : "B"}</span></span>
+                      <button type="button" onClick={() => onToggle(c.slug)} aria-label={`Remove ${c.displayName}`} className="text-muted-foreground hover:text-primary"><X className="h-3.5 w-3.5" /></button>
+                    </div>
+                    <div className="mt-2 flex gap-1" role="group" aria-label={`Platform for ${c.displayName}`}>
+                      {platsOf(c).map((pl) => <button key={pl} type="button" aria-pressed={cur === pl} onClick={() => setPlats((m) => ({ ...m, [c.slug]: pl }))} className={cn("h-6 flex-1 rounded-md text-[10px] font-semibold transition", cur === pl ? "bg-primary text-primary-foreground" : "bg-secondary text-primary hover:bg-secondary/70")}>{PLAT_LABEL[pl]}</button>)}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          ))}
+            <button type="button" disabled={chosen.length < 2} onClick={() => setOpen(true)} className="mt-3 h-9 w-full rounded-xl bg-primary text-xs font-semibold text-primary-foreground transition hover:bg-primary-light disabled:opacity-40">{chosen.length < 2 ? `Pick ${2 - chosen.length} more` : "Compare now"}</button>
+            {chosen.length > 0 && <button type="button" onClick={() => setSelected([])} className="mt-1.5 w-full text-center text-[10px] font-semibold text-muted-foreground hover:text-primary">Clear</button>}
+          </aside>
         </div>
       </section>
 
@@ -186,20 +221,7 @@ export function CreatorsPage(props: CreatorsProps) {
         </div>
       </section>
 
-      {chosen.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-30 px-3 pb-3 sm:px-8" role="region" aria-label="Comparison tray">
-          <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-3 rounded-2xl border border-border/70 bg-card/95 px-4 py-3 shadow-lift backdrop-blur">
-            <p className="flex items-center gap-2 text-xs font-bold text-primary"><Scale className="h-4 w-4" />{chosen.length} of {MAX_COMPARE}</p>
-            <ul className="flex min-w-0 flex-1 gap-2 overflow-x-auto">
-              {chosen.map((c) => <li key={c.slug} className="flex shrink-0 items-center gap-1.5 rounded-full border border-border/70 bg-background/60 py-0.5 pl-0.5 pr-2 text-[11px] font-semibold text-primary"><span className="h-6 w-6 overflow-hidden rounded-full bg-muted"><Pic src={c.avatarUrl} alt={c.displayName} className="h-full w-full object-cover" /></span>{c.displayName}<button type="button" aria-label={`Remove ${c.displayName}`} onClick={() => onToggle(c.slug)} className="text-muted-foreground hover:text-primary"><X className="h-3 w-3" /></button></li>)}
-            </ul>
-            <button type="button" onClick={() => setSelected([])} className="text-[11px] font-semibold text-muted-foreground hover:text-primary">Clear</button>
-            <button type="button" disabled={chosen.length < 2} onClick={() => setOpen(true)} className="h-8 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground transition hover:bg-primary-light disabled:opacity-40">{chosen.length < 2 ? "Pick one more" : "Compare now"}</button>
-          </div>
-        </div>
-      )}
-
-      {open && selected.length >= 2 && <ComparePanel slugs={selected} initial={compareRows} onClose={() => setOpen(false)} onRemove={onToggle} />}
+      {open && selected.length >= 2 && <ComparePanel slugs={selected} plats={plats} onPlat={(slug, pl) => setPlats((m) => ({ ...m, [slug]: pl }))} initial={compareRows} onClose={() => setOpen(false)} />}
     </main>
   );
 }

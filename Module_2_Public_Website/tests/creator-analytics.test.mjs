@@ -43,7 +43,7 @@ test('creator profile exposes video-age milestones, velocity, breakout and hones
  assert.match(profile,/breakoutFactor/);
  assert.match(profile,/30d figures cannot be reconstructed retroactively/);
  assert.match(api,/PubVideoAnalytics/);
- assert.match(compare,/Modeled monthly earnings \(USD\)/);
+ assert.match(compare,/Modeled monthly earnings/);
 });
 
 test('earning-status labels distinguish missing, stale, and pending data',async()=>{

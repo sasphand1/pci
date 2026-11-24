@@ -1,5 +1,5 @@
 // Pure helpers for the Creators page: links, labels and compare maths. No dependencies.
-export const MAX_COMPARE=4;
+export const MAX_COMPARE=2;
 const SLUG=/^[a-z0-9-]{2,60}$/;
 
 /** Up to four distinct, well-formed slugs from a comma-separated value, in order. */

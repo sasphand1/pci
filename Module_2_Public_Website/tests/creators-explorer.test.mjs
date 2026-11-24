@@ -4,12 +4,12 @@ import {readFileSync} from 'node:fs';
 import {parseCompare,toggleSlug,creatorsHref,asOfLabel,leaderIndex,barPercent,accountFollowers,MAX_COMPARE} from '../src/lib/creators.mjs';
 const read=p=>readFileSync(new URL(p,import.meta.url),'utf8');
 
-test('compare list: at most four, distinct, well formed, in order',()=>{
- assert.equal(MAX_COMPARE,4);
- assert.deepEqual(parseCompare('a-b, c-d,a-b,e-f,g-h,i-j'),['a-b','c-d','e-f','g-h']);
+test('compare list: at most two, distinct, well formed, in order',()=>{
+ assert.equal(MAX_COMPARE,2);
+ assert.deepEqual(parseCompare('a-b, c-d,a-b,e-f,g-h,i-j'),['a-b','c-d']);
  assert.deepEqual(parseCompare("x';--,../y,ok-one"),['ok-one']);
  assert.deepEqual(parseCompare(undefined),[]);
- assert.deepEqual(toggleSlug(['a-b','c-d','e-f','g-h'],'i-j'),['a-b','c-d','e-f','g-h']);
+ assert.deepEqual(toggleSlug(['a-b','c-d'],'i-j'),['a-b','c-d']);
  assert.deepEqual(toggleSlug(['a-b'],'a-b'),[]);
 });
 test('creators links keep filters, drop defaults and are shareable',()=>{
@@ -37,7 +37,7 @@ test('compare maths: missing never wins and never becomes a bar of zero',()=>{
 test('the Creators page reads published data, has the compare tray and no inline styles',()=>{
  const page=read('../src/app/creators/page.tsx'),ui=read('../src/fifi/pages/creators.tsx'),panel=read('../src/fifi/pages/creators-compare.tsx');
  assert.match(page,/pubCreatorIndex/);
- assert.match(ui,/Comparison tray/);assert.match(ui,/MAX_COMPARE/);
+ assert.match(ui,/Head to head/);assert.match(ui,/MAX_COMPARE/);
  assert.match(panel,/role="dialog"/);assert.match(panel,/Escape/);
  for(const s of [ui,panel])assert.doesNotMatch(s,/style=\{/);
  assert.doesNotMatch(ui,/12\.4M|editorial relevance/);

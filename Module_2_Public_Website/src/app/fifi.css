@@ -109,6 +109,9 @@
   .fifi .cmp-meter::-webkit-progress-bar { @apply rounded-full bg-muted; }
   .fifi .cmp-meter::-webkit-progress-value { @apply rounded-full bg-primary; }
   .fifi .cmp-meter::-moz-progress-bar { @apply rounded-full bg-primary; }
+  .fifi .cmp-meter-flip { transform: scaleX(-1); }
+  .fifi .cmp-meter-b::-webkit-progress-value { @apply bg-gold; }
+  .fifi .cmp-meter-b::-moz-progress-bar { @apply bg-gold; }
   .fifi .filter-pill { @apply inline-flex h-10 items-center justify-center rounded-full border border-border bg-card px-4 text-sm font-medium text-muted-foreground transition hover:border-primary/30 hover:text-primary; }
   .fifi .filter-pill-active { @apply border-primary bg-primary text-primary-foreground hover:text-primary-foreground; }
   .fifi .field { @apply h-11 rounded-xl border border-input bg-card px-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/40 focus:ring-2 focus:ring-primary/10; }

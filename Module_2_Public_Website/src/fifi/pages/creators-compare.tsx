@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Crown, Link2, Scale, X } from "lucide-react";
+import { Crown, Link2, X } from "lucide-react";
 
 import { Pic } from "@/fifi/components/page-elements";
 import { cn } from "@/fifi/lib/utils";
@@ -9,43 +9,51 @@ import { formatCount } from "@/lib/format.mjs";
 import { asOfLabel, barPercent, leaderIndex } from "@/lib/creators.mjs";
 import type { PubCreatorRow } from "@/lib/public";
 
-type Metric = { label: string; hint?: string; values: (number | null)[]; format: (n: number) => string; bars?: boolean };
+export type Plat = "youtube" | "instagram" | "tiktok";
+export const PLAT_LABEL: Record<Plat, string> = { youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok" };
+const ORDER: Plat[] = ["youtube", "instagram", "tiktok"];
+export const platsOf = (r: PubCreatorRow): Plat[] => { const l = ORDER.filter((p) => r.accounts.some((a) => a.platform === p)); return l.length ? l : ["youtube"]; };
+export const firstPlatform = (r: PubCreatorRow): Plat => platsOf(r)[0];
+
 const usd = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 const num = (n: number) => formatCount(String(Math.trunc(n)), true);
 const gain = (n: number) => `${n > 0 ? "+" : ""}${num(n)}`;
-
-type Plat = "overall" | "youtube" | "instagram" | "tiktok";
-const PLATS: { id: Plat; label: string }[] = [{ id: "overall", label: "Overall" }, { id: "youtube", label: "YouTube" }, { id: "instagram", label: "Instagram" }, { id: "tiktok", label: "TikTok" }];
-const has = (r: PubCreatorRow, p: string) => r.accounts.some((a) => a.platform === p);
 function sumOf(r: PubCreatorRow, p: Plat, field: "followers" | "views" | "posts30d"): number | null {
-  const xs = r.accounts.filter((a) => (p === "overall" || a.platform === p) && a[field] !== null).map((a) => a[field] as number);
+  const xs = r.accounts.filter((a) => a.platform === p && a[field] !== null).map((a) => a[field] as number);
   return xs.length ? xs.reduce((x, y) => x + y, 0) : null;
 }
+type Row = { label: string; hint?: string; a: number | null; b: number | null; format: (n: number) => string };
 
-function metricsFor(rows: PubCreatorRow[], p: Plat): Metric[] {
-  const word = p === "youtube" ? "Subscribers" : "Followers";
-  const base: Metric[] = [
-    { label: p === "overall" ? "Total followers" : word, hint: p === "overall" ? "All accounts, last recorded" : "Last recorded", values: rows.map((r) => (p === "overall" ? r.totalFollowers : sumOf(r, p, "followers"))), format: num, bars: true },
+function rowsFor(a: PubCreatorRow, pa: Plat, b: PubCreatorRow, pb: Plat): Row[] {
+  const aud = (p: Plat) => (p === "youtube" ? "subscribers" : "followers");
+  return [
+    { label: pa === pb ? (pa === "youtube" ? "Subscribers" : "Followers") : "Audience", hint: pa === pb ? "Last recorded" : `${aud(pa)} vs ${aud(pb)}`, a: sumOf(a, pa, "followers"), b: sumOf(b, pb, "followers"), format: num },
+    { label: "Lifetime views", hint: "Last recorded", a: sumOf(a, pa, "views"), b: sumOf(b, pb, "views"), format: num },
+    { label: "Posts, last 30 days", a: sumOf(a, pa, "posts30d"), b: sumOf(b, pb, "posts30d"), format: num },
+    { label: "Modeled monthly earnings", hint: "YouTube estimate, not reported income", a: pa === "youtube" ? a.earningsUsd : null, b: pb === "youtube" ? b.earningsUsd : null, format: usd },
+    { label: "Instagram sponsored post", hint: "Hypothetical scenario", a: pa === "instagram" ? a.instagramSponsorScenarioUsd : null, b: pb === "instagram" ? b.instagramSponsorScenarioUsd : null, format: usd },
+    { label: "Audience gained · 30 days", hint: "All accounts, vs their own earlier figure", a: a.growth?.subscribers["30d"] ?? null, b: b.growth?.subscribers["30d"] ?? null, format: gain },
+    { label: "Views gained · 30 days", hint: "All accounts, vs their own earlier figure", a: a.growth?.views["30d"] ?? null, b: b.growth?.views["30d"] ?? null, format: gain },
   ];
-  if (p === "overall" || p === "youtube" || p === "tiktok") base.push({ label: p === "overall" ? "Total views" : "Lifetime views", hint: "Last recorded", values: rows.map((r) => sumOf(r, p, "views")), format: num, bars: true });
-  base.push({ label: "Posts, last 30 days", values: rows.map((r) => sumOf(r, p, "posts30d")), format: num, bars: true });
-  if (p === "overall") {
-    base.push(
-      { label: "Followers gained · 7 days", hint: "Against their own previous figure", values: rows.map((r) => r.growth?.subscribers["7d"] ?? null), format: gain, bars: true },
-      { label: "Followers gained · 30 days", values: rows.map((r) => r.growth?.subscribers["30d"] ?? null), format: gain, bars: true },
-      { label: "Views gained · 30 days", values: rows.map((r) => r.growth?.views["30d"] ?? null), format: gain, bars: true },
-    );
-  }
-  if (p === "overall" || p === "youtube") base.push({ label: "Modeled monthly earnings (USD)", hint: "Estimate, not reported income", values: rows.map((r) => r.earningsUsd), format: usd, bars: true });
-  if (p === "overall" || p === "instagram") base.push({ label: "Instagram sponsorship scenario", hint: "Hypothetical: one paid post", values: rows.map((r) => r.instagramSponsorScenarioUsd), format: usd, bars: true });
-  return base;
 }
 
-export function ComparePanel({ slugs, initial, onClose, onRemove }: { slugs: string[]; initial: PubCreatorRow[]; onClose: () => void; onRemove: (slug: string) => void }) {
+function Side({ r, p, onPlat }: { r: PubCreatorRow; p: Plat; onPlat: (p: Plat) => void }) {
+  return (
+    <div className="flex min-w-0 flex-col items-center text-center">
+      <span className="h-16 w-16 overflow-hidden rounded-2xl bg-muted ring-2 ring-white/60"><Pic src={r.avatarUrl} alt={r.displayName} className="h-full w-full object-cover" /></span>
+      <a href={`/creators/${r.slug}`} className="mt-2 block max-w-full truncate text-sm font-bold text-primary hover:underline">{r.displayName}</a>
+      <span className="text-[10px] text-muted-foreground">{r.rank !== null ? `Most Subscribed #${r.rank}` : "Not ranked"} · {asOfLabel(r.asOf) || "no date"}</span>
+      <div className="mt-2 flex gap-1" role="group" aria-label={`Platform for ${r.displayName}`}>
+        {platsOf(r).map((pl) => <button key={pl} type="button" aria-pressed={p === pl} onClick={() => onPlat(pl)} className={cn("h-6 rounded-full px-2.5 text-[10px] font-semibold transition", p === pl ? "bg-primary text-primary-foreground" : "bg-white/60 text-primary hover:bg-white/90")}>{PLAT_LABEL[pl]}</button>)}
+      </div>
+    </div>
+  );
+}
+
+export function ComparePanel({ slugs, plats, onPlat, initial, onClose }: { slugs: string[]; plats: Record<string, Plat>; onPlat: (slug: string, p: Plat) => void; initial: PubCreatorRow[]; onClose: () => void }) {
   const [rows, setRows] = useState<PubCreatorRow[]>(initial.filter((r) => slugs.includes(r.slug) && r.growth));
   const [state, setState] = useState<"loading" | "ready" | "error">(rows.length === slugs.length ? "ready" : "loading");
   const [copied, setCopied] = useState(false);
-  const [plat, setPlat] = useState<Plat>("overall");
   const closeRef = useRef<HTMLButtonElement>(null);
   const key = slugs.join(",");
 
@@ -67,74 +75,58 @@ export function ComparePanel({ slugs, initial, onClose, onRemove }: { slugs: str
   }, [onClose]);
 
   const shown = slugs.map((s) => rows.find((r) => r.slug === s)).filter(Boolean) as PubCreatorRow[];
-  const available = PLATS.filter((x) => x.id === "overall" || shown.some((r) => has(r, x.id)));
-  const active: Plat = available.some((x) => x.id === plat) ? plat : "overall";
-  const metrics = metricsFor(shown, active);
+  const [A, B] = shown;
+  const pa = A ? (plats[A.slug] ?? firstPlatform(A)) : "youtube";
+  const pb = B ? (plats[B.slug] ?? firstPlatform(B)) : "youtube";
+  const table = A && B ? rowsFor(A, pa, B, pb) : [];
   async function copyLink() {
     try { await navigator.clipboard.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* clipboard blocked */ }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-primary/40 p-0 backdrop-blur-sm sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label="Compare creators">
-      <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-t-2xl border border-border/70 bg-card shadow-lift sm:rounded-2xl">
-        <header className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
-          <div className="flex items-center gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gold-soft text-gold-foreground"><Scale className="h-5 w-5" /></div><div><h2 className="text-xl font-bold tracking-tight text-primary">Compare {slugs.length} creators</h2><p className="text-xs text-muted-foreground">Side by side, from the latest recorded figures.</p></div></div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-primary/30 p-3 backdrop-blur-md sm:p-6" role="dialog" aria-modal="true" aria-label="Compare creators">
+      <div className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/50 bg-card/75 shadow-lift backdrop-blur-2xl">
+        <header className="flex items-center justify-between gap-3 px-5 pt-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Head to head</p>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={copyLink} className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold text-primary hover:bg-secondary"><Link2 className="h-3.5 w-3.5" />{copied ? "Link copied" : "Copy link"}</button>
-            <button ref={closeRef} type="button" onClick={onClose} aria-label="Close comparison" className="grid h-9 w-9 place-items-center rounded-full border border-border text-primary hover:bg-secondary"><X className="h-4 w-4" /></button>
+            <button type="button" onClick={copyLink} className="inline-flex items-center gap-1.5 rounded-full border border-white/60 bg-white/50 px-3 py-1.5 text-[11px] font-semibold text-primary hover:bg-white/80"><Link2 className="h-3.5 w-3.5" />{copied ? "Link copied" : "Copy link"}</button>
+            <button ref={closeRef} type="button" onClick={onClose} aria-label="Close comparison" className="grid h-8 w-8 place-items-center rounded-full border border-white/60 bg-white/50 text-primary hover:bg-white/80"><X className="h-4 w-4" /></button>
           </div>
         </header>
-        <div className="flex gap-5 border-b border-border/80 px-5 pt-3" role="tablist" aria-label="Platform">
-          {available.map((x) => (
-            <button key={x.id} type="button" role="tab" aria-selected={active === x.id} onClick={() => setPlat(x.id)}
-              className={cn("border-b-2 pb-2.5 text-xs font-semibold transition", active === x.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{x.label}</button>
-          ))}
-        </div>
-        <div className="overflow-auto">
-          {state === "loading" && shown.length === 0 && <p className="px-6 py-16 text-center text-sm text-muted-foreground">Loading the latest numbers…</p>}
-          {state === "error" && shown.length === 0 && <p className="px-6 py-16 text-center text-sm text-muted-foreground">The comparison could not be loaded. Try again in a moment.</p>}
-          {shown.length > 0 && (
-            <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-              <thead className="sticky top-0 z-10 bg-card">
-                <tr>
-                  <th scope="col" className="w-48 px-5 py-4" />
-                  {shown.map((r) => (
-                    <th key={r.slug} scope="col" className="px-4 py-4 align-top">
-                      <div className="flex items-center gap-3"><span className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-muted"><Pic src={r.avatarUrl} alt={r.displayName} className="h-full w-full object-cover" /></span>
-                        <span className="min-w-0"><a href={`/creators/${r.slug}`} className="block truncate text-sm font-bold text-primary hover:underline">{r.displayName}</a>
-                          <span className="block text-xs font-normal text-muted-foreground">{r.rank !== null ? `Most Subscribed #${r.rank}` : "Not ranked"} · {asOfLabel(r.asOf) || "no date"}</span></span>
-                        <button type="button" onClick={() => onRemove(r.slug)} aria-label={`Remove ${r.displayName}`} className="ml-auto text-muted-foreground hover:text-primary"><X className="h-4 w-4" /></button></div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {metrics.map((m) => {
-                  const lead = leaderIndex(m.values);
+        <div className="overflow-auto px-5 pb-5">
+          {state === "loading" && !(A && B) && <p className="py-16 text-center text-sm text-muted-foreground">Loading the latest numbers…</p>}
+          {state === "error" && !(A && B) && <p className="py-16 text-center text-sm text-muted-foreground">The comparison could not be loaded. Try again in a moment.</p>}
+          {A && B && (
+            <>
+              <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-start gap-3">
+                <Side r={A} p={pa} onPlat={(p) => onPlat(A.slug, p)} />
+                <span className="mt-5 grid h-9 w-9 place-items-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">VS</span>
+                <Side r={B} p={pb} onPlat={(p) => onPlat(B.slug, p)} />
+              </div>
+              <ul className="mt-5 space-y-4">
+                {table.map((m) => {
+                  const lead = leaderIndex([m.a, m.b]);
+                  const both = [m.a, m.b];
+                  const pctA = barPercent(m.a, both);
+                  const pctB = barPercent(m.b, both);
                   return (
-                    <tr key={m.label} className="border-t border-border">
-                      <th scope="row" className="px-5 py-4 align-top"><span className="block text-xs font-bold text-foreground">{m.label}</span>{m.hint && <span className="block text-[10px] font-normal text-muted-foreground">{m.hint}</span>}</th>
-                      {m.values.map((v, i) => {
-                        const pct = m.bars ? barPercent(v, m.values) : null;
-                        return (
-                          <td key={shown[i].slug} className={cn("px-4 py-4 align-top", lead === i && "bg-secondary/60")}>
-                            {v === null ? <span className="text-muted-foreground">Not available</span> : (
-                              <>
-                                <span className="flex items-center gap-1.5 font-semibold text-foreground">{m.format(v)}{lead === i && <Crown className="h-3.5 w-3.5 text-gold" aria-label="Highest" />}</span>
-                                {pct !== null && <progress className="cmp-meter mt-2" value={pct} max={100} aria-label={`${m.label}: ${pct}% of the highest`} />}
-                              </>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
+                    <li key={m.label} className="rounded-2xl border border-white/60 bg-white/45 px-3.5 py-3">
+                      <p className="text-center text-xs font-bold text-foreground">{m.label}</p>
+                      {m.hint && <p className="text-center text-[10px] text-muted-foreground">{m.hint}</p>}
+                      <div className="mt-2 grid grid-cols-[4.5rem_1fr_1fr_4.5rem] items-center gap-2">
+                        <span className="flex items-center justify-end gap-1 text-right text-xs font-bold text-foreground">{lead === 0 && <Crown className="h-3 w-3 text-gold" aria-label="Highest" />}{m.a === null ? <span className="text-[10px] font-medium text-muted-foreground">Not available</span> : m.format(m.a)}</span>
+                        {pctA === null ? <span /> : <progress className="cmp-meter cmp-meter-flip" value={pctA} max={100} aria-label={`${m.label}, ${A.displayName}: ${pctA}% of the higher`} />}
+                        {pctB === null ? <span /> : <progress className="cmp-meter cmp-meter-b" value={pctB} max={100} aria-label={`${m.label}, ${B.displayName}: ${pctB}% of the higher`} />}
+                        <span className="flex items-center gap-1 text-xs font-bold text-foreground">{m.b === null ? <span className="text-[10px] font-medium text-muted-foreground">Not available</span> : m.format(m.b)}{lead === 1 && <Crown className="h-3 w-3 text-gold" aria-label="Highest" />}</span>
+                      </div>
+                    </li>
                   );
                 })}
-              </tbody>
-            </table>
+              </ul>
+            </>
           )}
         </div>
-        <footer className="border-t border-border px-5 py-3 text-[11px] leading-5 text-muted-foreground">Figures are each creator’s last recorded values, dated above. Growth is shown only where real history exists. Earnings are modeled estimates and sponsorship is a hypothetical scenario, not reported income. “Not available” means no figure has been recorded, not zero.</footer>
+        <footer className="border-t border-white/50 px-5 py-3 text-[10px] leading-5 text-muted-foreground">Figures are each creator’s last recorded values on the chosen platform. Gains compare each creator with their own earlier figures. Earnings are modeled estimates and the sponsorship is a hypothetical scenario, not reported income. “Not available” means no figure has been recorded, not zero.</footer>
       </div>
     </div>
   );
