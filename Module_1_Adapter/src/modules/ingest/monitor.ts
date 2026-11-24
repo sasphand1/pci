@@ -83,9 +83,14 @@ export async function runHubCheck():Promise<{sources:number;alertsOpened:number}
       const a=evaluateCoverage(c.platform,c.registered,c.fresh);
       opened+=await syncAlerts(`coverage:${c.platform}`,`${c.platform}.api`,a?[a]:[],['coverage_low']);
     }
-    const ig=await query<{attempted:number;invalid:number;limited:number}>(`SELECT
-      count(*) FILTER (WHERE rr.detail IS DISTINCT FROM 'skipped_after_rate_limit')::int AS attempted,
-      count(*) FILTER (WHERE rr.detail='graph_code_190')::int AS invalid,
+    const ig=await query<{attempted:number;invalid:number;limited:number}>(`WITH latest_ok AS (
+        SELECT MAX(rr.created_at) AS last_ok FROM refresh_results rr
+        JOIN refresh_runs r ON r.id=rr.run_id WHERE r.platform='instagram' AND rr.outcome='ok'
+      ) SELECT
+      count(*) FILTER (WHERE rr.detail IS DISTINCT FROM 'skipped_after_rate_limit'
+        AND rr.created_at>COALESCE((SELECT last_ok FROM latest_ok),now()-interval '24 hours'))::int AS attempted,
+      count(*) FILTER (WHERE rr.detail='graph_code_190'
+        AND rr.created_at>COALESCE((SELECT last_ok FROM latest_ok),now()-interval '24 hours'))::int AS invalid,
       count(*) FILTER (WHERE rr.outcome='rate_limited' AND rr.detail LIKE 'graph_code_%')::int AS limited
       FROM refresh_results rr JOIN refresh_runs r ON r.id=rr.run_id
       WHERE r.platform='instagram' AND rr.created_at>now()-interval '24 hours'`);

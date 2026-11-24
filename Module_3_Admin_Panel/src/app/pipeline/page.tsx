@@ -38,7 +38,7 @@ export default function PipelinePage(){
   setBusy(name);setError('');setOk('');
   try{const r=await f();setOk(done(r));}catch(e){setError(errorText(e));}finally{setBusy('');status.reload();batch.reload();}
  }
- const refresh=()=>act('refresh',()=>api<{runs:StartedRun[]}>('/admin/refresh',{method:'POST',body:{},csrf}),r=>r.runs.map(x=>`${x.platform}: ${x.started?'started':'already running'}`).join('; ')+'. Results appear below as accounts finish.');
+ const refresh=()=>act('refresh',()=>api<{runs:StartedRun[]}>('/admin/refresh',{method:'POST',body:{},csrf}),r=>r.runs.map(x=>`${x.platform}: ${x.started?'started':x.reason==='cooldown'?'cooldown active':'already running'}`).join('; ')+'. Results appear below as accounts finish.');
  const rank=()=>act('rank',()=>api<{scopes:number;gateFailures:number}>('/admin/rank',{method:'POST',csrf}),r=>`${r.scopes} drafts built${r.gateFailures?`, ${r.gateFailures} would be blocked by a gate`:''}. Nothing is public yet. Review them, then Publish.`);
  const publish=()=>{
   const b=batch.data;if(!b)return;
@@ -121,9 +121,10 @@ export default function PipelinePage(){
 
   <Card><h2 className="admin-box-title">Refresh results</h2>
    <DataBlock loading={status.loading} error="" empty={!(s?.refresh??[]).length}>
-    <TableWrap><thead><tr><th>Platform</th><th>Status</th><th>Started</th><th>Finished</th><th>Accounts</th><th>Outcomes</th><th>Detail</th></tr></thead><tbody>{(s?.refresh??[]).map(r=><tr key={r.id}>
+    <TableWrap><thead><tr><th>Platform</th><th>Status</th><th>Started</th><th>Finished</th><th>Accounts</th><th>Outcomes</th><th>Pictures</th><th>Detail</th></tr></thead><tbody>{(s?.refresh??[]).map(r=><tr key={r.id}>
      <td>{r.platform}</td><td><Badge variant={tone(r.status)}>{r.status}</Badge></td><td>{fmtDate(r.createdAt)}</td><td>{fmtDate(r.finishedAt)}</td><td>{r.counts?.accounts??'—'}</td>
-     <td>{Object.entries(r.counts??{}).filter(([k])=>k!=='accounts').map(([k,v])=>`${k}: ${v}`).join(', ')||'—'}</td>
+     <td>{Object.entries(r.counts??{}).filter(([k])=>k!=='accounts'&&!k.startsWith('avatars')).map(([k,v])=>`${k}: ${v}`).join(', ')||'—'}</td>
+     <td>{r.platform==='instagram'&&r.counts?.avatarsRecovered!==undefined?`New ${r.counts.avatarsRecovered}, refreshed ${r.counts.avatarsRefreshed??0}, API missing ${r.counts.avatarsMissing??0}, rejected ${r.counts.avatarsRejected??0}`:'—'}</td>
      <td><button type="button" className="btn btn-secondary" onClick={()=>setRunId(r.id)}>Accounts</button></td></tr>)}</tbody></TableWrap>
    </DataBlock>
    {runId&&<><h3>Per-account results ({results.data?.platform})</h3><DataBlock loading={results.loading} error={results.error} empty={!(results.data?.results??[]).length}>

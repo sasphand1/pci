@@ -47,7 +47,9 @@ export async function executePipeline(id: string, trigger: Trigger, actorId: str
         try{await mirrorApiRefresh(r.runId);}catch(err){logger.warn({err,runId:r.runId},'Ingest API mirror unavailable');}
       }
       const done = started.length ? (await query('SELECT status FROM refresh_runs WHERE id=ANY($1::uuid[])', [started.map(r => r.runId)])).rows.map(r => r.status as string) : [];
-      const notes = runs.filter(r => !r.started).map(r => `${r.platform} refresh was already running`);
+      const notes = runs.filter(r => !r.started).map(r => r.reason === 'cooldown'
+        ? `${r.platform} refresh skipped (rate/cooldown safety gate)`
+        : `${r.platform} refresh was already running`);
       const failed = done.filter(s => s === 'failed').length, partial = done.filter(s => s === 'partial').length;
       steps.push({ step: 'refresh', status: failed === done.length && done.length ? 'failed' : failed || partial || notes.length ? 'partial' : 'ok', detail: [`${done.length} run(s)`, failed ? `${failed} failed` : '', partial ? `${partial} partial` : '', ...notes].filter(Boolean).join(', ') });
       if (steps[0].status !== 'ok') status = 'partial';

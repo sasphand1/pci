@@ -7,6 +7,7 @@ import {requireAdmin,roles,type AdminIdentity} from '../auth/auth.js';
 import {backfillRecentMetrics,ingestStatus,mirrorApiRefresh,mirrorVideoSamples,recordObservation} from './store.js';
 import {boundedResponseText,probeInstagramAvatar} from './http.js';
 import {fillInstagramAvatars} from './avatar-fill.js';
+import {fillGraphInstagramAvatars} from './graph-avatar-fill.js';
 import {POLICY} from './policy.js';
 import {reportSourceResult} from './monitor.js';
 import {classifyHttpFailure} from './monitor-rules.js';
@@ -81,6 +82,12 @@ ingestAdminRoutes.post('/ingest/instagram/avatar/:accountId',roles('owner','edit
   }
   if(r.rowCount)await reportSourceResult('instagram.http',true);
   res.json({data:{status:r.rowCount?'updated':'already_present',avatarUrl:r.rowCount?url:null}});
+}));
+
+/** Official Meta-only picture recovery. Independent of web-blocking circuit breaker. */
+ingestAdminRoutes.post('/ingest/instagram/avatars/graph/fill',roles('owner','editor'),handler(async(req,res)=>{
+  const {limit}=z.object({limit:z.number().int().min(1).max(5).default(5)}).strict().parse(req.body??{});
+  res.json({data:await fillGraphInstagramAvatars({limit})});
 }));
 
 /** Fill missing Instagram pictures from public pages, a few at a time. Same gates as the single-account route. */

@@ -1,6 +1,8 @@
 import { query, transaction } from '../../lib/db.js';
 import { logger } from '../../lib/errors.js';
 import { defaultProviders, type ProviderMap } from '../../providers/index.js';
+import { mirrorApiRefresh } from '../ingest/store.js';
+import { INSTAGRAM_ACCOUNT_SELECTION_SQL, instagramAvatarPrioritySlots } from './avatar-selection.js';
 import type { AccountRef, FetchResult, Outcome, Platform } from '../../providers/types.js';
 import { MAX_ATTEMPTS, backoffMs, isRetryable, normalizeResults, summarizeRun } from './normalize.js';
 import { INSTAGRAM_PER_RUN, isInstagramLimit, shouldHoldInstagramRun } from './instagram-policy.js';
@@ -62,22 +64,30 @@ export async function startRefresh(platforms: Platform[], trigger: 'manual' | 's
 
 async function heartbeat(runId: string) { await query('UPDATE refresh_runs SET heartbeat_at=now() WHERE id=$1', [runId]); }
 
-async function persist(runId: string, result: FetchResult, attempts: number, observedAt: Date): Promise<void> {
-  await transaction(async c => {
+type AvatarWrite = 'recovered' | 'refreshed' | 'missing' | 'rejected' | null;
+async function persist(runId: string, result: FetchResult, attempts: number, observedAt: Date): Promise<AvatarWrite> {
+  return transaction(async c => {
     // Skip silently if the person was deleted while the run was in flight.
-    const alive = await c.query('SELECT external_id FROM accounts WHERE id=$1 FOR SHARE', [result.accountId]);
-    if (!alive.rowCount) return;
+    const alive = await c.query('SELECT external_id,avatar_url FROM accounts WHERE id=$1 FOR UPDATE', [result.accountId]);
+    if (!alive.rowCount) return null;
     await c.query('INSERT INTO refresh_results(run_id,account_id,outcome,attempts,detail) VALUES($1,$2,$3,$4,$5) ON CONFLICT (run_id,account_id) DO NOTHING',
       [runId, result.accountId, result.outcome, attempts, result.detail ?? null]);
     if (result.outcome === 'ok') for (const m of result.metrics)
       await c.query('INSERT INTO metric_observations(account_id,metric,value,accuracy,capped,observed_at,run_id) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (account_id,metric,run_id) DO NOTHING',
         [result.accountId, m.metric, m.value, m.accuracy, m.capped === true, observedAt.toISOString(), runId]);
-    if (result.outcome === 'ok' && result.avatarUrl) await c.query('UPDATE accounts SET avatar_url=$1 WHERE id=$2', [result.avatarUrl, result.accountId]);
+    let avatarWrite: AvatarWrite = null;
+    if (result.outcome === 'ok' && result.avatarUrl) {
+      await c.query('UPDATE accounts SET avatar_url=$1 WHERE id=$2', [result.avatarUrl, result.accountId]);
+      avatarWrite = alive.rows[0].avatar_url ? 'refreshed' : 'recovered';
+    } else if (result.outcome === 'ok') {
+      avatarWrite = result.detail?.includes('avatar_rejected') ? 'rejected' : 'missing';
+    }
     if (result.resolvedExternalId && String(alive.rows[0].external_id).startsWith('pending:')) {
       await c.query('SAVEPOINT resolve');
       try { await c.query("UPDATE accounts SET external_id=$1 WHERE id=$2 AND external_id LIKE 'pending:%'", [result.resolvedExternalId, result.accountId]); await c.query('RELEASE SAVEPOINT resolve'); }
       catch (e: any) { await c.query('ROLLBACK TO SAVEPOINT resolve'); if (e?.code !== '23505') throw e; }
     }
+    return avatarWrite;
   });
 }
 
@@ -93,15 +103,11 @@ export async function processRun(runId: string, deps: Deps = realDeps()): Promis
     // The cap is per Instagram run; YouTube retains its existing full-refresh behavior.
     const rows = platform === 'instagram'
       ? await query<{ id: string; external_id: string; handle: string }>(
-        `SELECT a.id, a.external_id, a.handle FROM accounts a
-         LEFT JOIN LATERAL (
-           SELECT MAX(rr.created_at) AS last_processed FROM refresh_results rr
-           WHERE rr.account_id=a.id AND rr.detail IS DISTINCT FROM 'skipped_after_rate_limit'
-         ) prior ON true
-         WHERE a.platform=$1 ORDER BY prior.last_processed ASC NULLS FIRST, a.id LIMIT $2`, [platform, INSTAGRAM_PER_RUN])
+        INSTAGRAM_ACCOUNT_SELECTION_SQL, [platform, instagramAvatarPrioritySlots(INSTAGRAM_PER_RUN), INSTAGRAM_PER_RUN])
       : await query<{ id: string; external_id: string; handle: string }>('SELECT id, external_id, handle FROM accounts WHERE platform=$1 ORDER BY id', [platform]);
     const all: AccountRef[] = rows.rows.map(r => ({ id: r.id, platform, externalId: r.external_id, handle: r.handle }));
     const counts: Partial<Record<Outcome, number>> = {};
+    const pictures = { avatarsRecovered: 0, avatarsRefreshed: 0, avatarsMissing: 0, avatarsRejected: 0 };
     let pending = all;
     let instagramLimited = false;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS && pending.length; attempt++) {
@@ -127,7 +133,13 @@ export async function processRun(runId: string, deps: Deps = realDeps()): Promis
           // A Meta rate limit must not cause another API burst during this run.
           // A rejected Meta access token cannot recover through immediate retries.
           if (isRetryable(r.outcome) && attempt < MAX_ATTEMPTS && !(platform === 'instagram' && (instagramLimited || r.outcome === 'rate_limited' || r.detail === 'graph_code_190'))) { retry.push(chunk[j]); continue; }
-          await persist(runId, r, attempt, deps.now());
+          const avatarWrite = await persist(runId, r, attempt, deps.now());
+          if (platform === 'instagram') {
+            if (avatarWrite === 'recovered') pictures.avatarsRecovered++;
+            if (avatarWrite === 'refreshed') pictures.avatarsRefreshed++;
+            if (avatarWrite === 'missing') pictures.avatarsMissing++;
+            if (avatarWrite === 'rejected') pictures.avatarsRejected++;
+          }
           counts[r.outcome] = (counts[r.outcome] ?? 0) + 1;
         }
       }
@@ -143,7 +155,13 @@ export async function processRun(runId: string, deps: Deps = realDeps()): Promis
       if (pending.length) await deps.sleep(deps.backoff(attempt));
     }
     const status = summarizeRun(all.length, counts);
-    await query('UPDATE refresh_runs SET status=$2, finished_at=now(), counts=$3::jsonb WHERE id=$1 AND status=\'running\'', [runId, status, JSON.stringify({ accounts: all.length, ...counts })]);
+    await query('UPDATE refresh_runs SET status=$2, finished_at=now(), counts=$3::jsonb WHERE id=$1 AND status=\'running\'', [runId, status, JSON.stringify({ accounts: all.length, ...counts, ...(platform === 'instagram' ? pictures : {}) })]);
+    // One canonical ingest mirror for both manual and scheduled refreshes.
+    // The pipeline's existing second mirror is safe and idempotent.
+    if (status !== 'failed') {
+      try { await mirrorApiRefresh(runId); }
+      catch (err) { logger.warn({ err, runId }, 'Ingest API mirror unavailable'); }
+    }
   } catch (e) {
     logger.error({ err: e, runId }, 'refresh run failed');
     await query("UPDATE refresh_runs SET status='failed', finished_at=now(), error=$2 WHERE id=$1 AND status='running'", [runId, (e instanceof Error ? e.message : 'failed').slice(0, 200)]);

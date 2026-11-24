@@ -15,6 +15,7 @@ import {collectCreatorVideoSnapshots} from '../creator-analytics/videos.js';
 import {mirrorVideoSamples} from '../ingest/store.js';
 import {runHubCheck} from '../ingest/monitor.js';
 import {fillInstagramAvatars} from '../ingest/avatar-fill.js';
+import {fillGraphInstagramAvatars} from '../ingest/graph-avatar-fill.js';
 import {pruneRankRuns} from '../publish/service.js';
 import {cleanupRetention,enqueueSync,ensureFreshness,recoverStalledJobs,takeNextJob,performSync} from './service.js';
 
@@ -107,6 +108,12 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
  // PCI Hub Monitor: source health, freshness, quota and coverage alerts.
  // Web picture fill for Instagram accounts the API left without one: every 2 hours, 5 accounts, off unless enabled.
  tasks.push(cron.schedule('0 */2 * * *',()=>{void fillInstagramAvatars({limit:5}).catch(err=>logger.warn({err},'Avatar fill unavailable'));}));
+ // Official Meta picture recovery, optional, serialized by PostgreSQL lock and cooldown.
+ // Set PCI_INSTAGRAM_GRAPH_AVATARS_AUTOFILL=true only when the Meta owner/token are configured.
+ tasks.push(cron.schedule('30 */2 * * *',()=>{
+   if(process.env.PCI_INSTAGRAM_GRAPH_AVATARS_AUTOFILL!=='true')return;
+   void fillGraphInstagramAvatars({limit:5}).then(r=>logger.info({status:r.status,reason:r.reason,tried:r.tried,filled:r.filled},'Meta avatar recovery')).catch(err=>logger.warn({err},'Meta avatar recovery unavailable'));
+ }));
  tasks.push(cron.schedule('*/15 * * * *',()=>{void runHubCheck().catch(err=>logger.warn({err},'Hub check unavailable'));}));
  tasks.push(cron.schedule('15 */6 * * *',()=>{void refreshCreatorVideoSamples();},{timezone:'Asia/Karachi'}));
  tasks.push(cron.schedule('30 4 * * *',()=>runRetention().then(r=>logger.info(r,'Observation retention done')).then(()=>pruneRankRuns()).catch(e=>logger.error({err:e},'observation retention failed')),{timezone:'Asia/Karachi'}));

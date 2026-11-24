@@ -12,6 +12,19 @@ export function PublishedTop100({initial,categories}:{initial:Record<string,PubR
  const [scope,setScope]=useState('wheel.subscribed');
  const [loaded,setLoaded]=useState<Record<string,PubRanking|null>>(initial);
  const [loading,setLoading]=useState(false);
+ const [reloadingPictures,setReloadingPictures]=useState(false);
+ const [pictureError,setPictureError]=useState('');
+ async function reloadPictures(){
+  if(!SCOPE_PATTERN.test(scope))return;
+  setReloadingPictures(true);setPictureError('');
+  try{
+   const response=await fetch(`${adapterPublicUrl}/api/v1/public/rankings/${scope}?limit=100`,{cache:'no-store'});
+   if(!response.ok)throw new Error('Ranking not available');
+   const parsed=await response.json();
+   setLoaded(previous=>({...previous,[scope]:parsed.data??null}));
+  }catch{setPictureError('Pictures could not be reloaded. Please retry.');}
+  finally{setReloadingPictures(false);}
+ }
  useEffect(()=>{
   if(scope in loaded||!SCOPE_PATTERN.test(scope))return;
   let canceled=false;setLoading(true);
@@ -30,6 +43,8 @@ export function PublishedTop100({initial,categories}:{initial:Record<string,PubR
  return <section className="content-card p-4 sm:p-6">
   <h2 className="font-display text-2xl text-primary">Top 100 Creators</h2>
   <p className="mt-1 text-sm text-muted-foreground">Pick a ranking. Every list shows only what was published after passing the checks.</p>
+  <button type="button" className="mt-2 rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted-foreground" disabled={reloadingPictures} onClick={()=>void reloadPictures()}>{reloadingPictures?'Reloading pictures…':'Reload pictures'}</button>
+  {pictureError&&<p role="alert" className="mt-1 text-xs text-destructive">{pictureError}</p>}
   <div className="mt-4 flex gap-2 overflow-x-auto pb-1" aria-label="Choose ranking">{choices.map(c=><button type="button" key={c.scope} className={pill(scope===c.scope)} aria-pressed={scope===c.scope} onClick={()=>setScope(c.scope)}>{c.label}</button>)}
    {categories.length>0&&<select className="shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground" aria-label="Category ranking" value={scope.startsWith('category.')?scope:''} onChange={e=>{if(e.target.value)setScope(e.target.value);}}><option value="">Category…</option>{categories.map(c=><option key={c.slug} value={`category.${c.slug}`}>{c.label}</option>)}</select>}</div>
   {loading?<p className="mt-6 text-sm text-muted-foreground">Loading…</p>
