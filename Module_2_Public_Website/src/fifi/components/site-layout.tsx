@@ -156,7 +156,7 @@ function SparkleMark() {
 
 export function SiteFooter() {
   return (
-    <footer className="mt-10 w-full bg-primary text-primary-foreground">
+    <footer className="w-full bg-primary text-primary-foreground">
       <div className="mx-auto grid w-full max-w-[1600px] grid-cols-2 gap-6 px-4 py-6 sm:px-8 sm:py-8 md:grid-cols-[1.4fr_repeat(3,1fr)] md:gap-8 lg:px-10">
         <div className="col-span-2 md:col-span-1">
           <Logo inverse />
