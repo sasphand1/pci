@@ -4,6 +4,7 @@ import Link from 'next/link';
 import {Notice} from '@pci/ui';
 import {AdminPage} from '@/components/Shared';
 import {AudienceChart} from '@/components/AudienceChart';
+import {CollectionSummary} from '@/components/CollectionSummary';
 import {useOverview} from '@/components/OverviewProvider';
 import {useAuth} from '@/components/AuthProvider';
 import {api,errorText,fmtDate,fmtNum} from '@/lib/api';
@@ -43,6 +44,8 @@ export default function OverviewPage(){
     <div className="glass-card kpi"><p className="kpi-label">Total audience</p><p className="kpi-value">{compact(data.audience.total)}</p><p className="kpi-note">{signedPct(data.audience.changePct)?`${signedPct(data.audience.changePct)} over the chart period`:'Fresh numbers only'}</p></div>
     <div className="glass-card kpi"><p className="kpi-label">Last publish</p><p className="kpi-value kpi-small">{data.lastPublishedAt?fmtDate(data.lastPublishedAt):'Nothing yet'}</p><p className="kpi-note">{data.worker.dailyEnabled?`Next automatic run ${data.worker.schedule}`:'Daily run is switched off'}</p></div>
    </section>
+
+   <CollectionSummary/>
 
    <div className="glass-split">
     <section className="glass-card" aria-labelledby="ov-chart"><h2 id="ov-chart" className="glass-h">Audience over the last 30 days</h2>
