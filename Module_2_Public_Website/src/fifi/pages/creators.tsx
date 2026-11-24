@@ -6,7 +6,7 @@ import { Link } from "@/fifi/router";
 import { Check, Instagram, LayoutGrid, List, Plus, Scale, Search, UsersRound, X, Youtube } from "lucide-react";
 
 import { EmptyState, Pagination, Pic } from "@/fifi/components/page-elements";
-import { ComparePanel, firstPlatform, platsOf, PLAT_LABEL, type Plat } from "@/fifi/pages/creators-compare";
+import { ComparePanel, firstPlatform, hasPlat, platBtn, PLAT_LABEL, PLAT_ORDER, type Plat } from "@/fifi/pages/creators-compare";
 import { cn } from "@/fifi/lib/utils";
 import { formatCount } from "@/lib/format.mjs";
 import { MAX_COMPARE, accountFollowers, asOfLabel, creatorsHref, toggleSlug } from "@/lib/creators.mjs";
@@ -113,7 +113,7 @@ export function CreatorsPage(props: CreatorsProps) {
           </div>
 
           <aside className="rounded-2xl border border-border/70 bg-secondary/40 p-4" aria-label="Head to head">
-            <div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-lg bg-gold-soft text-gold-foreground"><Scale className="h-4 w-4" /></span><div><p className="text-sm font-bold text-primary">Head to head</p><p className="text-[10px] text-muted-foreground">Pick two creators, any platform</p></div></div>
+            <div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-lg bg-gold-soft text-gold-foreground"><Scale className="h-4 w-4" /></span><div><p className="text-sm font-bold text-primary">Head to head</p><p className="text-[10px] text-muted-foreground">Pick two creators, then a platform for each</p></div></div>
             <div className="mt-3 space-y-2">
               {[0, 1].map((i) => {
                 const c = chosen[i];
@@ -135,7 +135,7 @@ export function CreatorsPage(props: CreatorsProps) {
                       <button type="button" onClick={() => onToggle(c.slug)} aria-label={`Remove ${c.displayName}`} className="text-muted-foreground hover:text-primary"><X className="h-3.5 w-3.5" /></button>
                     </div>
                     <div className="mt-2 flex gap-1" role="group" aria-label={`Platform for ${c.displayName}`}>
-                      {platsOf(c).map((pl) => <button key={pl} type="button" aria-pressed={cur === pl} onClick={() => setPlats((m) => ({ ...m, [c.slug]: pl }))} className={cn("h-6 flex-1 rounded-md text-[10px] font-semibold transition", cur === pl ? "bg-primary text-primary-foreground" : "bg-secondary text-primary hover:bg-secondary/70")}>{PLAT_LABEL[pl]}</button>)}
+                      {PLAT_ORDER.map((pl) => { const off = !hasPlat(c, pl); return <button key={pl} type="button" disabled={off} title={off ? `No ${PLAT_LABEL[pl]} account` : undefined} aria-pressed={cur === pl} onClick={() => setPlats((m) => ({ ...m, [c.slug]: pl }))} className={cn("h-6 flex-1 rounded-md text-[10px] font-semibold transition", platBtn(cur === pl, off))}>{PLAT_LABEL[pl]}</button>; })}
                     </div>
                   </div>
                 );
