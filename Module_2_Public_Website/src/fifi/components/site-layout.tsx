@@ -175,7 +175,7 @@ export function SiteFooter() {
       </div>
       <div className="border-t border-primary-foreground/15">
         <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-2 px-5 py-3 text-xs text-primary-foreground/55 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10">
-          <p>© 2026 Fifi. Built with care in Pakistan.</p>
+          <p>© 2026 Fifi. Built with <a href="https://www.rackeltotechnologies.com/" target="_blank" rel="noopener noreferrer" className="rounded bg-gold-soft/20 px-1.5 py-0.5 font-bold text-gold-soft underline underline-offset-4 transition-colors hover:bg-gold-soft/30 hover:text-primary-foreground">Rackelto Technologies Ltd.</a></p>
           <p className="flex flex-wrap gap-x-4 gap-y-1"><Link to="/privacy" className="hover:text-primary-foreground">Privacy</Link><Link to="/terms" className="hover:text-primary-foreground">Terms</Link><Link to="/contact" className="hover:text-primary-foreground">Contact</Link></p>
         </div>
       </div>
