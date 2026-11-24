@@ -6,7 +6,7 @@ import { Crown, Link2, Scale, X } from "lucide-react";
 import { Pic } from "@/fifi/components/page-elements";
 import { cn } from "@/fifi/lib/utils";
 import { formatCount } from "@/lib/format.mjs";
-import { accountFollowers, asOfLabel, barPercent, leaderIndex } from "@/lib/creators.mjs";
+import { asOfLabel, barPercent, leaderIndex } from "@/lib/creators.mjs";
 import type { PubCreatorRow } from "@/lib/public";
 
 type Metric = { label: string; hint?: string; values: (number | null)[]; format: (n: number) => string; bars?: boolean };
@@ -14,25 +14,38 @@ const usd = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", c
 const num = (n: number) => formatCount(String(Math.trunc(n)), true);
 const gain = (n: number) => `${n > 0 ? "+" : ""}${num(n)}`;
 
-function metricsFor(rows: PubCreatorRow[]): Metric[] {
-  return [
-    { label: "Total followers", hint: "All accounts, last recorded", values: rows.map((r) => r.totalFollowers), format: num, bars: true },
-    { label: "YouTube subscribers", values: rows.map((r) => accountFollowers(r, "youtube")), format: num, bars: true },
-    { label: "Instagram followers", values: rows.map((r) => accountFollowers(r, "instagram")), format: num, bars: true },
-    { label: "YouTube lifetime views", values: rows.map((r) => { const xs = r.accounts.filter((a) => a.platform === "youtube" && a.views !== null).map((a) => a.views as number); return xs.length ? xs.reduce((a, b) => a + b, 0) : null; }), format: num, bars: true },
-    { label: "Posts, last 30 days", values: rows.map((r) => { const xs = r.accounts.filter((a) => a.posts30d !== null).map((a) => a.posts30d as number); return xs.length ? xs.reduce((a, b) => a + b, 0) : null; }), format: num },
-    { label: "Subscribers gained · 7 days", values: rows.map((r) => r.growth?.subscribers["7d"] ?? null), format: gain },
-    { label: "Subscribers gained · 30 days", values: rows.map((r) => r.growth?.subscribers["30d"] ?? null), format: gain },
-    { label: "Channel views gained · 30 days", values: rows.map((r) => r.growth?.views["30d"] ?? null), format: gain },
-    { label: "Modeled monthly earnings (USD)", hint: "Estimate, not reported income", values: rows.map((r) => r.earningsUsd), format: usd, bars: true },
-    { label: "Instagram sponsorship scenario", hint: "Hypothetical: one paid post", values: rows.map((r) => r.instagramSponsorScenarioUsd), format: usd },
+type Plat = "overall" | "youtube" | "instagram" | "tiktok";
+const PLATS: { id: Plat; label: string }[] = [{ id: "overall", label: "Overall" }, { id: "youtube", label: "YouTube" }, { id: "instagram", label: "Instagram" }, { id: "tiktok", label: "TikTok" }];
+const has = (r: PubCreatorRow, p: string) => r.accounts.some((a) => a.platform === p);
+function sumOf(r: PubCreatorRow, p: Plat, field: "followers" | "views" | "posts30d"): number | null {
+  const xs = r.accounts.filter((a) => (p === "overall" || a.platform === p) && a[field] !== null).map((a) => a[field] as number);
+  return xs.length ? xs.reduce((x, y) => x + y, 0) : null;
+}
+
+function metricsFor(rows: PubCreatorRow[], p: Plat): Metric[] {
+  const word = p === "youtube" ? "Subscribers" : "Followers";
+  const base: Metric[] = [
+    { label: p === "overall" ? "Total followers" : word, hint: p === "overall" ? "All accounts, last recorded" : "Last recorded", values: rows.map((r) => (p === "overall" ? r.totalFollowers : sumOf(r, p, "followers"))), format: num, bars: true },
   ];
+  if (p === "overall" || p === "youtube" || p === "tiktok") base.push({ label: p === "overall" ? "Total views" : "Lifetime views", hint: "Last recorded", values: rows.map((r) => sumOf(r, p, "views")), format: num, bars: true });
+  base.push({ label: "Posts, last 30 days", values: rows.map((r) => sumOf(r, p, "posts30d")), format: num, bars: true });
+  if (p === "overall") {
+    base.push(
+      { label: "Followers gained · 7 days", hint: "Against their own previous figure", values: rows.map((r) => r.growth?.subscribers["7d"] ?? null), format: gain, bars: true },
+      { label: "Followers gained · 30 days", values: rows.map((r) => r.growth?.subscribers["30d"] ?? null), format: gain, bars: true },
+      { label: "Views gained · 30 days", values: rows.map((r) => r.growth?.views["30d"] ?? null), format: gain, bars: true },
+    );
+  }
+  if (p === "overall" || p === "youtube") base.push({ label: "Modeled monthly earnings (USD)", hint: "Estimate, not reported income", values: rows.map((r) => r.earningsUsd), format: usd, bars: true });
+  if (p === "overall" || p === "instagram") base.push({ label: "Instagram sponsorship scenario", hint: "Hypothetical: one paid post", values: rows.map((r) => r.instagramSponsorScenarioUsd), format: usd, bars: true });
+  return base;
 }
 
 export function ComparePanel({ slugs, initial, onClose, onRemove }: { slugs: string[]; initial: PubCreatorRow[]; onClose: () => void; onRemove: (slug: string) => void }) {
   const [rows, setRows] = useState<PubCreatorRow[]>(initial.filter((r) => slugs.includes(r.slug) && r.growth));
   const [state, setState] = useState<"loading" | "ready" | "error">(rows.length === slugs.length ? "ready" : "loading");
   const [copied, setCopied] = useState(false);
+  const [plat, setPlat] = useState<Plat>("overall");
   const closeRef = useRef<HTMLButtonElement>(null);
   const key = slugs.join(",");
 
@@ -54,7 +67,9 @@ export function ComparePanel({ slugs, initial, onClose, onRemove }: { slugs: str
   }, [onClose]);
 
   const shown = slugs.map((s) => rows.find((r) => r.slug === s)).filter(Boolean) as PubCreatorRow[];
-  const metrics = metricsFor(shown);
+  const available = PLATS.filter((x) => x.id === "overall" || shown.some((r) => has(r, x.id)));
+  const active: Plat = available.some((x) => x.id === plat) ? plat : "overall";
+  const metrics = metricsFor(shown, active);
   async function copyLink() {
     try { await navigator.clipboard.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* clipboard blocked */ }
   }
@@ -69,6 +84,12 @@ export function ComparePanel({ slugs, initial, onClose, onRemove }: { slugs: str
             <button ref={closeRef} type="button" onClick={onClose} aria-label="Close comparison" className="grid h-9 w-9 place-items-center rounded-full border border-border text-primary hover:bg-secondary"><X className="h-4 w-4" /></button>
           </div>
         </header>
+        <div className="flex gap-5 border-b border-border/80 px-5 pt-3" role="tablist" aria-label="Platform">
+          {available.map((x) => (
+            <button key={x.id} type="button" role="tab" aria-selected={active === x.id} onClick={() => setPlat(x.id)}
+              className={cn("border-b-2 pb-2.5 text-xs font-semibold transition", active === x.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{x.label}</button>
+          ))}
+        </div>
         <div className="overflow-auto">
           {state === "loading" && shown.length === 0 && <p className="px-6 py-16 text-center text-sm text-muted-foreground">Loading the latest numbers…</p>}
           {state === "error" && shown.length === 0 && <p className="px-6 py-16 text-center text-sm text-muted-foreground">The comparison could not be loaded. Try again in a moment.</p>}
