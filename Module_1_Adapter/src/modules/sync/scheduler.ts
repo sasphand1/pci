@@ -14,6 +14,7 @@ import {startPipeline} from '../publish/pipeline.js';
 import {collectCreatorVideoSnapshots} from '../creator-analytics/videos.js';
 import {mirrorVideoSamples} from '../ingest/store.js';
 import {runHubCheck} from '../ingest/monitor.js';
+import {fillInstagramAvatars} from '../ingest/avatar-fill.js';
 import {pruneRankRuns} from '../publish/service.js';
 import {cleanupRetention,enqueueSync,ensureFreshness,recoverStalledJobs,takeNextJob,performSync} from './service.js';
 
@@ -104,6 +105,8 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
  tasks.push(cron.schedule('*/10 * * * *',()=>recoverStalledRuns().catch(e=>logger.error({err:e},'stalled refresh recovery failed'))));
  tasks.push(cron.schedule('*/15 * * * *',()=>void freshness()));
  // PCI Hub Monitor: source health, freshness, quota and coverage alerts.
+ // Web picture fill for Instagram accounts the API left without one: every 2 hours, 5 accounts, off unless enabled.
+ tasks.push(cron.schedule('0 */2 * * *',()=>{void fillInstagramAvatars({limit:5}).catch(err=>logger.warn({err},'Avatar fill unavailable'));}));
  tasks.push(cron.schedule('*/15 * * * *',()=>{void runHubCheck().catch(err=>logger.warn({err},'Hub check unavailable'));}));
  tasks.push(cron.schedule('15 */6 * * *',()=>{void refreshCreatorVideoSamples();},{timezone:'Asia/Karachi'}));
  tasks.push(cron.schedule('30 4 * * *',()=>runRetention().then(r=>logger.info(r,'Observation retention done')).then(()=>pruneRankRuns()).catch(e=>logger.error({err:e},'observation retention failed')),{timezone:'Asia/Karachi'}));

@@ -10,3 +10,6 @@ test('Data Hub page reads the hub routes through the validated api client',()=>{
 test('only the owner sees the kill switch and enabling asks for confirmation',()=>{
  const p=read('../src/app/hub/page.tsx');assert.match(p,/switchable&&owner/);assert.match(p,/window\.confirm/);
 });
+test('Data Hub shows picture coverage and can trigger the web picture fill',()=>{
+ const p=read('../src/app/hub/page.tsx');assert.match(p,/With picture/);assert.ok(p.includes('/admin/ingest/instagram/avatars/fill'));assert.match(p,/withPicture/);
+});

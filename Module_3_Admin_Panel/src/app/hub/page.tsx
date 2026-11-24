@@ -7,7 +7,7 @@ type Source={id:string;platform:string;method:'api'|'http';enabled:boolean;lastS
 type Alert={id:string;createdAt:string;kind:string;scope:string|null;severity:'info'|'warning'|'critical';sourceId:string|null;message:string};
 type Job={id:string;sourceId:string;trigger:string;status:string;startedAt:string|null;finishedAt:string|null;errorCode:string|null};
 type Health={sources:Source[];openAlerts:Alert[];recentJobs:Job[];discrepancies7d:number};
-type Coverage={byTier:{platform:string;tier:string;n:number}[];byCategory:{platform:string;category:string;n:number;noData:number}[];freshness:{platform:string;registered:number;fresh:number;noData:number}[]};
+type Coverage={byTier:{platform:string;tier:string;n:number}[];byCategory:{platform:string;category:string;n:number;noData:number}[];freshness:{platform:string;registered:number;fresh:number;withPicture:number;noData:number}[]};
 type Discrepancy={entityId:string;metric:string;apiValue:string;httpValue:string;detectedAt:string};
 const TIERS:[string,string][]=[['1m_plus','1M+'],['500k_1m','500K–1M'],['100k_500k','100K–500K'],['under_100k','Under 100K'],['no_data','No data']];
 const badge=(s:string)=>s==='ok'?'badge':s==='down'||s==='critical'?'badge badge-danger':'badge badge-muted';
@@ -39,12 +39,13 @@ export default function DataHub(){
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[ok,setOk]=useState(''),[showDisc,setShowDisc]=useState(10);
  const reloadAll=()=>{health.reload();coverage.reload();disc.reload();};
  async function run(){setBusy(true);setError('');setOk('');try{const r=await api<{sources:number;alertsOpened:number}>('/admin/ingest/check',{method:'POST',csrf});setOk(`Checked ${r.sources} sources; ${r.alertsOpened} new alert(s).`);reloadAll();}catch(e){setError(errorText(e));}finally{setBusy(false);}}
+ async function fillPictures(){setBusy(true);setError('');setOk('');try{const r=await api<{status:string;reason?:string;tried:number;filled:number;failed:number;stoppedEarly:boolean}>('/admin/ingest/instagram/avatars/fill',{method:'POST',csrf,body:{limit:5},timeoutMs:60000});setOk(r.status==='skipped'?`Picture fill skipped: ${(r.reason??'').replace(/_/g,' ')}.`:`Picture fill: tried ${r.tried}, filled ${r.filled}, failed ${r.failed}${r.stoppedEarly?' (stopped early after repeated failures)':''}.`);reloadAll();}catch(e){setError(errorText(e));}finally{setBusy(false);}}
  async function ack(id:string){setError('');try{await api(`/admin/pipeline/alerts/${id}/ack`,{method:'POST',csrf});health.reload();}catch(e){setError(errorText(e));}}
  const h=health.data;const c=coverage.data;
  const tierMap=new Map((c?.byTier??[]).map(t=>[`${t.platform}:${t.tier}`,t.n]));
  const platforms=[...new Set((c?.freshness??[]).map(f=>f.platform))];
  return <RoleGate roles={['owner','editor']}><AdminPage title="Data Hub" description="One place for source health, alerts, data coverage and freshness. Official API sources come first; web sources fill in only when allowed and healthy."
-  action={<><button className="btn btn-secondary" onClick={reloadAll}>Reload</button><button className="btn btn-primary" disabled={busy} onClick={()=>void run()}>{busy?'Checking…':'Run check now'}</button></>}>
+  action={<><button className="btn btn-secondary" onClick={reloadAll}>Reload</button><button className="btn btn-secondary" disabled={busy} onClick={()=>void fillPictures()}>Fill missing Instagram pictures (web)</button><button className="btn btn-primary" disabled={busy} onClick={()=>void run()}>{busy?'Working…':'Run check now'}</button></>}>
   <Status error={error} ok={ok}/>
   <DataBlock loading={health.loading} error={health.error} empty={!h}>
    <h2>Sources</h2>
@@ -58,8 +59,8 @@ export default function DataHub(){
   </DataBlock>
   <h2>Coverage</h2>
   <DataBlock loading={coverage.loading} error={coverage.error} empty={!c||c.freshness.length===0}>
-   <TableWrap><thead><tr><th>Platform</th><th>Registered</th><th>Fresh (48h)</th><th>No data</th>{TIERS.map(t=><th key={t[0]}>{t[1]}</th>)}</tr></thead><tbody>
-    {c?.freshness.map(f=><tr key={f.platform}><td>{f.platform}</td><td>{fmtNum(f.registered)}</td><td>{fmtNum(f.fresh)}</td><td>{fmtNum(f.noData)}</td>
+   <TableWrap><thead><tr><th>Platform</th><th>Registered</th><th>Fresh (48h)</th><th>With picture</th><th>No data</th>{TIERS.map(t=><th key={t[0]}>{t[1]}</th>)}</tr></thead><tbody>
+    {c?.freshness.map(f=><tr key={f.platform}><td>{f.platform}</td><td>{fmtNum(f.registered)}</td><td>{fmtNum(f.fresh)}</td><td>{fmtNum(f.withPicture)}</td><td>{fmtNum(f.noData)}</td>
      {TIERS.map(t=><td key={t[0]}>{fmtNum(tierMap.get(`${f.platform}:${t[0]}`)??0)}</td>)}</tr>)}
    </tbody></TableWrap>
    {platforms.map(p=><details key={p}><summary>{p}: accounts by primary category</summary>

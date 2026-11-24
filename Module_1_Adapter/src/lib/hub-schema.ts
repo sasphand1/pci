@@ -1,5 +1,5 @@
 import {pool} from './db.js';
-/** Same additive DDL as migration 104; executed at startup (after publication and ingest schemas). */
+/** Same additive DDL as migrations 104 and 105; executed at startup (after publication and ingest schemas). */
 export const HUB_SCHEMA_SQL = `-- PCI Hub v1 (additive). Monitor state, discrepancies and alert metadata.
 DO $$ BEGIN
   IF to_regclass('public.pipeline_alerts') IS NOT NULL THEN
@@ -39,6 +39,14 @@ DO $$ BEGIN
     END IF;
   END IF;
 END $$;
+
+-- Retry bookkeeping for the optional web picture fill (additive).
+CREATE TABLE IF NOT EXISTS hub_avatar_attempts (
+  account_id uuid PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+  attempts integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  last_attempt_at timestamptz NOT NULL DEFAULT now(),
+  last_result text
+);
 `;
 export async function ensureHubSchema():Promise<void> {
   const client=await pool.connect();

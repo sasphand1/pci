@@ -1,5 +1,6 @@
 /** Public-HTTPS adapter helpers. No cookies, login or anti-bot workarounds. */
 import {safeAvatarUrl} from '../../providers/avatar.js';
+import {classifyHttpFailure} from './monitor-rules.js';
 
 const decode=(s:string)=>s.replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
 export function metaProperty(html:string,property:string):string|null {
@@ -40,14 +41,29 @@ export async function boundedResponseText(response:Response,maxBytes:number):Pro
   }finally{reader.releaseLock();}
 }
 
-/** Explicitly opt-in and subject to service access terms. Does not follow redirects. */
+export type AvatarProbe={url:string|null;status:number|null;error?:'BLOCKED'|'SHAPE_CHANGED'|'UNAVAILABLE'|'TIMEOUT'|'DISABLED'|'INVALID'};
+/** Explicitly opt-in and subject to service access terms. Does not follow redirects.
+ * Never throws: the result says why no picture was found so the monitor can tell
+ * "blocked" from "page changed" from "no network". */
+export async function probeInstagramAvatar(handle:string,fetchImpl:typeof fetch=fetch):Promise<AvatarProbe> {
+  if(process.env.PCI_INSTAGRAM_HTTP_AVATARS!=='true')return {url:null,status:null,error:'DISABLED'};
+  if(!/^[a-zA-Z0-9._]{1,30}$/.test(handle))return {url:null,status:null,error:'INVALID'};
+  let response:Response;
+  try {
+    response=await fetchImpl(`https://www.instagram.com/${encodeURIComponent(handle)}/`,{
+      headers:{accept:'text/html'},redirect:'manual',signal:AbortSignal.timeout(8500)});
+  }catch{return {url:null,status:null,error:'TIMEOUT'};}
+  const status=response.status;
+  if(status>=300&&status<400)return {url:null,status,error:'BLOCKED'};
+  if(!response.ok)return {url:null,status,error:classifyHttpFailure(status)};
+  if(!response.headers.get('content-type')?.includes('text/html')||Number(response.headers.get('content-length')??0)>300_000)
+    return {url:null,status,error:'SHAPE_CHANGED'};
+  let html:string|null=null;
+  try{html=await boundedResponseText(response,300_000);}catch{return {url:null,status,error:'TIMEOUT'};}
+  if(!html)return {url:null,status,error:'SHAPE_CHANGED'};
+  const url=parseInstagramPublicAvatar(html,handle);
+  return url?{url,status}:{url:null,status,error:classifyHttpFailure(status,html)};
+}
 export async function requestPublicInstagramAvatar(handle:string):Promise<string|null> {
-  if(process.env.PCI_INSTAGRAM_HTTP_AVATARS!=='true')return null;
-  if(!/^[a-zA-Z0-9._]{1,30}$/.test(handle))return null;
-  const response=await fetch(`https://www.instagram.com/${encodeURIComponent(handle)}/`,{
-    headers:{accept:'text/html'},redirect:'manual',signal:AbortSignal.timeout(8500)});
-  if(!response.ok || !response.headers.get('content-type')?.includes('text/html'))return null;
-  if(Number(response.headers.get('content-length')??0)>300_000)return null;
-  const html=await boundedResponseText(response,300_000);
-  return html?parseInstagramPublicAvatar(html,handle):null;
+  return (await probeInstagramAvatar(handle)).url;
 }

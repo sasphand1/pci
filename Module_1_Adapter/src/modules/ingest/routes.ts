@@ -5,7 +5,8 @@ import {query} from '../../lib/db.js';
 import {boundedLimit} from '../../lib/redis.js';
 import {requireAdmin,roles,type AdminIdentity} from '../auth/auth.js';
 import {backfillRecentMetrics,ingestStatus,mirrorApiRefresh,mirrorVideoSamples,recordObservation} from './store.js';
-import {boundedResponseText,requestPublicInstagramAvatar} from './http.js';
+import {boundedResponseText,probeInstagramAvatar} from './http.js';
+import {fillInstagramAvatars} from './avatar-fill.js';
 import {POLICY} from './policy.js';
 import {reportSourceResult} from './monitor.js';
 import {classifyHttpFailure} from './monitor-rules.js';
@@ -64,10 +65,12 @@ ingestAdminRoutes.post('/ingest/instagram/avatar/:accountId',roles('owner','edit
   const a=account.rows[0];if(!a)throw new HttpError(404,'ACCOUNT_NOT_FOUND','Instagram account not found');
   if(a.avatar_url)return res.json({data:{status:'already_present'}});
   await budget(`igavatar:${id}`,2);
-  let url:string|null=null;
-  try{url=await requestPublicInstagramAvatar(a.handle);}
-  catch{await reportSourceResult('instagram.http',false,'UNAVAILABLE');/* no bad URL or transient error is promoted */}
-  if(!url)return res.json({data:{status:'unavailable',avatarUrl:null}});
+  const probe=await probeInstagramAvatar(a.handle);
+  const url=probe.url;
+  if(!url){
+    if(probe.error&&probe.error!=='INVALID'&&probe.error!=='DISABLED')await reportSourceResult('instagram.http',false,probe.error);
+    return res.json({data:{status:'unavailable',avatarUrl:null,reason:probe.error??null}});
+  }
   // Do not replace a newer API image obtained while the HTTP request was in flight.
   const r=await query(`UPDATE accounts SET avatar_url=$2 WHERE id=$1 AND avatar_url IS NULL RETURNING id`,[a.id,url]);
   if(r.rowCount){
@@ -78,6 +81,12 @@ ingestAdminRoutes.post('/ingest/instagram/avatar/:accountId',roles('owner','edit
   }
   if(r.rowCount)await reportSourceResult('instagram.http',true);
   res.json({data:{status:r.rowCount?'updated':'already_present',avatarUrl:r.rowCount?url:null}});
+}));
+
+/** Fill missing Instagram pictures from public pages, a few at a time. Same gates as the single-account route. */
+ingestAdminRoutes.post('/ingest/instagram/avatars/fill',roles('owner','editor'),handler(async(req,res)=>{
+  const {limit}=z.object({limit:z.number().int().min(1).max(10).default(5)}).strict().parse(req.body??{});
+  res.json({data:await fillInstagramAvatars({limit})});
 }));
 
 /** TikTok key-free official embed metadata: identity/thumbnail only, NOT engagement counts. */

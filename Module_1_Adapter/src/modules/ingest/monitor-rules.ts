@@ -73,3 +73,12 @@ export function evaluateInstagramLimit(limited:number):HubAlert|null {
   return {kind:'rate_limited',severity:'warning',
     message:`Instagram rate limit hit ${limited} time(s) in 24h. Refresh pauses automatically (6 hour cooldown); lower PCI_INSTAGRAM_PER_RUN if it keeps happening.`};
 }
+
+/** Circuit breaker: after 3 consecutive failures a web source rests for pauseHours before any new batch. */
+export function shouldPauseSource(consecutiveFailures:number,checkedAt:string|Date|null,now:number,pauseHours=6):boolean {
+  if(consecutiveFailures<3||!checkedAt)return false;
+  const t=new Date(checkedAt).getTime();
+  return Number.isFinite(t)&&t<=now&&now-t<pauseHours*3_600_000;
+}
+/** Hours before the same account may be tried again: a day normally, a week after 3 failed tries. */
+export const avatarRetryHours=(attempts:number)=>attempts>=3?168:24;

@@ -48,7 +48,7 @@ export function registerHubReadRoutes(r:Router):void {
         SELECT DISTINCT ON (o.account_id) o.account_id,o.value,o.observed_at FROM metric_observations o
         WHERE o.metric='followers' ORDER BY o.account_id,o.observed_at DESC),
       acc AS (
-        SELECT a.id,a.platform,l.value,l.observed_at,
+        SELECT a.id,a.platform,a.avatar_url,l.value,l.observed_at,
           (SELECT c.slug FROM person_categories pc JOIN categories c ON c.id=pc.category_id
              WHERE pc.person_id=a.person_id AND pc.is_primary LIMIT 1) AS category
         FROM accounts a LEFT JOIN latest l ON l.account_id=a.id)`;
@@ -60,6 +60,7 @@ export function registerHubReadRoutes(r:Router):void {
           count(*) FILTER (WHERE value IS NULL)::int AS "noData" FROM acc GROUP BY 1,2 ORDER BY 1,3 DESC`),
       query(`${base} SELECT platform,count(*)::int AS registered,
           count(*) FILTER (WHERE observed_at>now()-interval '48 hours')::int AS fresh,
+          count(*) FILTER (WHERE avatar_url IS NOT NULL)::int AS "withPicture",
           count(*) FILTER (WHERE value IS NULL)::int AS "noData" FROM acc GROUP BY 1 ORDER BY 1`)
     ]);
     res.json({data:{byTier:tiers.rows,byCategory:cats.rows,freshness:fresh.rows}});
