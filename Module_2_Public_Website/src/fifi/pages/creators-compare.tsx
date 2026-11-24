@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Crown, Link2, X } from "lucide-react";
+import { Crown, Link2, Scale, X } from "lucide-react";
 
 import { Pic } from "@/fifi/components/page-elements";
 import { cn } from "@/fifi/lib/utils";
@@ -61,9 +61,9 @@ export function ComparePanel({ slugs, initial, onClose, onRemove }: { slugs: str
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-primary/40 p-0 backdrop-blur-sm sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label="Compare creators">
-      <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-t-3xl border border-border bg-background shadow-lift sm:rounded-3xl">
+      <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-t-2xl border border-border/70 bg-card shadow-lift sm:rounded-2xl">
         <header className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
-          <div><p className="eyebrow">Side by side</p><h2 className="font-display text-2xl text-primary">Compare {slugs.length} creators</h2></div>
+          <div className="flex items-center gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gold-soft text-gold-foreground"><Scale className="h-5 w-5" /></div><div><h2 className="text-xl font-bold tracking-tight text-primary">Compare {slugs.length} creators</h2><p className="text-xs text-muted-foreground">Side by side, from the latest recorded figures.</p></div></div>
           <div className="flex items-center gap-2">
             <button type="button" onClick={copyLink} className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold text-primary hover:bg-secondary"><Link2 className="h-3.5 w-3.5" />{copied ? "Link copied" : "Copy link"}</button>
             <button ref={closeRef} type="button" onClick={onClose} aria-label="Close comparison" className="grid h-9 w-9 place-items-center rounded-full border border-border text-primary hover:bg-secondary"><X className="h-4 w-4" /></button>
@@ -74,13 +74,13 @@ export function ComparePanel({ slugs, initial, onClose, onRemove }: { slugs: str
           {state === "error" && shown.length === 0 && <p className="px-6 py-16 text-center text-sm text-muted-foreground">The comparison could not be loaded. Try again in a moment.</p>}
           {shown.length > 0 && (
             <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-              <thead className="sticky top-0 z-10 bg-background">
+              <thead className="sticky top-0 z-10 bg-card">
                 <tr>
                   <th scope="col" className="w-48 px-5 py-4" />
                   {shown.map((r) => (
                     <th key={r.slug} scope="col" className="px-4 py-4 align-top">
-                      <div className="flex items-center gap-3"><span className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-muted"><Pic src={r.avatarUrl} alt={r.displayName} className="h-full w-full object-cover" /></span>
-                        <span className="min-w-0"><a href={`/creators/${r.slug}`} className="block truncate font-display text-lg text-primary hover:underline">{r.displayName}</a>
+                      <div className="flex items-center gap-3"><span className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-muted"><Pic src={r.avatarUrl} alt={r.displayName} className="h-full w-full object-cover" /></span>
+                        <span className="min-w-0"><a href={`/creators/${r.slug}`} className="block truncate text-sm font-bold text-primary hover:underline">{r.displayName}</a>
                           <span className="block text-xs font-normal text-muted-foreground">{r.rank !== null ? `Most Subscribed #${r.rank}` : "Not ranked"} · {asOfLabel(r.asOf) || "no date"}</span></span>
                         <button type="button" onClick={() => onRemove(r.slug)} aria-label={`Remove ${r.displayName}`} className="ml-auto text-muted-foreground hover:text-primary"><X className="h-4 w-4" /></button></div>
                     </th>
@@ -92,7 +92,7 @@ export function ComparePanel({ slugs, initial, onClose, onRemove }: { slugs: str
                   const lead = leaderIndex(m.values);
                   return (
                     <tr key={m.label} className="border-t border-border">
-                      <th scope="row" className="px-5 py-4 align-top"><span className="block font-semibold text-foreground">{m.label}</span>{m.hint && <span className="block text-[11px] font-normal text-muted-foreground">{m.hint}</span>}</th>
+                      <th scope="row" className="px-5 py-4 align-top"><span className="block text-xs font-bold text-foreground">{m.label}</span>{m.hint && <span className="block text-[10px] font-normal text-muted-foreground">{m.hint}</span>}</th>
                       {m.values.map((v, i) => {
                         const pct = m.bars ? barPercent(v, m.values) : null;
                         return (
