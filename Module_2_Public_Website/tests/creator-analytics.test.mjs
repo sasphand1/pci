@@ -37,7 +37,7 @@ test('video observations are collected by the modern pipeline independently of r
 test('creator profile exposes video-age milestones, velocity, breakout and honest missing-data states',()=>{
  const profile=read('../src/components/CreatorAnalyticsPanel.tsx');
  const api=read('../src/lib/public.ts');
- const compare=read('../src/app/compare/page.tsx');
+ const compare=read('../src/fifi/pages/creators-compare.tsx');
  assert.match(profile,/Video performance/);
  assert.match(profile,/Views\/hour/);
  assert.match(profile,/breakoutFactor/);

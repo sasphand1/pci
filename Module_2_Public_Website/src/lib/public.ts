@@ -8,6 +8,9 @@ export type PubEntry={slot:number;rank:number;tied:boolean;value:number;counted:
 export type PubRanking={scope:string;kind:'wheel'|'platform'|'category';label:string;unit:string;publishedAt:string|null;stale:boolean;population:number;covered:number;entries:PubEntry[]};
 export type PubRows={platforms:PubRanking[];categories:PubRanking[]};
 export type PubCategory={slug:string;label:string;description:string|null;people:number;hasRanking:boolean};
+export type PubCreatorAccount={platform:'youtube'|'instagram';handle:string;url:string|null;followers:number|null;views:number|null;posts30d:number|null;asOf:string|null};
+export type PubCreatorRow={slug:string;displayName:string;avatarUrl:string|null;categories:{slug:string;label:string}[];rank:number|null;totalFollowers:number|null;asOf:string|null;stale:boolean;accounts:PubCreatorAccount[];earningsUsd:number|null;earningsStatus:PubEarningsStatus;earningsBasis:'observed_view_gain'|'recent_uploads_floor'|null;instagramSponsorScenarioUsd:number|null;growth?:{subscribers:Record<'24h'|'7d'|'30d',number|null>;views:Record<'24h'|'7d'|'30d',number|null>};positions?:{scope:string;label:string;unit:string;rank:number;value:number}[]};
+export type PubCreatorTotals={creators:number;youtube:number;instagram:number};
 export type PubStatus={publishedAt:string|null;stale:boolean;people:number};
 export type PubFigures={platform:string;handle:string;url:string|null;followers:number|null;views:number|null;posts30d:number|null;observedAt:string|null};
 export type PubPosition={scope:string;label:string;unit:string;slot:number;rank:number;value:number};
@@ -44,3 +47,6 @@ export async function pubList<T>(path:string):Promise<{data:T[];pagination:{page
  return adapterGet<{data:T[];pagination:{page:number;limit:number;total:number;pages:number}}>(`/api/v1/public${path}`);
 }
 export const platformName=(p:string)=>p==='youtube'?'YouTube':p==='instagram'?'Instagram':p;
+
+export async function pubCreatorIndex(path:string){return adapterGet<{data:PubCreatorRow[];pagination:{page:number;limit:number;total:number;pages:number};totals:PubCreatorTotals}>(`/api/v1/public/creator-index${path}`);}
+export async function pubCreatorSlugs(slugs:string[],detail=true){const r=await adapterGet<{data:PubCreatorRow[]}>(`/api/v1/public/creator-index?slugs=${encodeURIComponent(slugs.join(','))}&detail=${detail?1:0}`);return r?.data??[];}
