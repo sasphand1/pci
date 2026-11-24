@@ -1,0 +1,10 @@
+export const CITIES: Record<string, { label: string; areas: string[] }>;
+export const CITY_SLUGS: string[];
+export const parseCity: (v: unknown) => string;
+export const PRIOR_MEAN: number; export const PRIOR_VOTES: number; export const MIN_REVIEWS: number; export const TOP_N: number; export const MAX_AGE_DAYS: number;
+export type Candidate = { id: string; name: string; rating: number; reviews: number; status?: string; [k: string]: unknown };
+export function placeScore(rating: unknown, reviews: unknown, mean?: number, votes?: number): number | null;
+export function eligible(p: unknown, minReviews?: number): boolean;
+export function topPlaces<T extends Candidate>(list: T[], n?: number): (T & { score: number })[];
+export function isFresh(observedAt: unknown, now?: number, maxDays?: number): boolean;
+export function searchPlan(maxRequests: number): { city: string; area: string; text: string }[];

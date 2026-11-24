@@ -1,3 +1,4 @@
+import {collectLocalPlaces} from '../local/collect.js';
 import {Router} from 'express';
 import {z} from 'zod';
 import {handler,HttpError} from '../../lib/errors.js';
@@ -89,6 +90,12 @@ ingestAdminRoutes.post('/ingest/instagram/avatar/:accountId',roles('owner','edit
 ingestAdminRoutes.post('/ingest/instagram/avatars/graph/fill',roles('owner','editor'),handler(async(req,res)=>{
   const {limit}=z.object({limit:z.number().int().min(1).max(5).default(5)}).strict().parse(req.body??{});
   res.json({data:await fillGraphInstagramAvatars({limit})});
+}));
+
+/** Collect the Top 20 restaurants per city now (Google Places). Spends API budget, capped by PCI_PLACES_MAX_REQUESTS. */
+ingestAdminRoutes.post('/ingest/local/collect',roles('owner','editor'),handler(async(req,res)=>{
+  const {maxRequests}=z.object({maxRequests:z.number().int().min(1).max(60).optional()}).strict().parse(req.body??{});
+  res.json({data:await collectLocalPlaces({maxRequests})});
 }));
 
 /** Store our own copy of Instagram pictures. Image servers only, no Meta API quota. */

@@ -30,6 +30,7 @@ const runtimeModules=[
   'modules/satellite/bulk.mjs',
   'modules/satellite/feeds.mjs',
   'modules/satellite/policy.mjs',
+  'modules/local/rules.mjs',
 ];
 
 for(const modulePath of runtimeModules){
