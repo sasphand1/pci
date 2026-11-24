@@ -98,6 +98,18 @@ CREATE TABLE IF NOT EXISTS local_place_runs (
   kept integer NOT NULL DEFAULT 0,
   result text NOT NULL DEFAULT 'running'
 );
+
+-- Hand-curated restaurants (picks and hidden places).
+CREATE TABLE IF NOT EXISTS local_place_overrides (
+  place_id text PRIMARY KEY,
+  city text NOT NULL CHECK (city IN ('karachi','lahore','islamabad')),
+  mode text NOT NULL CHECK (mode IN ('pick','hide')),
+  note text CHECK (note IS NULL OR char_length(note) <= 200),
+  name text NOT NULL,
+  added_by uuid,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS local_place_overrides_city_idx ON local_place_overrides (city, mode);
 `;
 export async function ensureHubSchema():Promise<void> {
   const client=await pool.connect();

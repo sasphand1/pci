@@ -56,3 +56,24 @@ export const searchPlan = (maxRequests) => {
   }
   return plan;
 };
+
+// ---- Admin input: Google Maps links, place ids and curated modes ----
+export const PICK_MODES = ['pick', 'hide'];
+export const parseMode = (v) => (PICK_MODES.includes(String(v)) ? String(v) : '');
+export const isPlaceId = (v) => typeof v === 'string' && /^[A-Za-z0-9_-]{10,200}$/.test(v);
+const MAPS_HOSTS = ['www.google.com', 'google.com', 'maps.google.com', 'maps.app.goo.gl', 'goo.gl'];
+/** Only Google Maps links are ever fetched, and only over https. This keeps the link box from being used to reach other sites. */
+export function isAllowedMapsUrl(raw) {
+  try { const u = new URL(String(raw)); return u.protocol === 'https:' && MAPS_HOSTS.includes(u.hostname) && u.username === '' && u.password === ''; } catch { return false; }
+}
+/** The restaurant name inside a full Maps link: google.com/maps/place/NAME/@lat,lng. Null when the link has no name. */
+export function extractMapsName(raw) {
+  try {
+    const u = new URL(String(raw));
+    const m = u.pathname.match(/\/maps\/place\/([^/]+)/);
+    if (!m) return null;
+    const name = decodeURIComponent(m[1].replace(/\+/g, ' ')).trim();
+    return name && name.length <= 120 && !/^-?\d+\.\d+,/.test(name) ? name : null;
+  } catch { return null; }
+}
+export const looksLikeUrl = (v) => /^https?:\/\//i.test(String(v).trim());

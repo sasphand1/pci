@@ -49,3 +49,24 @@ test('city parsing only accepts the three cities', () => {
   assert.equal(parseCity("x';--"), '');
   assert.equal(parseCity(undefined), '');
 });
+
+import { isPlaceId, isAllowedMapsUrl, extractMapsName, looksLikeUrl, parseMode } from '../src/modules/local/rules.mjs';
+test('admin input: only safe place ids, Google Maps links and known modes', () => {
+  assert.equal(isPlaceId('ChIJN1t_tDeuEmsRUsoyG83frY4'), true);
+  assert.equal(isPlaceId("x'; DROP"), false);
+  assert.equal(isPlaceId('short'), false);
+  assert.equal(isAllowedMapsUrl('https://www.google.com/maps/place/Butt+Karahi/@31.5,74.3,17z'), true);
+  assert.equal(isAllowedMapsUrl('https://maps.app.goo.gl/abc123'), true);
+  assert.equal(isAllowedMapsUrl('http://www.google.com/maps/place/x'), false);
+  assert.equal(isAllowedMapsUrl('https://evil.example.com/maps/place/x'), false);
+  assert.equal(isAllowedMapsUrl('https://google.com@evil.example.com/'), false);
+  assert.equal(isAllowedMapsUrl('https://user:pw@www.google.com/maps'), false);
+  assert.equal(isAllowedMapsUrl('file:///etc/passwd'), false);
+  assert.equal(extractMapsName('https://www.google.com/maps/place/Butt+Karahi+Tikka/@31.5,74.3,17z/data=!3m1'), 'Butt Karahi Tikka');
+  assert.equal(extractMapsName('https://www.google.com/maps/place/Caf%C3%A9+Aylanto/@31.5,74.3'), 'Café Aylanto');
+  assert.equal(extractMapsName('https://www.google.com/maps/@31.5,74.3,12z'), null);
+  assert.equal(extractMapsName('https://www.google.com/maps/place/31.5,74.3'), null);
+  assert.equal(looksLikeUrl('https://maps.app.goo.gl/x'), true);
+  assert.equal(looksLikeUrl('Butt Karahi'), false);
+  assert.equal(parseMode('pick'), 'pick'); assert.equal(parseMode('hide'), 'hide'); assert.equal(parseMode('delete'), '');
+});

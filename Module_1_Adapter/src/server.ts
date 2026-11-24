@@ -29,6 +29,7 @@ import {publicRankingRoutes} from './modules/public/routes.js';
 import {publicAvatarRoutes} from './modules/public/avatar-routes.js';
 import {creatorIndexRoutes} from './modules/public/creator-index.js';
 import {publicLocalRoutes} from './modules/local/routes.js';
+import {localAdminRoutes} from './modules/local/admin-routes.js';
 import {docsRoutes} from './modules/public/docs.js';
 import {shadowAdminRoutes} from './modules/public/shadow-routes.js';
 import {legacyGate} from './modules/public/legacy-gate.js';
@@ -138,6 +139,7 @@ export function makeApp() {
   app.use('/api/v1/admin/events',adminEventsRoutes);
   app.use('/api/v1/admin',bucketAdminRoutes);
   app.use('/api/v1/admin',refreshAdminRoutes);
+  app.use('/api/v1/admin/local',localAdminRoutes);
   app.use('/api/v1/admin',ingestAdminRoutes);
   app.use('/api/v1/admin',publishAdminRoutes);
   app.use('/api/v1/admin',shadowAdminRoutes);
