@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "@/fifi/router";
-import { ArrowRight, ChevronLeft, ChevronRight, Flame, Instagram, MapPin, TrendingUp, Tv, UsersRound, Youtube } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Flame, MapPin, TrendingUp, Tv, UsersRound } from "lucide-react";
+import { InstagramIcon, YouTubeIcon } from "@/fifi/components/platform-icon";
 
 import { creators, events } from "@/fifi/lib/fifi-data";
 import { dramas } from "@/fifi/lib/fifi-extras";
@@ -154,7 +155,7 @@ function renderPanel(id: string) {
         {[creators[1]!, creators[5]!, creators[7]!].map((creator, i) => (
           <Link key={creator.id} to="/creators/$id" params={{ id: String(creator.id) }} className="rounded-xl border border-border/70 bg-background/60 p-3.5 transition hover:border-primary/40">
             <div className="flex items-center justify-between text-[11px]">
-              <span className="inline-flex items-center gap-1 font-bold text-primary"><Youtube className="h-3.5 w-3.5" /> #{i + 1} YouTube</span>
+              <span className="inline-flex items-center gap-1 font-bold text-primary"><YouTubeIcon className="h-3.5 w-3.5" /> #{i + 1} YouTube</span>
               <span className="font-semibold text-gold-foreground">{creator.growth}</span>
             </div>
             <p className="mt-2 text-sm font-bold text-foreground">{creator.name}</p>
@@ -170,7 +171,7 @@ function renderPanel(id: string) {
       {[creators[0]!, creators[2]!, creators[4]!].map((creator, i) => (
         <Link key={creator.id} to="/creators/$id" params={{ id: String(creator.id) }} className="rounded-xl border border-border/70 bg-background/60 p-3.5 transition hover:border-primary/40">
           <div className="flex items-center justify-between text-[11px]">
-            <span className="inline-flex items-center gap-1 font-bold text-primary"><Instagram className="h-3.5 w-3.5" /> #{i + 1} Instagram</span>
+            <span className="inline-flex items-center gap-1 font-bold text-primary"><InstagramIcon className="h-3.5 w-3.5" /> #{i + 1} Instagram</span>
             <span className="font-semibold text-gold-foreground">{creator.growth}</span>
           </div>
           <p className="mt-2 text-sm font-bold text-foreground">{creator.name}</p>

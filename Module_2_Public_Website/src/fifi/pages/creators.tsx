@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Link } from "@/fifi/router";
-import { Check, Instagram, LayoutGrid, List, Plus, Scale, Search, UsersRound, X, Youtube } from "lucide-react";
+import { Check, LayoutGrid, List, Plus, Scale, Search, UsersRound, X } from "lucide-react";
+import { PlatformIcon, InstagramIcon, TikTokIcon, YouTubeIcon } from "@/fifi/components/platform-icon";
 
 import { EmptyState, Pagination, Pic } from "@/fifi/components/page-elements";
 import { ComparePanel, firstPlatform, hasPlat, platBtn, PLAT_LABEL, PLAT_ORDER, type Plat } from "@/fifi/pages/creators-compare";
@@ -28,7 +29,7 @@ const count = (n: number | null) => (n === null ? "Not available" : formatCount(
 
 function Badges({ row }: { row: PubCreatorRow }) {
   const names = Array.from(new Set(row.accounts.map((a) => a.platform)));
-  return <span className="flex gap-1">{names.map((p) => <span key={p} className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">{p === "youtube" ? "YT" : "IG"}</span>)}</span>;
+  return <span className="flex gap-1">{names.map((p) => <span key={p} className="grid h-5 w-5 place-items-center rounded-md bg-background ring-1 ring-border/70" title={p}><PlatformIcon platform={p} className="h-3.5 w-3.5" /></span>)}</span>;
 }
 
 function Followers({ row }: { row: PubCreatorRow }) {
@@ -78,10 +79,10 @@ export function CreatorsPage(props: CreatorsProps) {
   const grid = view === "grid";
   const kpis = [
     { label: "Creators in the index", value: totals ? String(totals.creators) : "Not available", sub: "all categories", icon: UsersRound, tint: "bg-secondary text-primary" },
-    { label: "On YouTube", value: totals ? String(totals.youtube) : "Not available", sub: "channels tracked", icon: Youtube, tint: "bg-gold-soft text-gold-foreground" },
-    { label: "On Instagram", value: totals ? String(totals.instagram) : "Not available", sub: "accounts tracked", icon: Instagram, tint: "bg-gold-soft text-gold-foreground" }
+    { label: "On YouTube", value: totals ? String(totals.youtube) : "Not available", sub: "channels tracked", icon: YouTubeIcon, tint: "bg-background" },
+    { label: "On Instagram", value: totals ? String(totals.instagram) : "Not available", sub: "accounts tracked", icon: InstagramIcon, tint: "bg-background" }
   ];
-  const tabs = [{ id: "", label: "All creators", icon: UsersRound }, { id: "youtube", label: "YouTube", icon: Youtube }, { id: "instagram", label: "Instagram", icon: Instagram }] as const;
+  const tabs = [{ id: "", label: "All creators", icon: UsersRound }, { id: "youtube", label: "YouTube", icon: YouTubeIcon }, { id: "instagram", label: "Instagram", icon: InstagramIcon }, { id: "tiktok", label: "TikTok", icon: TikTokIcon }] as const;
 
   return (
     <main className="page-main pb-10 pt-5">
@@ -135,7 +136,7 @@ export function CreatorsPage(props: CreatorsProps) {
                       <button type="button" onClick={() => onToggle(c.slug)} aria-label={`Remove ${c.displayName}`} className="text-muted-foreground hover:text-primary"><X className="h-3.5 w-3.5" /></button>
                     </div>
                     <div className="mt-2 flex gap-1" role="group" aria-label={`Platform for ${c.displayName}`}>
-                      {PLAT_ORDER.map((pl) => { const off = !hasPlat(c, pl); return <button key={pl} type="button" disabled={off} title={off ? `No ${PLAT_LABEL[pl]} account` : undefined} aria-pressed={cur === pl} onClick={() => setPlats((m) => ({ ...m, [c.slug]: pl }))} className={cn("h-6 flex-1 rounded-md text-[10px] font-semibold transition", platBtn(cur === pl, off))}>{PLAT_LABEL[pl]}</button>; })}
+                      {PLAT_ORDER.map((pl) => { const off = !hasPlat(c, pl); return <button key={pl} type="button" disabled={off} title={off ? `No ${PLAT_LABEL[pl]} account` : undefined} aria-pressed={cur === pl} onClick={() => setPlats((m) => ({ ...m, [c.slug]: pl }))} className={cn("inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md text-[10px] font-semibold transition", platBtn(cur === pl, off), off && "grayscale")}><PlatformIcon platform={pl} className="h-3 w-3" /><span className="sr-only">{PLAT_LABEL[pl]}</span></button>; })}
                     </div>
                   </div>
                 );
@@ -174,10 +175,10 @@ export function CreatorsPage(props: CreatorsProps) {
         </div>
 
         <div className="mt-4" aria-live="polite">
-          <h2 className="text-sm font-bold text-foreground">{platform === "youtube" ? "YouTube creators" : platform === "instagram" ? "Instagram creators" : "All creators"}</h2>
+          <h2 className="text-sm font-bold text-foreground">{platform === "youtube" ? "YouTube creators" : platform === "instagram" ? "Instagram creators" : platform === "tiktok" ? "TikTok creators" : "All creators"}</h2>
           <p className="text-[11px] text-muted-foreground"><span className="font-semibold text-foreground">{total}</span> {total === 1 ? "creator" : "creators"}{search ? <> matching “{search}”</> : null}, ordered by {SORTS.find((s) => s.id === sort)?.label.toLowerCase()}.</p>
 
-          {rows.length === 0 ? <div className="mt-3"><EmptyState onReset={() => { setQuery(""); router.push("/creators"); }} /></div> : grid ? (
+          {rows.length === 0 && platform === "tiktok" ? <div className="mt-3 rounded-2xl border border-dashed border-border bg-background/60 px-6 py-12 text-center"><span className="mx-auto grid h-10 w-10 place-items-center rounded-xl bg-background ring-1 ring-border/70"><TikTokIcon className="h-5 w-5" /></span><h3 className="mt-3 text-sm font-bold text-primary">TikTok is coming</h3><p className="mt-1 text-xs text-muted-foreground">No TikTok accounts are tracked yet. They will appear here, with the same figures and comparison, as soon as collection starts.</p></div> : rows.length === 0 ? <div className="mt-3"><EmptyState onReset={() => { setQuery(""); router.push("/creators"); }} /></div> : grid ? (
             <ul className="mt-3 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
               {rows.map((r) => (
                 <li key={r.slug} className={cn("overflow-hidden rounded-xl border border-border/70 bg-background/50 p-2.5", selected.includes(r.slug) && "ring-2 ring-primary")}>

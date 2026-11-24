@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Crown, Link2, X } from "lucide-react";
 
+import { PlatformIcon } from "@/fifi/components/platform-icon";
 import { Pic } from "@/fifi/components/page-elements";
 import { cn } from "@/fifi/lib/utils";
 import { formatCount } from "@/lib/format.mjs";
@@ -47,7 +48,7 @@ function Side({ r, p, onPlat }: { r: PubCreatorRow; p: Plat; onPlat: (p: Plat) =
       <a href={`/creators/${r.slug}`} className="mt-2 block max-w-full truncate text-sm font-bold text-primary hover:underline">{r.displayName}</a>
       <span className="text-[10px] text-muted-foreground">{r.rank !== null ? `Most Subscribed #${r.rank}` : "Not ranked"} · {asOfLabel(r.asOf) || "no date"}</span>
       <div className="mt-2 flex gap-1" role="group" aria-label={`Platform for ${r.displayName}`}>
-        {PLAT_ORDER.map((pl) => { const off = !hasPlat(r, pl); return <button key={pl} type="button" disabled={off} title={off ? `No ${PLAT_LABEL[pl]} account` : undefined} aria-pressed={p === pl} onClick={() => onPlat(pl)} className={cn("h-6 rounded-full px-2.5 text-[10px] font-semibold transition", platBtn(p === pl, off))}>{PLAT_LABEL[pl]}</button>; })}
+        {PLAT_ORDER.map((pl) => { const off = !hasPlat(r, pl); return <button key={pl} type="button" disabled={off} title={off ? `No ${PLAT_LABEL[pl]} account` : undefined} aria-pressed={p === pl} onClick={() => onPlat(pl)} className={cn("inline-flex h-6 items-center gap-1 rounded-full px-2.5 text-[10px] font-semibold transition", platBtn(p === pl, off), off && "grayscale")}><PlatformIcon platform={pl} className="h-3 w-3" />{PLAT_LABEL[pl]}</button>; })}
       </div>
     </div>
   );

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useRouterState } from "@/fifi/router";
-import { ArrowRight, Heart, Instagram, Linkedin, Menu, Search, X, Youtube } from "lucide-react";
+import { ArrowRight, Heart, Linkedin, Menu, Search, X } from "lucide-react";
+import { InstagramIcon, YouTubeIcon } from "@/fifi/components/platform-icon";
 
 import { FifiAssistant, openFifi } from "@/fifi/components/fifi-assistant";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/fifi/components/ui/dialog";
@@ -156,7 +157,7 @@ function SparkleMark() {
 
 export function SiteFooter() {
   return (
-    <footer className="w-full bg-primary text-primary-foreground">
+    <footer className="mt-10 w-full bg-primary text-primary-foreground">
       <div className="mx-auto grid w-full max-w-[1600px] grid-cols-2 gap-6 px-4 py-6 sm:px-8 sm:py-8 md:grid-cols-[1.4fr_repeat(3,1fr)] md:gap-8 lg:px-10">
         <div className="col-span-2 md:col-span-1">
           <Logo inverse />
@@ -169,13 +170,13 @@ export function SiteFooter() {
           <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-gold-soft">Follow</h3>
           <button type="button" onClick={openFifi} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-gold-soft hover:text-primary-foreground">Ask Fifi <ArrowRight className="h-4 w-4" /></button>
           <div className="mt-3 flex gap-2">
-            {[Instagram, Youtube, Linkedin].map((Icon, index) => <span key={index} className="grid h-8 w-8 place-items-center rounded-full border border-primary-foreground/20 text-primary-foreground/70" aria-hidden="true"><Icon className="h-4 w-4" /></span>)}
+            {[InstagramIcon, YouTubeIcon, Linkedin].map((Icon, index) => <span key={index} className="grid h-8 w-8 place-items-center rounded-full border border-primary-foreground/20 text-primary-foreground/70" aria-hidden="true"><Icon className="h-4 w-4" /></span>)}
           </div>
         </div>
       </div>
       <div className="border-t border-primary-foreground/15">
         <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-2 px-5 py-3 text-xs text-primary-foreground/55 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10">
-          <p>© 2026 Fifi. Built with <a href="https://www.rackeltotechnologies.com/" target="_blank" rel="noopener noreferrer" className="rounded bg-gold-soft/20 px-1.5 py-0.5 font-bold text-gold-soft underline underline-offset-4 transition-colors hover:bg-gold-soft/30 hover:text-primary-foreground">Rackelto Technologies Ltd.</a></p>
+          <p>© 2026 Fifi. Built with care in Pakistan.</p>
           <p className="flex flex-wrap gap-x-4 gap-y-1"><Link to="/privacy" className="hover:text-primary-foreground">Privacy</Link><Link to="/terms" className="hover:text-primary-foreground">Terms</Link><Link to="/contact" className="hover:text-primary-foreground">Contact</Link></p>
         </div>
       </div>
