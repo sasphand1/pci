@@ -10,6 +10,7 @@ export const NAV_GROUPS:NavGroup[]=[
   {title:'Categories',href:'/categories',icon:'tag',roles:['owner','editor']}]},
  {label:'Website',items:[
   {title:'Page content',href:'/content',icon:'edit',roles:['owner','editor']},
+  {title:'Restaurants',href:'/local',icon:'tag',roles:['owner','editor']},
   {title:'Event sources',href:'/events/sources',icon:'settings',roles:['owner','editor']},
   {title:'Events Intelligence',href:'/events/intelligence',icon:'settings',roles:['owner','editor']},
   {title:'Live wall',href:'/wall',icon:'chat',roles:['owner','moderator']}]},
