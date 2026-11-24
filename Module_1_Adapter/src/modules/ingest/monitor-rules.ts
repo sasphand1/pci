@@ -59,3 +59,17 @@ export function evaluateCoverage(platform:string,registered:number,fresh:number)
   return null;
 }
 export const hubKey=(scope:string,kind:string)=>`hub:${scope}:${kind}`;
+
+/** Meta Graph error 190 = access token invalid or expired. Judged over the last 24h of real attempts. */
+export function evaluateInstagramAuth(attempted:number,invalid:number):HubAlert|null {
+  if(attempted<3||invalid<=0)return null;
+  if(invalid/attempted<0.5)return null;
+  return {kind:'token_invalid',severity:'critical',
+    message:`Instagram rejected the access token (Graph code 190) for ${invalid} of ${attempted} accounts in 24h. Replace INSTAGRAM_GRAPH_ACCESS_TOKEN in Module 1 and redeploy.`};
+}
+/** Meta rate limiting seen in the last 24h. The refresh pauses by itself; this only tells you it happened. */
+export function evaluateInstagramLimit(limited:number):HubAlert|null {
+  if(!(limited>0))return null;
+  return {kind:'rate_limited',severity:'warning',
+    message:`Instagram rate limit hit ${limited} time(s) in 24h. Refresh pauses automatically (6 hour cooldown); lower PCI_INSTAGRAM_PER_RUN if it keeps happening.`};
+}

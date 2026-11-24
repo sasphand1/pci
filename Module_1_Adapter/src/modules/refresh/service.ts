@@ -96,7 +96,7 @@ export async function processRun(runId: string, deps: Deps = realDeps()): Promis
         `SELECT a.id, a.external_id, a.handle FROM accounts a
          LEFT JOIN LATERAL (
            SELECT MAX(rr.created_at) AS last_processed FROM refresh_results rr
-           WHERE rr.account_id=a.id
+           WHERE rr.account_id=a.id AND rr.detail IS DISTINCT FROM 'skipped_after_rate_limit'
          ) prior ON true
          WHERE a.platform=$1 ORDER BY prior.last_processed ASC NULLS FIRST, a.id LIMIT $2`, [platform, INSTAGRAM_PER_RUN])
       : await query<{ id: string; external_id: string; handle: string }>('SELECT id, external_id, handle FROM accounts WHERE platform=$1 ORDER BY id', [platform]);

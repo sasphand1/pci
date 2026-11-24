@@ -3,7 +3,7 @@ import {query} from '../../lib/db.js';
 import {config} from '../../lib/config.js';
 import {logger} from '../../lib/errors.js';
 import {redis} from '../../lib/redis.js';
-import {evaluateCoverage,evaluateQuota,evaluateSource,hubKey,type HubAlert} from './monitor-rules.js';
+import {evaluateCoverage,evaluateInstagramAuth,evaluateInstagramLimit,evaluateQuota,evaluateSource,hubKey,type HubAlert} from './monitor-rules.js';
 
 /** Record the outcome of one collection attempt for a source. Never throws. */
 export async function reportSourceResult(sourceId:string,ok:boolean,errorCode?:string):Promise<void> {
@@ -83,6 +83,15 @@ export async function runHubCheck():Promise<{sources:number;alertsOpened:number}
       const a=evaluateCoverage(c.platform,c.registered,c.fresh);
       opened+=await syncAlerts(`coverage:${c.platform}`,`${c.platform}.api`,a?[a]:[],['coverage_low']);
     }
+    const ig=await query<{attempted:number;invalid:number;limited:number}>(`SELECT
+      count(*) FILTER (WHERE rr.detail IS DISTINCT FROM 'skipped_after_rate_limit')::int AS attempted,
+      count(*) FILTER (WHERE rr.detail='graph_code_190')::int AS invalid,
+      count(*) FILTER (WHERE rr.outcome='rate_limited' AND rr.detail LIKE 'graph_code_%')::int AS limited
+      FROM refresh_results rr JOIN refresh_runs r ON r.id=rr.run_id
+      WHERE r.platform='instagram' AND rr.created_at>now()-interval '24 hours'`);
+    const g=ig.rows[0]??{attempted:0,invalid:0,limited:0};
+    const igAlerts=[evaluateInstagramAuth(g.attempted,g.invalid),evaluateInstagramLimit(g.limited)].filter((a):a is HubAlert=>a!==null);
+    opened+=await syncAlerts('instagram.refresh','instagram.api',igAlerts,['token_invalid','rate_limited']);
     await query(`UPDATE ingest_jobs SET status='succeeded',finished_at=now(),observations=0 WHERE id=$1`,[jobId]);
   } catch(err){
     await query(`UPDATE ingest_jobs SET status='failed',finished_at=now(),error_code=$2 WHERE id=$1`,[jobId,'MONITOR_ERROR']).catch(()=>undefined);

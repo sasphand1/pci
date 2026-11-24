@@ -1,7 +1,9 @@
 import type { FetchResult } from '../../providers/types.js';
 
 // Conservative operational defaults; configurable later as usage history becomes available.
-export const INSTAGRAM_PER_RUN = 35;
+/** Accounts per Instagram run. Lower it with PCI_INSTAGRAM_PER_RUN (1-100) if Meta keeps rate limiting. */
+const perRun = Number(process.env.PCI_INSTAGRAM_PER_RUN);
+export const INSTAGRAM_PER_RUN = Number.isInteger(perRun) && perRun >= 1 && perRun <= 100 ? perRun : 35;
 export const INSTAGRAM_MIN_INTERVAL_MINUTES = 60;
 export const INSTAGRAM_LIMIT_COOLDOWN_MINUTES = 360;
 

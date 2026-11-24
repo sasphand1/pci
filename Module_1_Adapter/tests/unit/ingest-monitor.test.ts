@@ -38,3 +38,14 @@ test('http failure classification',()=>{
   assert.equal(classifyHttpFailure(500),'UNAVAILABLE');
 });
 test('alert keys are stable',()=>{assert.equal(hubKey('youtube.api','stale'),'hub:youtube.api:stale');});
+import {evaluateInstagramAuth,evaluateInstagramLimit} from '../../src/modules/ingest/monitor-rules.ts';
+test('Instagram token problem needs several attempts and a majority of 190s',()=>{
+  assert.equal(evaluateInstagramAuth(2,2),null);
+  assert.equal(evaluateInstagramAuth(10,2),null);
+  assert.equal(evaluateInstagramAuth(10,0),null);
+  const a=evaluateInstagramAuth(14,14);assert.equal(a?.kind,'token_invalid');assert.equal(a?.severity,'critical');
+});
+test('Instagram rate limit is a warning only',()=>{
+  assert.equal(evaluateInstagramLimit(0),null);
+  const a=evaluateInstagramLimit(3);assert.equal(a?.kind,'rate_limited');assert.equal(a?.severity,'warning');
+});
