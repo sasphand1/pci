@@ -14,7 +14,8 @@ export function registerHubReadRoutes(r:Router):void {
   r.get('/ingest/health',handler(async(_req,res)=>{
     const [sources,alerts,jobs,disc]=await Promise.all([
       query(`SELECT s.id,s.platform,s.method,s.enabled,s.last_success_at AS "lastSuccessAt",s.last_attempt_at AS "lastAttemptAt",
-        s.last_error AS "lastError",COALESCE(h.status,CASE WHEN s.enabled THEN 'ok' ELSE 'disabled' END) AS status,
+        s.last_error AS "lastError",CASE WHEN NOT s.enabled THEN 'disabled' WHEN h.status='disabled' THEN 'degraded'
+          ELSE COALESCE(h.status,'ok') END AS status,
         COALESCE(h.consecutive_failures,0) AS "consecutiveFailures",h.checked_at AS "checkedAt"
         FROM ingest_sources s LEFT JOIN hub_source_health h ON h.source_id=s.id ORDER BY s.id`),
       query(`SELECT id,created_at AS "createdAt",kind,scope,severity,source_id AS "sourceId",message FROM pipeline_alerts

@@ -125,7 +125,8 @@ export async function processRun(runId: string, deps: Deps = realDeps()): Promis
           const r = results[j];
           if (platform === 'instagram' && isInstagramLimit(r)) instagramLimited = true;
           // A Meta rate limit must not cause another API burst during this run.
-          if (isRetryable(r.outcome) && attempt < MAX_ATTEMPTS && !(platform === 'instagram' && (instagramLimited || r.outcome === 'rate_limited'))) { retry.push(chunk[j]); continue; }
+          // A rejected Meta access token cannot recover through immediate retries.
+          if (isRetryable(r.outcome) && attempt < MAX_ATTEMPTS && !(platform === 'instagram' && (instagramLimited || r.outcome === 'rate_limited' || r.detail === 'graph_code_190'))) { retry.push(chunk[j]); continue; }
           await persist(runId, r, attempt, deps.now());
           counts[r.outcome] = (counts[r.outcome] ?? 0) + 1;
         }

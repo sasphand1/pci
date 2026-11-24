@@ -48,6 +48,8 @@ export function mapInstagram(body: IgBody | null, httpStatus: number, username: 
   const code = body?.error?.code;
   if (code !== undefined || httpStatus >= 400) {
     if (code !== undefined && RATE_LIMIT_INSTAGRAM_CODES.has(code)) return { outcome: 'rate_limited', metrics: [], detail: `graph_code_${code}` };
+    // Meta Graph 190 is an authentication failure, not evidence that a creator is unsupported.
+    if (code === 190) return { outcome: 'error', metrics: [], detail: 'graph_code_190' };
     if (httpStatus >= 500 || httpStatus === 429) return { outcome: httpStatus === 429 ? 'rate_limited' : 'error', metrics: [], detail: `http_${httpStatus}` };
     // The Graph API uses the same error for missing, private and non-Business/Creator accounts.
     return { outcome: 'unsupported', metrics: [], detail: `graph_code_${code ?? httpStatus}` };

@@ -16,12 +16,14 @@ type Deps={probe?:(handle:string)=>Promise<AvatarProbe>;sleep?:(ms:number)=>Prom
  * and a circuit breaker that rests the source after repeated failures. */
 export async function fillInstagramAvatars(opts:{limit?:number}&Deps={}):Promise<FillResult> {
   if(process.env.PCI_INSTAGRAM_HTTP_AVATARS!=='true')return skip('env_flag_off');
-  const src=await query<{enabled:boolean;cf:number|null;checked_at:string|null}>(
-    `SELECT s.enabled,h.consecutive_failures AS cf,h.checked_at FROM ingest_sources s
+  // The monitor updates health.checked_at every 15 minutes. Use the last *actual HTTP attempt*
+  // so monitoring cannot indefinitely extend the six-hour circuit-breaker pause.
+  const src=await query<{enabled:boolean;cf:number|null;last_attempt_at:string|null}>(
+    `SELECT s.enabled,h.consecutive_failures AS cf,s.last_attempt_at FROM ingest_sources s
      LEFT JOIN hub_source_health h ON h.source_id=s.id WHERE s.id='instagram.http'`);
   const row=src.rows[0];
   if(!row?.enabled)return skip('source_disabled');
-  if(shouldPauseSource(row.cf??0,row.checked_at,Date.now()))return skip('paused_after_failures');
+  if(shouldPauseSource(row.cf??0,row.last_attempt_at,Date.now()))return skip('paused_after_failures');
   const limit=Math.min(10,Math.max(1,Math.trunc(opts.limit??5)));
   const probe=opts.probe??((h:string)=>probeInstagramAvatar(h));
   const sleep=opts.sleep??((ms:number)=>new Promise<void>(r=>setTimeout(r,ms)));
