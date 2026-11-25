@@ -7,7 +7,7 @@ import { boundedLimit } from '../../lib/redis.js';
 import { requireAdmin, roles, type AdminIdentity } from '../auth/auth.js';
 import { reportSourceResult } from '../ingest/monitor.js';
 import { isPlaceId } from './rules.mjs';
-import { collectAuthorizedImage, discoverCommons } from './image-http.js';
+import { collectAuthorizedImage, discoverRestaurantImages } from './image-http.js';
 import { MAX_CACHE_BYTES, safeSource } from './image-rules.mjs';
 
 const SOURCE='restaurant_images.http';
@@ -21,36 +21,34 @@ async function limit(name:string,n:number){
 async function place(id:string){const r=await query<{name:string;city:string;area:string|null}>('SELECT name,city,area FROM local_places WHERE place_id=$1',[id]);if(!r.rows[0])throw new HttpError(404,'NOT_FOUND','Restaurant not found');return r.rows[0];}
 async function result(ok:boolean){await query('UPDATE ingest_sources SET enabled=true WHERE id=$1',[SOURCE]).catch(()=>undefined);await reportSourceResult(SOURCE,ok,ok?undefined:'UNAVAILABLE');}
 type DiscoveryPlace={placeId:string;name:string;city:string;area:string|null};
-async function discoverAndRemember(p:DiscoveryPlace){
- let candidates:Awaited<ReturnType<typeof discoverCommons>>=[];
- let status='none';
- try{candidates=await discoverCommons(p.name,p.city,p.area);if(candidates.length)status='found';}catch{status='failed';}
- await query(`INSERT INTO restaurant_image_discovery(place_id,candidates,last_result,last_attempt_at) VALUES($1,$2::jsonb,$3,now()) ON CONFLICT(place_id) DO UPDATE SET candidates=CASE WHEN EXCLUDED.last_result='failed' THEN restaurant_image_discovery.candidates ELSE EXCLUDED.candidates END,last_result=EXCLUDED.last_result,last_attempt_at=now()`,[p.placeId,JSON.stringify(candidates),status]);
- return {candidates,status};
+async function discoverAndRemember(p:DiscoveryPlace,website?:string){
+ const r=await discoverRestaurantImages(p.name,p.city,p.area,website);
+ await query(`INSERT INTO restaurant_image_discovery(place_id,candidates,last_result,last_attempt_at,discovery_version,diagnostics) VALUES($1,$2::jsonb,$3,now(),2,$4::jsonb) ON CONFLICT(place_id) DO UPDATE SET candidates=CASE WHEN EXCLUDED.last_result='failed' THEN restaurant_image_discovery.candidates ELSE EXCLUDED.candidates END,last_result=EXCLUDED.last_result,last_attempt_at=now(),discovery_version=2,diagnostics=EXCLUDED.diagnostics`,[p.placeId,JSON.stringify(r.candidates),r.status,JSON.stringify(r.diagnostics)]);
+ return r;
 }
 export const restaurantImageAdminRoutes=Router();
 restaurantImageAdminRoutes.use(requireAdmin,roles('owner','editor'));
 restaurantImageAdminRoutes.get('/',handler(async(_req,res)=>{
- const r=await query(`SELECT p.place_id AS "placeId",p.name,p.city,p.area,c.source_url AS "sourceUrl",c.permission_url AS "permissionUrl",c.attribution,c.licence,c.size_bytes AS "sizeBytes",c.fetched_at AS "fetchedAt",COALESCE(d.candidates,'[]'::jsonb) AS candidates,d.last_result AS "discoveryStatus" FROM local_places p LEFT JOIN restaurant_image_cache c USING(place_id) LEFT JOIN restaurant_image_discovery d ON d.place_id=p.place_id ORDER BY p.city,p.score DESC,p.name LIMIT 1000`);
+ const r=await query(`SELECT p.place_id AS "placeId",p.name,p.city,p.area,c.source_url AS "sourceUrl",c.permission_url AS "permissionUrl",c.attribution,c.licence,c.size_bytes AS "sizeBytes",c.fetched_at AS "fetchedAt",COALESCE(d.candidates,'[]'::jsonb) AS candidates,d.last_result AS "discoveryStatus",COALESCE(d.diagnostics,'[]'::jsonb) AS diagnostics FROM local_places p LEFT JOIN restaurant_image_cache c USING(place_id) LEFT JOIN restaurant_image_discovery d ON d.place_id=p.place_id ORDER BY p.city,p.score DESC,p.name LIMIT 1000`);
  res.json({data:r.rows});
 }));
 restaurantImageAdminRoutes.post('/discover',handler(async(req,res)=>{
- const {placeId}=z.object({placeId:idSchema}).strict().parse(req.body??{});const p=await place(placeId);await limit('discover',60);
- const r=await discoverAndRemember({placeId,...p});if(r.status==='failed')throw new HttpError(502,'IMAGE_DISCOVERY_FAILED','Commons discovery unavailable. You can still enter an authorized source manually.');res.json({data:r.candidates});
+ const {placeId,website}=z.object({placeId:idSchema,website:httpsUrl.optional()}).strict().parse(req.body??{});const p=await place(placeId);await limit('discover',60);
+ const r=await discoverAndRemember({placeId,...p},website);res.json({data:r});
 }));
 // Bounded batch discovery, prioritizing the public rankings. Never publishes unreviewed photos.
 restaurantImageAdminRoutes.post('/discover-batch',handler(async(_req,res)=>{
  const r=await query<DiscoveryPlace>(`WITH ranked AS (SELECT p.*,row_number() OVER(PARTITION BY p.city ORDER BY p.score DESC,p.review_count DESC,p.name) AS priority FROM local_places p WHERE p.observed_at>now()-interval '30 days' AND p.review_count>=50 AND NOT EXISTS(SELECT 1 FROM local_place_overrides o WHERE o.place_id=p.place_id AND o.mode='hide'))
- SELECT p.place_id AS "placeId",p.name,p.city,p.area FROM ranked p LEFT JOIN restaurant_image_discovery d ON d.place_id=p.place_id LEFT JOIN restaurant_image_cache c ON c.place_id=p.place_id WHERE c.place_id IS NULL AND (d.place_id IS NULL OR d.last_attempt_at<now()-interval '30 days') ORDER BY p.priority,p.city LIMIT 5`);
+ SELECT p.place_id AS "placeId",p.name,p.city,p.area FROM ranked p LEFT JOIN restaurant_image_discovery d ON d.place_id=p.place_id LEFT JOIN restaurant_image_cache c ON c.place_id=p.place_id WHERE c.place_id IS NULL AND (d.place_id IS NULL OR d.discovery_version<2 OR (d.last_result='failed' AND d.last_attempt_at<now()-interval '24 hours') OR d.last_attempt_at<now()-interval '30 days') ORDER BY p.priority,p.city LIMIT 5`);
  const jobs:DiscoveryPlace[]=[];for(const p of r.rows){await limit('discover',60);jobs.push(p);}
- const outcomes=await Promise.all(jobs.map(discoverAndRemember));
+ const outcomes=await Promise.all(jobs.map(p => discoverAndRemember(p)));
  res.json({data:{checked:outcomes.length,found:outcomes.filter(x=>x.status==='found').length,failed:outcomes.filter(x=>x.status==='failed').length}});
 }));
 restaurantImageAdminRoutes.post('/',handler(async(req,res)=>{
  const b=input.parse(req.body??{});await place(b.placeId);await limit('download',60);
  const actor=(res.locals.admin as AdminIdentity|undefined)?.id??null;
  let image:Awaited<ReturnType<typeof collectAuthorizedImage>>;
- try{image=await collectAuthorizedImage(b.sourceUrl,b.mode);}catch{await result(false);throw new HttpError(422,'IMAGE_FETCH_FAILED','Image download failed: check HTTPS URL, size (200 KB), format or redirects.');}
+ try{image=await collectAuthorizedImage(b.sourceUrl,b.mode);}catch{await result(false);throw new HttpError(422,'IMAGE_FETCH_FAILED','Image download failed: check HTTPS URL, size (200 KB), format or redirects. For ambiguous webpages select the exact image URL first.');}
  const hash=createHash('sha256').update(image.bytes).digest('hex');
  await transaction(async c=>{
   await c.query('SELECT pg_advisory_xact_lock(710913)');
