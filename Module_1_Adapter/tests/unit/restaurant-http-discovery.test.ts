@@ -1,0 +1,26 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { osmQuery, osmHints, discoverWebsiteHints, type HttpReader } from '../../src/modules/local/image-discovery.js';
+import { discoverRestaurantImages, collectAuthorizedImage } from '../../src/modules/local/image-http.js';
+const name='Example Bistro',city='Peshawar',address='123 Long Market Road, Peshawar, Pakistan';
+const url='https://example.com/branch';
+const image='https://example.com/exterior.jpg';
+const osm={elements:[{tags:{name,website:url,'addr:street':'123 Long Market Road'}},{tags:{name:'Unrelated Cafe',website:'https://wrong.example/'}},{tags:{name,website:'https://127.0.0.1/private'}}]};
+const body= (data:unknown)=>({body:Buffer.from(JSON.stringify(data)),type:'application/json'});
+const licensed={ '@type':'Restaurant',name,address:{streetAddress:'123 Long Market Road',addressLocality:city,addressCountry:'Pakistan'},image:{'@type':'ImageObject',contentUrl:image,license:'https://creativecommons.org/licenses/by/4.0/',creator:{name:'Photographer'}}};
+const html=`<script type="application/ld+json">${JSON.stringify(licensed)}</script>`;
+// Minimal JPEG signature fixture, not a claim of live source availability.
+const bytes=Buffer.from([0xff,0xd8,0xff,0xe0,0,0,0xff,0xd9]);
+const read:HttpReader=async(raw)=>{const u=new URL(raw);
+ if(u.hostname==='overpass-api.de')return body(osm);
+ if(u.hostname==='www.wikidata.org')return body({search:[]});
+ if(u.hostname==='commons.wikimedia.org')return body({query:{pages:{}}});
+ if(raw===url)return {body:Buffer.from(html),type:'text/html',url};
+ if(raw===image)return {body:bytes,type:'image/jpeg',url:image};
+ throw Error('UNEXPECTED_HOST');
+};
+test('new city works, matching OSM hints only, no fixed restaurant list',()=>{assert.match(osmQuery(name,city)!,/peshawar/);assert.deepEqual(osmHints(osm,name,null),[{url,origin:'OpenStreetMap'}]);assert.equal(osmQuery('','Lahore'),null);});
+test('independent discovery -> licensed extraction -> binary image retrieval',async()=>{const result=await discoverRestaurantImages(name,city,null,undefined,address,read);assert.equal(result.status,'found');assert.equal(result.candidates.length,1);assert.equal(result.candidates[0].autoAuthorized,true);const data=await collectAuthorizedImage(result.candidates[0].sourceUrl,'direct',read);assert.deepEqual(data.bytes,bytes);assert.equal(data.contentType,'image/jpeg');});
+test('Wikidata independently works when OSM is unavailable',async()=>{const alternate:HttpReader=async(raw)=>{const u=new URL(raw);if(u.hostname==='overpass-api.de')throw Error('HTTP_TIMEOUT');if(u.searchParams.get('action')==='wbsearchentities')return body({search:[{id:'Q123',label:name}]});return body({entities:{Q123:{descriptions:{en:{value:'restaurant in Peshawar, Pakistan'}},claims:{P856:[{mainsnak:{datavalue:{value:url}}}]}}}});};const result=await discoverWebsiteHints(alternate,name,city,null);assert.deepEqual(result.hints,[{url,origin:'Wikidata'}]);assert.ok(result.diagnostics.includes('OpenStreetMap: HTTP_TIMEOUT'));});
+test('website without image-specific licence remains review-only',async()=>{const noLicense:HttpReader=async(raw,...rest)=>raw===url?{body:Buffer.from('<meta property="og:image" content="/exterior.jpg">'),type:'text/html',url}:read(raw,...rest);const r=await discoverRestaurantImages(name,city,null,undefined,address,noLicense);assert.equal(r.candidates.length,1);assert.equal(r.candidates[0].autoAuthorized,undefined);});
+test('manual hint avoids both provider lookups',async()=>{const r=await discoverWebsiteHints(async()=>{throw Error('UNEXPECTED_HTTP');},name,city,null,url);assert.deepEqual(r.hints,[{url,origin:'Supplied website'}]);});

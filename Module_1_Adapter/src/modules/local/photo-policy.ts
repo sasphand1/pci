@@ -6,7 +6,7 @@ export function photoDailyLimit(raw=process.env.PCI_GOOGLE_PHOTO_DAILY_LIMIT):nu
  const n=Number(raw??20);return Number.isSafeInteger(n)&&n>=0?Math.min(n,25):20;
 }
 export function photoWidth(){const n=Number(process.env.PCI_GOOGLE_PHOTO_WIDTH_PX??640);return Number.isSafeInteger(n)&&n>=100&&n<=1600?n:640;}
-export function publicGooglePhotosEnabled(){return process.env.PCI_GOOGLE_PUBLIC_PHOTOS_ENABLED==='true'&&Boolean(process.env.GOOGLE_PLACES_API_KEY);}
+export function publicGooglePhotosEnabled(){return false; // Public delivery is cache-only. Admin preview retains its separate opt-in.}
 export async function reserveGooglePhoto(stage:'details'|'media'){
  // Same Redis keys as the existing admin preview, shared across all public/admin requests.
  try{const n=photoDailyLimit();if(!n||!await boundedLimit('local:images:google-preview-'+stage,n,86400))throw new HttpError(429,'GOOGLE_PHOTO_QUOTA','Daily photo allowance exhausted.');}

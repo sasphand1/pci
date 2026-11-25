@@ -121,8 +121,8 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
  tasks.push(cron.schedule('10,40 * * * *',()=>{void cacheInstagramAvatars({limit:20}).catch(err=>logger.warn({err},'Avatar cache unavailable'));}));
  // Independent HTTP photo worker: bounded batches, no public visitor triggers.
  const httpPhotos=()=>{if(stopped||process.env.PCI_RESTAURANT_HTTP_AUTOFILL!=='true')return;void fillRestaurantHttpPhotos().then(r=>logger.info(r,'Restaurant HTTP photo collection')).catch(err=>logger.warn({err},'Restaurant HTTP photo collection failed'));};
- tasks.push(cron.schedule('5 */2 * * *',httpPhotos));
- httpPhotos();
+ tasks.push(cron.schedule('5,20,35,50 * * * *',httpPhotos));
+ timers.push(setTimeout(httpPhotos,30000));
  // Weekly Top 20 restaurants for Karachi, Lahore and Islamabad (Google Places). Needs GOOGLE_PLACES_API_KEY; off unless PCI_LOCAL_PLACES_AUTOFILL=true.
  tasks.push(cron.schedule('0 3 * * 1',()=>{if(process.env.PCI_LOCAL_PLACES_AUTOFILL!=='true')return;void collectLocalPlaces().then(r=>logger.info(r,'Local places collection')).catch(err=>logger.warn({err},'Local places collection unavailable'));},{timezone:'Asia/Karachi'}));
  tasks.push(cron.schedule('*/15 * * * *',()=>{void runHubCheck().catch(err=>logger.warn({err},'Hub check unavailable'));}));
