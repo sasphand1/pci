@@ -9,6 +9,7 @@ import { reportSourceResult } from '../ingest/monitor.js';
 import { isPlaceId } from './rules.mjs';
 import { collectAuthorizedImage, discoverRestaurantImages } from './image-http.js';
 import { MAX_CACHE_BYTES, safeSource } from './image-rules.mjs';
+import { fetchGooglePhoto, GooglePhotoError } from './google-photo.js';
 
 const SOURCE='restaurant_images.http';
 const idSchema=z.string().refine(isPlaceId,'Invalid place id');
@@ -28,6 +29,19 @@ async function discoverAndRemember(p:DiscoveryPlace,website?:string){
 }
 export const restaurantImageAdminRoutes=Router();
 restaurantImageAdminRoutes.use(requireAdmin,roles('owner','editor'));
+// Explicit admin-only preview. No photo/reference cache, no public route, no scheduled calls.
+restaurantImageAdminRoutes.post('/google-preview',handler(async(req,res)=>{
+ res.setHeader('Cache-Control','no-store, max-age=0');
+ if(process.env.PCI_GOOGLE_PHOTO_PREVIEW_ENABLED!=='true')throw new HttpError(409,'GOOGLE_PHOTO_DISABLED','Google photo preview is disabled. Check applicable Google billing terms before enabling.');
+ const key=process.env.GOOGLE_PLACES_API_KEY;
+ if(!key)throw new HttpError(409,'GOOGLE_PHOTO_KEY_MISSING','Google Places API key is not configured.');
+ const {placeId}=z.object({placeId:idSchema}).strict().parse(req.body??{});
+ await place(placeId);
+ try{
+  const data=await fetchGooglePhoto(placeId,key,stage=>limit('google-preview-'+stage,20));
+  res.json({data});
+ }catch(e){if(e instanceof GooglePhotoError)throw new HttpError(e.status,e.code,e.message);throw e;}
+}));
 restaurantImageAdminRoutes.get('/',handler(async(_req,res)=>{
  const r=await query(`SELECT p.place_id AS "placeId",p.name,p.city,p.area,c.source_url AS "sourceUrl",c.permission_url AS "permissionUrl",c.attribution,c.licence,c.size_bytes AS "sizeBytes",c.fetched_at AS "fetchedAt",COALESCE(d.candidates,'[]'::jsonb) AS candidates,d.last_result AS "discoveryStatus",COALESCE(d.diagnostics,'[]'::jsonb) AS diagnostics FROM local_places p LEFT JOIN restaurant_image_cache c USING(place_id) LEFT JOIN restaurant_image_discovery d ON d.place_id=p.place_id ORDER BY p.city,p.score DESC,p.name LIMIT 1000`);
  res.json({data:r.rows});
