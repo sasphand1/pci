@@ -1,0 +1,35 @@
+/* Creator profile, YouTube view: matches the approved reference PCI-creator-final.html. Scoped to .pci-yt. */
+.pci-yt{--yt-rich:#146C4B;--yt-sage:#B4D4C3;--yt-brand:#064B35;--yt-ink:#182d26;--yt-muted:#52675d;--yt-border:#e1e9e3;color:var(--yt-ink);font-size:15px;line-height:1.5;max-width:1200px;margin-inline:auto;padding:24px;display:grid;gap:20px;min-width:0}
+.pci-yt *{box-sizing:border-box}
+.pci-yt a{color:var(--yt-rich);text-decoration:none}
+.pci-yt h1,.pci-yt h2,.pci-yt h3,.pci-yt p{margin:0}
+.pci-yt h1{font-size:clamp(27px,4vw,42px);line-height:1.2;font-weight:700;color:var(--yt-ink)}
+.pci-yt h2{font-size:21px;font-weight:700;color:var(--yt-ink)}
+.pci-yt h3{font-size:16px;font-weight:700;margin-bottom:12px;color:var(--yt-ink)}
+.pci-yt .yt-card,.pci-yt .yt-tile{background:#fff;border:1px solid var(--yt-border);border-radius:16px;padding:20px;min-width:0}
+.pci-yt .yt-tile{border-radius:12px;padding:16px}
+.pci-yt .yt-profile{display:flex;gap:18px;align-items:center;margin-bottom:22px}
+.pci-yt .yt-grow{min-width:0;flex:1}
+.pci-yt .yt-avatar{width:76px;height:76px;border-radius:18px;background:var(--yt-sage);object-fit:cover;flex:0 0 76px;font-size:28px;font-weight:700;color:var(--yt-brand)}
+.pci-yt .yt-note,.pci-yt small{color:var(--yt-muted);font-size:13px}
+.pci-yt .yt-eyebrow{text-transform:uppercase;font-size:11px;letter-spacing:1.4px;color:var(--yt-rich);font-weight:700}
+.pci-yt .yt-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px}
+.pci-yt .yt-tile strong,.pci-yt .yt-number{display:block;font-size:clamp(22px,3vw,30px);font-weight:650;margin-top:5px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.pci-yt .yt-tabs,.pci-yt .yt-toolbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.pci-yt .yt-toolbar{justify-content:space-between}
+.pci-yt button{font:inherit;background:#fff;border:1px solid var(--yt-border);border-radius:8px;padding:8px 16px;color:var(--yt-muted);cursor:pointer}
+.pci-yt button[aria-pressed=true]{background:var(--yt-rich);color:#fff;border-color:var(--yt-rich)}
+.pci-yt button:focus-visible{outline:2px solid var(--yt-rich);outline-offset:3px}
+.pci-yt .yt-panel{display:grid;gap:16px}
+.pci-yt .yt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.pci-yt .yt-barrow{display:grid;grid-template-columns:minmax(120px,180px) 1fr 70px;gap:12px;align-items:center;margin:13px 0;font-size:13px}
+.pci-yt .yt-barrow>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pci-yt .yt-track{display:block;width:100%;height:13px}
+.pci-yt .yt-track-bg{fill:#f2f5f2}.pci-yt .yt-fill{fill:var(--yt-sage)}.pci-yt .yt-fill.yt-selected{fill:var(--yt-rich)}
+.pci-yt .yt-table{overflow-x:auto}
+.pci-yt table{width:100%;border-collapse:collapse;font-size:13px;text-align:left}
+.pci-yt th,.pci-yt td{padding:12px;border-bottom:1px solid var(--yt-border);white-space:nowrap}
+.pci-yt th{color:var(--yt-muted);font-weight:600}
+.pci-yt td:first-child{max-width:340px;overflow:hidden;text-overflow:ellipsis}
+.pci-yt .yt-chart{width:100%;height:auto;display:block;max-width:100%;margin:12px 0}
+@media(max-width:700px){.pci-yt{padding:14px}.pci-yt .yt-grid{grid-template-columns:1fr}.pci-yt .yt-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.pci-yt .yt-card{padding:14px}.pci-yt .yt-barrow{grid-template-columns:100px 1fr 55px;gap:8px}.pci-yt .yt-tile{padding:12px}}
