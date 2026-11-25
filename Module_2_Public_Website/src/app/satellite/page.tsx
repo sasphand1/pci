@@ -8,6 +8,6 @@ export default async function SatellitePage(){const [sources,fires,rain,solar]=a
  adapterGet<{data:unknown[]}>('/api/v1/satellite/fires/latest?limit=100'),
  adapterGet<{data:unknown[]}>('/api/v1/satellite/rainfall/latest?city=lahore'),
  adapterGet<{data:unknown[]}>('/api/v1/satellite/solar/latest?city=lahore')
-]);return <FifiPage><main className="page-main pci-sat-shell"><div className="container satellite-page"><SatelliteDashboard sources={sources?.data??[]} fires={fires?.data??[]} rain={rain?.data??[]} solar={solar?.data??[]}/></div></main></FifiPage>;}
+]);return <FifiPage><main className="page-main pb-10 pt-5"><div className="pci-sat-shell"><SatelliteDashboard sources={sources?.data??[]} fires={fires?.data??[]} rain={rain?.data??[]} solar={solar?.data??[]}/></div></main></FifiPage>;}
 
 export const dynamic = 'force-dynamic';
