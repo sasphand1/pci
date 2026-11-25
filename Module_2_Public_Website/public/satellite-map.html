@@ -15,6 +15,13 @@ html,body,#map{height:100%;width:100%;margin:0;background:#020a14;font-family:sy
 .pak #imagery-toggle,.pak #gpm-toggle{display:block}
 #legend{position:absolute;right:12px;bottom:18px;z-index:2;background:#071522e8;color:#cfe6f1;border:1px solid #31647c;border-radius:7px;padding:7px 9px;font-size:11px;line-height:1.7;pointer-events:none}
 #legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+
+#map{background:radial-gradient(ellipse at center,#173e47,#030c15 73%)}
+#source{top:8px;left:8px;font-size:10px;padding:5px 7px;max-width:47%}#status{bottom:43px;left:8px;font-size:9px;padding:4px 6px;max-width:64%;background:#071522d9}#legend{display:none}
+.btn{right:8px;padding:5px 7px;font-size:10px;border-color:#91b4b9aa}#view-toggle{top:8px}#layer-toggle{top:37px}#imagery-toggle,#gpm-toggle,.pak #imagery-toggle,.pak #gpm-toggle{display:none}
+#map-controls{position:absolute;left:8px;top:68px;z-index:5;display:grid;gap:4px}#map-controls button,#map-time button{font:600 11px system-ui;color:#e6f7f7;background:#10252ede;border:1px solid #728f9699;border-radius:6px;padding:6px;cursor:pointer}#map-controls button{width:28px;height:28px;font-size:17px;padding:0}#map-layers{position:absolute;right:8px;top:68px;z-index:5;color:#e5f4ef;background:#0d242de8;border:1px solid #809da1aa;border-radius:8px;display:grid;gap:5px;padding:8px;font-size:9px;max-width:130px}#map-layers strong{font-size:11px;padding-bottom:4px;border-bottom:1px solid #7c9b9a66}#map-layers label{display:flex;align-items:center;gap:4px;line-height:1.25;cursor:pointer}#map-layers input{margin:0;width:10px;height:10px;accent-color:#3ea86f}#map-layers input:disabled+span{opacity:.5}#map-time{position:absolute;left:8px;right:8px;bottom:8px;z-index:5;display:flex;gap:5px;align-items:center;border-radius:8px;background:#0c232de6;border:1px solid #799c9d88;padding:5px;color:#e4f3f0;font-size:9px}#map-time button{font-size:10px;border:0;padding:5px 8px;white-space:nowrap}#map-time button[aria-pressed=true]{background:#d9efde;color:#123e2b}#map-range{margin-left:auto;white-space:normal;text-align:right;line-height:1.3}#marker-detail{position:absolute;left:42px;bottom:70px;z-index:6;max-width:60%;padding:8px 10px;background:#091b25ef;color:#e3f6f1;border:1px solid #839e9b;border-radius:7px;font-size:11px;line-height:1.4;pointer-events:none}#marker-detail[hidden]{display:none}.maplibregl-ctrl-bottom-right{bottom:40px!important}.maplibregl-ctrl-attrib{font-size:9px!important}
+@media(max-width:400px){#map-layers{font-size:8px;padding:5px;max-width:110px;gap:4px}#map-time{gap:2px}#map-time button{padding:4px 5px}#source{max-width:45%;font-size:9px}#map-range{font-size:8px}}
+
 </style></head><body>
 <div id="map" role="region" aria-label="Rotating Earth with live satellites; zooms to a fixed Pakistan observation map"></div>
 <div id="source">PCI Earth Intelligence · Verified observations</div>
@@ -24,6 +31,12 @@ html,body,#map{height:100%;width:100%;margin:0;background:#020a14;font-family:sy
 <button id="layer-toggle" class="btn" type="button" disabled>Layer: none</button>
 <button id="imagery-toggle" class="btn" type="button" disabled aria-pressed="false">NASA imagery: unavailable</button>
 <button id="gpm-toggle" class="btn" type="button" disabled aria-pressed="false">IMERG rain: unavailable</button>
+
+<div id="map-controls" aria-label="Earth controls"><button id="zoom-in" type="button" title="Zoom in">+</button><button id="zoom-out" type="button" title="Zoom out">−</button><button id="recenter" type="button" title="Centre Pakistan">◎</button></div>
+<div id="map-layers"><strong>Layers</strong><label><input type="checkbox" data-layer="nasa-imagery" id="layer-nasa"> Satellite imagery</label><label><input type="checkbox" data-layer="gpm-imagery" id="layer-rain"> Rain / precipitation</label><label><input type="checkbox" data-layer="hotspots" checked> Thermal hotspots</label><label><input type="checkbox" data-layer="quakes" checked> Earthquakes</label><label><input type="checkbox" data-layer="alerts" checked> Disaster alerts</label><label><input type="checkbox" data-layer="river-points" checked> Rivers &amp; water</label><label><input type="checkbox" data-layer="satellites" checked> Satellite tracks</label></div>
+<div id="map-time"><button id="spin-toggle" type="button" aria-pressed="true" title="Pause rotation">Ⅱ</button><button data-window="24" type="button" aria-pressed="false">24h</button><button data-window="48" type="button" aria-pressed="false">48h</button><button data-window="168" type="button" aria-pressed="true">7d</button><span id="map-range">Recorded markers</span><button id="fullscreen" type="button" title="Fullscreen map">⛶</button></div>
+<div id="marker-detail" role="status" aria-live="polite" hidden></div>
+
 <script src="https://unpkg.com/maplibre-gl@5.21.0/dist/maplibre-gl.js"></script>
 <script src="/satellite-orbits.js"></script>
 <script>
@@ -31,7 +44,8 @@ html,body,#map{height:100%;width:100%;margin:0;background:#020a14;font-family:sy
 (function(){
   const status=document.getElementById('status');
   if(!window.maplibregl){status.textContent='Map library unavailable';return;}
-  let points=[],events=[],quakes=[],alerts=[],orbits=[];let loaded=false;let category='farm';
+  let points=[],events=[],quakes=[],alerts=[],orbits=[],riverPoints=[];
+  let windowHours=168,paused=false;const overrides=new Map();let loaded=false;let category='farm';
   let imageryUrl=null,imageryVisible=false,gpmUrl=null,gpmVisible=false,extraLayers=[],activeExtra=-1;
   let mode='globe';let spin=null;let lastFrame=0;
   const toggle=document.getElementById('imagery-toggle'),gpmToggle=document.getElementById('gpm-toggle'),layerToggle=document.getElementById('layer-toggle'),viewToggle=document.getElementById('view-toggle');
@@ -48,10 +62,12 @@ html,body,#map{height:100%;width:100%;margin:0;background:#020a14;font-family:sy
 
   const fc=features=>({type:'FeatureCollection',features});
   const pt=(lon,lat,props)=>({type:'Feature',geometry:{type:'Point',coordinates:[lon,lat]},properties:props});
-  const data=()=>fc(points.map(p=>pt(p.longitude,p.latitude,{observedAt:p.observedAt||''})));
-  const eventData=()=>fc(events.map(e=>pt(e.longitude,e.latitude,{title:e.title})));
-  const quakeData=()=>fc(quakes.map(q=>pt(q.longitude,q.latitude,{mag:q.magnitude})));
-  const alertData=()=>fc(alerts.map(a=>pt(a.longitude,a.latitude,{level:a.level,name:a.name})));
+  const inWindow=p=>{const t=Date.parse(p.observedAt);return Number.isFinite(t)&&t<=Date.now()&&t>=Date.now()-windowHours*3600000;};
+  const data=()=>fc(points.filter(inWindow).map(p=>pt(p.longitude,p.latitude,{observedAt:p.observedAt||''}))); 
+  const eventData=()=>fc(events.filter(inWindow).map(e=>pt(e.longitude,e.latitude,{title:e.title,observedAt:e.observedAt})));
+  const quakeData=()=>fc(quakes.filter(inWindow).map(q=>pt(q.longitude,q.latitude,{mag:q.magnitude,place:q.place,observedAt:q.observedAt})));
+  const alertData=()=>fc(alerts.filter(inWindow).map(a=>pt(a.longitude,a.latitude,{level:a.level,name:a.name,observedAt:a.observedAt})));
+  const riverData=()=>fc(riverPoints.filter(inWindow).map(r=>pt(r.longitude,r.latitude,{name:r.name,discharge:r.discharge,observedAt:r.observedAt})));
   function satData(){
    const now=Date.now(),feats=[];
    for(const o of orbits){const q=window.PCIOrbits&&window.PCIOrbits.position(o,now);if(q)feats.push(pt(q.longitude,q.latitude,{name:o.name,label:o.isIss?'ISS':/TIANHE|CSS/i.test(o.name)?'Tiangong':'',alt:Math.round(q.altitudeKm)}));}
@@ -77,6 +93,11 @@ html,body,#map{height:100%;width:100%;margin:0;background:#020a14;font-family:sy
   };
   const GLOBE={hotspots:true,events:true,imagery:true,gpm:false};
   const vis=(id,on)=>{if(map.getLayer(id))map.setLayoutProperty(id,'visibility',on?'visible':'none');};
+  const related={'hotspots':['hotspots-halo'],'satellites':['satellite-labels','iss-track']};
+  function syncLayerControls(){for(const input of document.querySelectorAll('[data-layer]')){const id=input.dataset.layer;input.disabled=!map.getLayer(id);if(!input.disabled){if(overrides.has(id)){vis(id,overrides.get(id));for(const companion of related[id]||[])vis(companion,overrides.get(id));}input.checked=map.getLayoutProperty(id,'visibility')!=='none';}}}
+  function rangeLabel(){document.getElementById('map-range').textContent=(windowHours===168?'7 days':windowHours+' hours')+' · recorded markers';}
+  function markerStatus(){return points.filter(inWindow).length+' heat · '+quakes.filter(inWindow).length+' quakes · '+alerts.filter(inWindow).length+' alerts · '+riverPoints.filter(inWindow).length+' rivers';}
+
   function showExtra(index){activeExtra=index;
    extraLayers.forEach((l,i)=>vis('extra-'+l.id,i===index));
    layerToggle.disabled=extraLayers.length===0;
@@ -92,10 +113,11 @@ html,body,#map{height:100%;width:100%;margin:0;background:#020a14;font-family:sy
    gpmToggle.textContent=gpmUrl?'IMERG rain: '+(gpmVisible?'On':'Off'):'IMERG rain: unavailable';
    status.textContent=mode==='globe'
     ?`Earth · ${orbits.length} satellites tracked · ${points.length} heat detections · ${quakes.length} earthquakes · ${alerts.length} alerts`
-    :`${category.toUpperCase()} · ${desired.hotspots?points.length+' thermal detections · ':''}${desired.events?events.length+' natural events · ':''}${desired.imagery?'NASA imagery · ':''}${desired.gpm?'IMERG visualization · ':''}Pakistan fixed view`;
+    :`${category.toUpperCase()} · Pakistan fixed view`;
+   syncLayerControls();rangeLabel();status.textContent=markerStatus()+' · '+orbits.length+' tracked satellites';
   }
   function render(){if(!loaded)return;
-   for(const [id,f] of [['hotspots',data],['natural-events',eventData],['quakes',quakeData],['alerts',alertData],['satellites',satData],['iss-track',trackData]]){const s=map.getSource(id);if(s)s.setData(f());}
+   for(const [id,f] of [['hotspots',data],['natural-events',eventData],['quakes',quakeData],['alerts',alertData],['river-points',riverData],['satellites',satData],['iss-track',trackData]]){const s=map.getSource(id);if(s)s.setData(f());}
    const below=map.getLayer('hotspots-halo')?'hotspots-halo':undefined;
    if(imageryUrl&&!map.getSource('nasa-imagery')){map.addSource('nasa-imagery',{type:'raster',tiles:[imageryUrl],tileSize:256,maxzoom:9});map.addLayer({id:'nasa-imagery',type:'raster',source:'nasa-imagery',layout:{visibility:'none'},paint:{'raster-opacity':.8}},below);}
    if(gpmUrl&&!map.getSource('gpm-imagery')){map.addSource('gpm-imagery',{type:'raster',tiles:[gpmUrl],tileSize:256,maxzoom:6});map.addLayer({id:'gpm-imagery',type:'raster',source:'gpm-imagery',layout:{visibility:'none'},paint:{'raster-opacity':.65}},below);}
@@ -106,11 +128,11 @@ html,body,#map{height:100%;width:100%;margin:0;background:#020a14;font-family:sy
   }
   // Slow eastward rotation while in globe view; satellites move every second.
   function frame(t){
-   if(mode!=='globe'||REDUCED){spin=null;return;}
-   if(!document.hidden&&lastFrame){const c=map.getCenter();map.jumpTo({center:[((c.lng+(t-lastFrame)*0.004+540)%360)-180,c.lat]});}
+   if(mode!=='globe'||REDUCED||paused){spin=null;return;}
+   if(!document.hidden&&lastFrame){const c=map.getCenter();map.jumpTo({center:[((c.lng+Math.min(t-lastFrame,100)*0.0015+540)%360)-180,c.lat]});}
    lastFrame=t;spin=requestAnimationFrame(frame);
   }
-  function startSpin(){if(!spin&&!REDUCED){lastFrame=0;spin=requestAnimationFrame(frame);}}
+  function startSpin(){if(!spin&&!REDUCED&&!paused){lastFrame=0;spin=requestAnimationFrame(frame);}}
   setInterval(()=>{if(loaded&&mode==='globe'&&!document.hidden){const s=map.getSource('satellites');if(s)s.setData(satData());}},1000);
   setInterval(()=>{if(loaded&&mode==='globe'){const s=map.getSource('iss-track');if(s)s.setData(trackData());}},60000);
   function setMode(next){
@@ -130,6 +152,7 @@ html,body,#map{height:100%;width:100%;margin:0;background:#020a14;font-family:sy
    map.addSource('natural-events',{type:'geojson',data:eventData()});map.addLayer({id:'natural-events',type:'circle',source:'natural-events',paint:{'circle-radius':6,'circle-color':'#66e0ff','circle-stroke-color':'#e4fbff','circle-stroke-width':2}});
    map.addSource('quakes',{type:'geojson',data:quakeData()});map.addLayer({id:'quakes',type:'circle',source:'quakes',paint:{'circle-radius':['interpolate',['linear'],['get','mag'],2.5,3,7,14],'circle-color':'#ffd166','circle-opacity':.35,'circle-stroke-color':'#ffd166','circle-stroke-width':1.5}});
    map.addSource('alerts',{type:'geojson',data:alertData()});map.addLayer({id:'alerts',type:'circle',source:'alerts',paint:{'circle-radius':10,'circle-color':'rgba(0,0,0,0)','circle-stroke-color':['match',['get','level'],'Red','#ff3b5c','Orange','#ff9f1c','#7bd389'],'circle-stroke-width':3}});
+   map.addSource('river-points',{type:'geojson',data:riverData()});map.addLayer({id:'river-points',type:'circle',source:'river-points',paint:{'circle-radius':5,'circle-color':'#318ebd','circle-stroke-width':1.5,'circle-stroke-color':'#d8f6ff'}});
    map.addSource('satellites',{type:'geojson',data:satData()});
    map.addLayer({id:'satellites',type:'circle',source:'satellites',paint:{'circle-radius':['case',['!=',['get','label'],''],5,3],'circle-color':'#9fe8ff','circle-stroke-color':'#ffffff','circle-stroke-width':1}});
    map.addLayer({id:'satellite-labels',type:'symbol',source:'satellites',filter:['!=',['get','label'],''],layout:{'text-field':['get','label'],'text-size':12,'text-offset':[0,1.2],'text-font':['Noto Sans Regular']},paint:{'text-color':'#e0f7ff','text-halo-color':'#020a14','text-halo-width':1.5}});
@@ -142,9 +165,10 @@ html,body,#map{height:100%;width:100%;margin:0;background:#020a14;font-family:sy
     if(event.origin!==location.origin||event.source!==window.parent||event.data?.type!=='PCI_SATELLITE_POINTS_V1'||!Array.isArray(event.data.points))return;
     const d=event.data;
     points=d.points.slice(0,200).filter(p=>geo(p,true)).map(p=>({latitude:p.latitude,longitude:p.longitude,observedAt:typeof p.observedAt==='string'?p.observedAt:null}));
-    events=(Array.isArray(d.events)?d.events:[]).slice(0,100).filter(p=>geo(p,true)).map(p=>({latitude:p.latitude,longitude:p.longitude,title:String(p.title||'Natural event').slice(0,160)}));
-    quakes=(Array.isArray(d.quakes)?d.quakes:[]).slice(0,200).filter(p=>geo(p)&&fin(p.magnitude)).map(p=>({latitude:p.latitude,longitude:p.longitude,magnitude:Math.min(10,Math.max(0,p.magnitude))}));
-    alerts=(Array.isArray(d.alerts)?d.alerts:[]).slice(0,60).filter(p=>geo(p)).map(p=>({latitude:p.latitude,longitude:p.longitude,level:['Red','Orange','Green'].includes(p.level)?p.level:'Green',name:String(p.name||'Alert').slice(0,120)}));
+    events=(Array.isArray(d.events)?d.events:[]).slice(0,100).filter(p=>geo(p,true)).map(p=>({latitude:p.latitude,longitude:p.longitude,title:String(p.title||'Natural event').slice(0,160),observedAt:typeof p.observedAt==='string'?p.observedAt:null}));
+    quakes=(Array.isArray(d.quakes)?d.quakes:[]).slice(0,200).filter(p=>geo(p)&&fin(p.magnitude)).map(p=>({latitude:p.latitude,longitude:p.longitude,magnitude:Math.min(10,Math.max(0,p.magnitude)),place:String(p.place||'').slice(0,120),observedAt:typeof p.observedAt==='string'?p.observedAt:null}));
+    alerts=(Array.isArray(d.alerts)?d.alerts:[]).slice(0,60).filter(p=>geo(p)).map(p=>({latitude:p.latitude,longitude:p.longitude,level:['Red','Orange','Green'].includes(p.level)?p.level:'Green',name:String(p.name||'Alert').slice(0,120),observedAt:typeof p.observedAt==='string'?p.observedAt:null}));
+    riverPoints=(Array.isArray(d.rivers)?d.rivers:[]).slice(0,60).filter(p=>geo(p,true)&&fin(p.discharge)&&p.discharge>=0).map(p=>({latitude:p.latitude,longitude:p.longitude,name:String(p.name||'River').slice(0,120),discharge:p.discharge,observedAt:typeof p.observedAt==='string'?p.observedAt:null}));
     orbits=(Array.isArray(d.orbits)?d.orbits:[]).slice(0,80).filter(o=>o&&typeof o.epoch==='string'&&['meanMotion','eccentricity','inclination','raOfAscNode','argOfPericenter','meanAnomaly'].every(k=>fin(o[k]))).map(o=>({name:String(o.name||'Satellite').slice(0,60),isIss:o.isIss===true,epoch:o.epoch,meanMotion:o.meanMotion,eccentricity:o.eccentricity,inclination:o.inclination,raOfAscNode:o.raOfAscNode,argOfPericenter:o.argOfPericenter,meanAnomaly:o.meanAnomaly}));
     if(typeof d.category==='string'&&Object.hasOwn(layerSets,d.category))category=d.category;
     const template=d.imagery;
@@ -158,6 +182,18 @@ html,body,#map{height:100%;width:100%;margin:0;background:#020a14;font-family:sy
     if(d.view==='pakistan'&&mode!=='pakistan'&&loaded)setMode('pakistan');
     render();
   });
+  const spinButton=document.getElementById('spin-toggle');
+  function spinState(next){paused=next;if(paused&&spin){cancelAnimationFrame(spin);spin=null;}if(!paused&&mode==='globe')startSpin();spinButton.textContent=paused?'▶':'Ⅱ';spinButton.setAttribute('aria-pressed',String(!paused));spinButton.title=paused?'Resume globe rotation':'Pause globe rotation';}
+  if(REDUCED){spinState(true);spinButton.disabled=true;spinButton.title='Rotation disabled by reduced-motion preference';}
+  spinButton.addEventListener('click',()=>spinState(!paused));
+  document.getElementById('zoom-in').addEventListener('click',()=>{if(!loaded)return;spinState(true);map.zoomTo(Math.min(8,map.getZoom()+0.65),{duration:REDUCED?0:300});});
+  document.getElementById('zoom-out').addEventListener('click',()=>{if(!loaded)return;spinState(true);map.zoomTo(Math.max(0.3,map.getZoom()-0.65),{duration:REDUCED?0:300});});
+  document.getElementById('recenter').addEventListener('click',()=>{if(!loaded)return;spinState(true);if(mode==='pakistan')fitPakistan();else map.jumpTo({center:[69.3,25],zoom:globeZoom()});});
+  document.getElementById('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{status.textContent='Fullscreen not available in this browser.';}});
+  for(const b of document.querySelectorAll('[data-window]'))b.addEventListener('click',()=>{windowHours=Number(b.dataset.window);for(const other of document.querySelectorAll('[data-window]'))other.setAttribute('aria-pressed',String(other===b));render();rangeLabel();});
+  for(const input of document.querySelectorAll('[data-layer]'))input.addEventListener('change',()=>{if(!loaded)return;overrides.set(input.dataset.layer,input.checked);syncLayerControls();});
+  function markerInfo(e){if(!loaded)return;const layers=['hotspots','quakes','alerts','river-points','satellites','natural-events'].filter(id=>map.getLayer(id)&&map.getLayoutProperty(id,'visibility')!=='none');const detail=document.getElementById('marker-detail');const f=layers.length?map.queryRenderedFeatures(e.point,{layers})[0]:null;if(!f){detail.hidden=true;return;}const p=f.properties||{};let message=f.layer.id==='hotspots'?'Satellite heat detection (not a confirmed fire)':f.layer.id==='quakes'?'Earthquake M '+p.mag+' · '+(p.place||''):f.layer.id==='alerts'?(p.level||'')+' alert · '+(p.name||''):f.layer.id==='river-points'?(p.name||'River')+' · '+p.discharge+' m³/s (modelled)':f.layer.id==='satellites'?(p.name||'Satellite')+' · '+p.alt+' km (propagated)':p.title||'Natural event';if(p.observedAt){const t=Date.parse(p.observedAt);if(Number.isFinite(t))message+=' · '+new Date(t).toLocaleString('en-PK',{timeZone:'Asia/Karachi'})+' PKT';}detail.textContent=message;detail.hidden=false;}
+  map.on('mousemove',markerInfo);map.on('click',markerInfo);map.getCanvas().addEventListener('mouseleave',()=>{document.getElementById('marker-detail').hidden=true;});
   viewToggle.addEventListener('click',()=>{if(loaded)setMode(mode==='globe'?'pakistan':'globe');});
   layerToggle.addEventListener('click',()=>{if(!loaded||extraLayers.length===0)return;showExtra(activeExtra+1>=extraLayers.length?-1:activeExtra+1);});
   gpmToggle.addEventListener('click',()=>{if(!loaded||!map.getLayer('gpm-imagery'))return;gpmVisible=!gpmVisible;vis('gpm-imagery',gpmVisible);gpmToggle.textContent='IMERG rain: '+(gpmVisible?'On':'Off');gpmToggle.setAttribute('aria-pressed',String(gpmVisible));});
