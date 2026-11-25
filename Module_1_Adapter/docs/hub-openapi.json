@@ -1,0 +1,583 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PCI Data Hub admin API",
+    "version": "2.0.0",
+    "description": "The hub stores every collected reading once (official API first, web sources only as permitted fallback) and every ranking, profile and analytics view reads from it. Mounted under /api/v1/admin; requires an admin session."
+  },
+  "servers": [
+    {
+      "url": "/api/v1/admin"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Data Hub"
+    }
+  ],
+  "paths": {
+    "/ingest/health": {
+      "get": {
+        "summary": "Source health, open alerts, recent jobs, disagreements and what is stored per category",
+        "description": "Roles: any admin.",
+        "tags": [
+          "Data Hub"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        }
+      }
+    },
+    "/ingest/alerts": {
+      "get": {
+        "summary": "Hub alerts (open or all)",
+        "description": "Roles: any admin.",
+        "tags": [
+          "Data Hub"
+        ],
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "all"
+              ],
+              "default": "open"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        }
+      }
+    },
+    "/ingest/discrepancies": {
+      "get": {
+        "summary": "Last 100 API vs web disagreements over 5%",
+        "description": "Roles: any admin.",
+        "tags": [
+          "Data Hub"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        }
+      }
+    },
+    "/ingest/check": {
+      "post": {
+        "summary": "Run the hub check now (also runs every 15 minutes)",
+        "description": "Roles: owner, editor. Needs the CSRF header.",
+        "tags": [
+          "Data Hub"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Allowed roles: owner, editor"
+          }
+        }
+      }
+    },
+    "/ingest/coverage": {
+      "get": {
+        "summary": "Accounts per platform by audience tier and category, with freshness",
+        "description": "Roles: any admin.",
+        "tags": [
+          "Data Hub"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        }
+      }
+    },
+    "/ingest/account/{id}": {
+      "get": {
+        "summary": "Everything the hub holds for one account",
+        "description": "Roles: any admin.",
+        "tags": [
+          "Data Hub"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        }
+      }
+    },
+    "/ingest/compare": {
+      "get": {
+        "summary": "Two or three accounts side by side",
+        "description": "Roles: any admin.",
+        "tags": [
+          "Data Hub"
+        ],
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "required": true,
+            "description": "2 or 3 account ids, comma separated",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        }
+      }
+    },
+    "/ingest/status": {
+      "get": {
+        "summary": "Sources and stored row counts",
+        "description": "Roles: any admin.",
+        "tags": [
+          "Data Hub"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        }
+      }
+    },
+    "/ingest/policies": {
+      "get": {
+        "summary": "Refresh windows per platform",
+        "description": "Roles: any admin.",
+        "tags": [
+          "Data Hub"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        }
+      }
+    },
+    "/ingest/backfill": {
+      "post": {
+        "summary": "Copy existing collected data into the hub (no platform requests)",
+        "description": "Roles: owner, editor. Needs the CSRF header.",
+        "tags": [
+          "Data Hub"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "refreshRunId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "videos": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "historyDays": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 7
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Allowed roles: owner, editor"
+          }
+        }
+      }
+    },
+    "/ingest/sources/{id}": {
+      "patch": {
+        "summary": "Kill switch for web (http) sources",
+        "description": "Roles: owner. Needs the CSRF header.",
+        "tags": [
+          "Data Hub"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "youtube.http",
+                "instagram.http",
+                "tiktok.http"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Allowed roles: owner"
+          }
+        }
+      }
+    },
+    "/ingest/instagram/avatar/{accountId}": {
+      "post": {
+        "summary": "Fill one missing Instagram picture from the public page",
+        "description": "Roles: owner, editor. Needs the CSRF header.",
+        "tags": [
+          "Data Hub"
+        ],
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Allowed roles: owner, editor"
+          }
+        }
+      }
+    },
+    "/ingest/instagram/avatars/graph/fill": {
+      "post": {
+        "summary": "Recover missing Instagram pictures through the Meta API",
+        "description": "Roles: owner, editor. Needs the CSRF header.",
+        "tags": [
+          "Data Hub"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5,
+                    "default": 5
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Allowed roles: owner, editor"
+          }
+        }
+      }
+    },
+    "/ingest/local/collect": {
+      "post": {
+        "summary": "Collect the restaurant Top 20 from Google Places now",
+        "description": "Roles: owner, editor. Needs the CSRF header.",
+        "tags": [
+          "Data Hub"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "maxRequests": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 60
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Allowed roles: owner, editor"
+          }
+        }
+      }
+    },
+    "/ingest/instagram/avatars/cache": {
+      "post": {
+        "summary": "Keep own copies of Instagram pictures",
+        "description": "Roles: owner, editor. Needs the CSRF header.",
+        "tags": [
+          "Data Hub"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30,
+                    "default": 20
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Allowed roles: owner, editor"
+          }
+        }
+      }
+    },
+    "/ingest/instagram/avatars/fill": {
+      "post": {
+        "summary": "Fill missing Instagram pictures from public pages",
+        "description": "Roles: owner, editor. Needs the CSRF header.",
+        "tags": [
+          "Data Hub"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "default": 5
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Allowed roles: owner, editor"
+          }
+        }
+      }
+    },
+    "/ingest/tiktok/embed": {
+      "post": {
+        "summary": "Store one TikTok video from its public embed",
+        "description": "Roles: owner, editor. Needs the CSRF header.",
+        "tags": [
+          "Data Hub"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "maxLength": 250
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Allowed roles: owner, editor"
+          }
+        }
+      }
+    },
+    "/ingest/openapi.json": {
+      "get": {
+        "summary": "This document",
+        "description": "Roles: any admin.",
+        "tags": [
+          "Data Hub"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        }
+      }
+    }
+  }
+}
