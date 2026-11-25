@@ -42,3 +42,17 @@ test('hub copies follow the same retention as the old table', ()=>{
   assert.ok(src('modules/refresh/retention.ts').includes('export async function runHubRetention'));
   assert.ok(src('modules/sync/scheduler.ts').includes('runHubRetention()'));
 });
+
+test('edits and deletions in the old metric table reach the hub', ()=>{
+  const ddl=src('lib/hub-schema.ts');
+  const mig=readFileSync(new URL('../database/migrations/112_hub_mirror_changes.sql',import.meta.url),'utf8');
+  assert.ok(ddl.includes(mig.trim()),'startup DDL equals the migration');
+  assert.ok(mig.includes('CREATE TRIGGER hub_mirror_metric_changes AFTER UPDATE OR DELETE ON metric_observations'));
+  assert.ok(mig.includes('CREATE OR REPLACE FUNCTION hub_refresh_latest'));
+});
+
+test('the post-refresh mirror types its run id explicitly', ()=>{
+  const s=src('modules/ingest/store.ts');
+  const body=s.slice(s.indexOf('export async function mirrorApiRefresh'),s.indexOf('export async function backfillRecentMetrics'));
+  assert.ok(!/\$1(?!::)/.test(body),'every $1 is cast to text or uuid');
+});

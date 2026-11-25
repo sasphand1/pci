@@ -91,26 +91,26 @@ export async function mirrorApiRefresh(runId:string):Promise<{processed:number;s
   return transaction(async tx=>{
     const saved=await tx.query(`INSERT INTO ingest_observations
       (source_id,source_run_ref,account_id,entity_kind,entity_id,metric,value_numeric,accuracy,observed_at,raw_metadata)
-      SELECT a.platform||'.api',$1,o.account_id,'account',a.platform||':'||a.external_id,
+      SELECT a.platform||'.api',$1::text,o.account_id,'account',a.platform||':'||a.external_id,
         o.metric,o.value,CASE WHEN o.accuracy='exact' THEN 'exact' ELSE 'rounded' END,
         o.observed_at,'{"origin":"legacy-refresh-bridge"}'::jsonb
       FROM metric_observations o JOIN accounts a ON a.id=o.account_id
-      WHERE o.run_id=$1 AND a.platform IN ('youtube','instagram')
+      WHERE o.run_id=$1::uuid AND a.platform IN ('youtube','instagram')
       ON CONFLICT(source_id,source_run_ref,entity_kind,entity_id,metric) DO NOTHING RETURNING id`,[runId]);
     await tx.query(`INSERT INTO ingest_latest
       (entity_kind,entity_id,metric,source_id,value_numeric,accuracy,observed_at)
       SELECT entity_kind,entity_id,metric,source_id,value_numeric,accuracy,observed_at
-      FROM ingest_observations WHERE source_run_ref=$1 AND source_id IN ('youtube.api','instagram.api')
+      FROM ingest_observations WHERE source_run_ref=$1::text AND source_id IN ('youtube.api','instagram.api')
       ON CONFLICT(entity_kind,entity_id,metric) DO UPDATE SET
         source_id=EXCLUDED.source_id,value_numeric=EXCLUDED.value_numeric,value_text=NULL,
         accuracy=EXCLUDED.accuracy,observed_at=EXCLUDED.observed_at,updated_at=now()
       WHERE EXCLUDED.observed_at>=ingest_latest.observed_at`,[runId]);
     await tx.query(`UPDATE ingest_sources s SET last_attempt_at=now(),
-       last_success_at=(SELECT max(observed_at) FROM ingest_observations WHERE source_id=s.id AND source_run_ref=$1),
+       last_success_at=(SELECT max(observed_at) FROM ingest_observations WHERE source_id=s.id AND source_run_ref=$1::text),
        last_error=NULL WHERE s.id IN ('youtube.api','instagram.api')
-       AND EXISTS(SELECT 1 FROM ingest_observations WHERE source_id=s.id AND source_run_ref=$1)`,[runId]);
+       AND EXISTS(SELECT 1 FROM ingest_observations WHERE source_id=s.id AND source_run_ref=$1::text)`,[runId]);
     const total=await tx.query<{n:number}>(`SELECT count(*)::int AS n FROM metric_observations
-       WHERE run_id=$1`,[runId]);
+       WHERE run_id=$1::uuid`,[runId]);
     return {processed:total.rows[0]?.n??0,stored:saved.rowCount??0,invalid:0};
   });
 }
