@@ -48,3 +48,31 @@ body:has(.pci-yt-reference)>.fifi.contents>header,body:has(.pci-yt-reference)>.f
 @media(max-width:1050px){.pci-yt-reference .yr-nav{display:none}.pci-yt-reference .yr-content{padding-inline:30px}.pci-yt-reference .yr-metric{padding:18px}.pci-yt-reference .yr-secondary-kpis .yr-metric{padding:16px}.pci-yt-reference .yr-metric small{font-size:11px}.pci-yt-reference .yr-kpis{gap:12px}}
 @media(max-width:760px){.pci-yt-reference .yr-content{padding:15px 16px 28px;gap:14px}.pci-yt-reference .yr-mast-inner{padding-inline:17px;min-height:65px}.pci-yt-reference .yr-card{padding:22px}.pci-yt-reference .yr-grid{gap:14px}.pci-yt-reference .yr-card-head{gap:7px}.pci-yt-reference .yr-chip{font-size:10px;padding:7px 10px}.pci-yt-reference .yr-kpis,.pci-yt-reference .yr-provenance{grid-template-columns:repeat(2,minmax(0,1fr))}.pci-yt-reference .yr-hero{flex-wrap:wrap}.pci-yt-reference .yr-avatar{width:64px;height:64px;flex-basis:64px}.pci-yt-reference .yr-section-head>p{font-size:12px}.pci-yt-reference .yr-comparison{padding:23px}.pci-yt-reference .yr-bar-row{grid-template-columns:minmax(85px,26%) 1fr 60px;font-size:12px}.pci-yt-reference .yr-bar-row strong{font-size:12px}.pci-yt-reference .yr-interval{grid-template-columns:1fr auto}.pci-yt-reference .yr-interval svg{grid-row:2;grid-column:1/3}.pci-yt-reference .yr-interval small{grid-column:1/3}.pci-yt-reference .yr-bars-compact .yr-bar-row{grid-template-columns:12px minmax(45px,30%) minmax(10px,1fr) 47px;gap:5px;font-size:10px}.pci-yt-reference .yr-bars-compact .yr-bar-row strong{font-size:10px}}
 @media(max-width:590px){.pci-yt-reference .yr-grid{grid-template-columns:1fr}.pci-yt-reference .yr-section-head{display:block}.pci-yt-reference .yr-section-head>p{text-align:left;margin-top:6px}.pci-yt-reference .yr-brand>span{font-size:10px}.pci-yt-reference .yr-card{padding:22px}.pci-yt-reference .yr-growth-grid .yr-card{min-height:270px}.pci-yt-reference .yr-portfolio-grid .yr-card{min-height:300px}.pci-yt-reference .yr-metric strong{font-size:27px}.pci-yt-reference .yr-tabs button{font-size:12px;padding:9px 12px}.pci-yt-reference .yr-provenance{gap:8px}.pci-yt-reference .yr-observation{padding:12px}.pci-yt-reference .yr-interval{grid-template-columns:minmax(82px,24%) 1fr auto}.pci-yt-reference .yr-interval svg{grid-row:auto;grid-column:auto}.pci-yt-reference .yr-interval small{grid-column:2/4}.pci-yt-reference .yr-bars-compact .yr-bar-row{font-size:12px}.pci-yt-reference .yr-bars-compact .yr-bar-row strong{font-size:12px}}
+
+/* Creator Intelligence V3: compact sample cards and accessible comparisons. */
+.pci-yt-reference .yr-sample-mark{color:var(--yr-green);font-weight:700;text-decoration:underline}
+.pci-yt-reference .yr-top-video-link{display:block;overflow-wrap:anywhere;color:var(--yr-green);font-weight:600}
+.pci-yt-reference .yr-share-track{display:block;width:100%;height:7px;flex:none}
+.pci-yt-reference .yr-mini-shares{display:grid;gap:8px;margin-top:2px}
+.pci-yt-reference .yr-mini-shares a{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;align-items:center;font-size:11px;line-height:1.3;color:var(--yr-green)}
+.pci-yt-reference .yr-mini-shares a>span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.fifi .pci-yt-reference .yr-mini-shares a>strong{font:700 11px/1.3 'DM Sans',Arial,sans-serif;letter-spacing:0;color:var(--yr-green)}
+.pci-yt-reference .yr-mini-shares .yr-share-track{grid-column:1/-1;height:5px}
+.pci-yt-reference .yr-secondary-kpis .yr-metric{align-self:stretch}
+.pci-yt-reference .yr-secondary-kpis .yr-metric>small{overflow-wrap:anywhere}
+.pci-yt-reference .yr-comparison .yr-color-0{fill:#146c4b}.pci-yt-reference .yr-comparison .yr-color-1{fill:#387ba7}.pci-yt-reference .yr-comparison .yr-color-2{fill:#b67c36}.pci-yt-reference .yr-comparison .yr-color-3{fill:#80549b}.pci-yt-reference .yr-comparison .yr-color-4{fill:#478c91}.pci-yt-reference .yr-comparison .yr-color-5{fill:#af5776}
+.pci-yt-reference .yr-legend-controls button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--yr-border);border-radius:99px;padding:8px 12px;color:var(--yr-ink);background:#fff;font:600 12px/1.3 'DM Sans',Arial,sans-serif;cursor:pointer}
+.pci-yt-reference .yr-legend-controls button[aria-pressed=true]{background:#eaf3ed;border-color:#76a891;color:var(--yr-green)}
+.pci-yt-reference .yr-grouped{min-width:max(720px,100%);max-width:none;max-height:none}
+.pci-yt-reference .yr-grouped g[role=button]{cursor:pointer;outline:none}
+.pci-yt-reference .yr-grouped .yr-bar-hit{pointer-events:all;fill:transparent;stroke:none}
+.pci-yt-reference .yr-grouped g[role=button]:hover .yr-bar-hit,.pci-yt-reference .yr-grouped g[role=button]:focus-visible .yr-bar-hit,.pci-yt-reference .yr-grouped g[aria-pressed=true] .yr-bar-hit{fill:#e7f0e8;fill-opacity:.7;stroke:#a3c2ac;stroke-width:1}
+.pci-yt-reference .yr-comparison-detail{min-height:38px;padding:10px 13px;background:#f1f6f2;border:1px solid var(--yr-border);border-radius:10px;color:var(--yr-ink);font-size:13px;font-weight:600}
+.pci-yt-reference .yr-exact-table{border-top:1px solid var(--yr-border);padding-top:12px;color:var(--yr-muted);font-size:12px}
+.pci-yt-reference .yr-exact-table summary{cursor:pointer;font-weight:700;color:var(--yr-green)}
+.pci-yt-reference .yr-exact-table table{border-collapse:collapse;min-width:100%;white-space:nowrap;margin:8px 0}
+.pci-yt-reference .yr-exact-table th,.pci-yt-reference .yr-exact-table td{padding:9px 12px;border-bottom:1px solid var(--yr-border);text-align:right}
+.pci-yt-reference .yr-exact-table th:first-child{text-align:left}.pci-yt-reference .yr-exact-table td button{padding:4px;border:0;background:transparent;color:var(--yr-green);font:inherit;cursor:pointer}
+.pci-yt-reference .yr-methodology{scroll-margin-top:100px;padding:18px 5px;color:var(--yr-muted);font-size:12px;line-height:1.65}.fifi .pci-yt-reference .yr-methodology h3{font-size:20px;margin-bottom:6px}
+.pci-yt-reference .yr-notice a{color:var(--yr-green);text-decoration:underline}
+@media(max-width:760px){.pci-yt-reference .yr-legend-controls button{font-size:11px;padding:7px 9px}.pci-yt-reference .yr-mini-shares a{font-size:10px}.fifi .pci-yt-reference .yr-mini-shares a>strong{font-size:10px}}

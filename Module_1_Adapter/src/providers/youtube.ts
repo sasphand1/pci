@@ -1,6 +1,6 @@
 import type { YoutubeChannel, YoutubeClient } from '../modules/youtube/client.js';
 import { pickAvatar } from './avatar.js';
-import { classifyProviderError, mapYoutubeStatistics, windowCount } from './map.js';
+import { classifyProviderError, mapYoutubeStatistics, windowCount, toCount } from './map.js';
 import type { AccountRef, FetchResult, Provider } from './types.js';
 
 const MAX_UPLOAD_PAGES = 4; // 200 videos; the cap is recorded when it is hit
@@ -38,6 +38,9 @@ export function makeYoutubeProvider(client: Client, now: () => Date = () => new 
           const base = mapYoutubeStatistics(ch);
           const result: FetchResult = { accountId: a.id, ...base, metrics: [...base.metrics] };
           if (ch && result.outcome === 'ok') {
+            // Reuse the existing channels.list response; no new requests or ranking metrics.
+            const publicVideoCount = toCount(ch.statistics?.videoCount);
+            if (publicVideoCount !== null) result.publicVideoCount = publicVideoCount;
             const avatar = pickAvatar(ch.snippet?.thumbnails); if (avatar) result.avatarUrl = avatar;
             // Channel statistics are already safe in `result`; a failure here only loses posts_30d.
             try { const p = await postsLast30Days(client, ch, now().getTime()); result.metrics.push({ metric: 'posts_30d', value: p.value, accuracy: 'exact', ...(p.capped ? { capped: true } : {}) }); if (p.capped) result.detail = [result.detail, 'posts_capped'].filter(Boolean).join(','); }

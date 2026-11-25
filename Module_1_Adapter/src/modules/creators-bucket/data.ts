@@ -19,7 +19,9 @@ export async function creatorsBucket(personId:string,now=new Date()){
  // Up to two 90-day periods, only if retained by the Hub's existing policy.
  const channel=(await query<Observation>(`SELECT account_id AS "accountId",metric,value::text AS value,observed_at AS at FROM hub_account_metrics
  WHERE account_id=ANY($1::uuid[]) AND metric IN ('followers','views','posts_30d') AND observed_at BETWEEN $2::timestamptz-interval '183 days' AND $2::timestamptz
- UNION ALL SELECT account_id,metric,value_numeric::text,observed_at FROM ingest_observations WHERE account_id=ANY($1::uuid[]) AND entity_kind='account' AND metric='video_count' AND source_id='youtube.api' AND accuracy='exact' AND value_scale=0 AND value_numeric IS NOT NULL AND observed_at BETWEEN $2::timestamptz-interval '183 days' AND $2::timestamptz ORDER BY at`,[ids,stamp])).rows;
+ UNION ALL SELECT account_id,metric,value_numeric::text,observed_at FROM ingest_observations WHERE account_id=ANY($1::uuid[]) AND entity_kind='account' AND metric='video_count' AND source_id='youtube.api' AND accuracy='exact' AND value_scale=0 AND value_numeric IS NOT NULL AND observed_at BETWEEN $2::timestamptz-interval '183 days' AND $2::timestamptz
+ UNION ALL SELECT a.id,'video_count',s.video_count::text,s.fetched_at FROM channel_stats_latest s JOIN creators c ON c.id=s.creator_id JOIN accounts a ON a.platform='youtube' AND a.external_id=c.channel_id
+ WHERE a.id=ANY($1::uuid[]) AND s.video_count IS NOT NULL AND s.fetched_at BETWEEN $2::timestamptz-interval '7 days' AND $2::timestamptz ORDER BY at`,[ids,stamp])).rows;
  const points=(id:string,metric:string)=>series(channel.filter(r=>r.accountId===id&&r.metric===metric).map(r=>({at:iso(r.at),value:r.value})),n);
  const snapshots=accounts.map(a=>({...a,subscribers:points(a.id,'followers'),views:points(a.id,'views'),posts:points(a.id,'posts_30d'),totalVideos:points(a.id,'video_count')}));
  const primary=snapshots[0];

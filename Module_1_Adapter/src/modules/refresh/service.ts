@@ -1,7 +1,7 @@
 import { query, transaction } from '../../lib/db.js';
 import { logger } from '../../lib/errors.js';
 import { defaultProviders, type ProviderMap } from '../../providers/index.js';
-import { mirrorApiRefresh } from '../ingest/store.js';
+import { mirrorApiRefresh, recordObservation } from '../ingest/store.js';
 import { INSTAGRAM_ACCOUNT_SELECTION_SQL, instagramAvatarPrioritySlots } from './avatar-selection.js';
 import type { AccountRef, FetchResult, Outcome, Platform } from '../../providers/types.js';
 import { MAX_ATTEMPTS, backoffMs, isRetryable, normalizeResults, summarizeRun } from './normalize.js';
@@ -68,13 +68,28 @@ type AvatarWrite = 'recovered' | 'refreshed' | 'missing' | 'rejected' | null;
 async function persist(runId: string, result: FetchResult, attempts: number, observedAt: Date): Promise<AvatarWrite> {
   return transaction(async c => {
     // Skip silently if the person was deleted while the run was in flight.
-    const alive = await c.query('SELECT external_id,avatar_url FROM accounts WHERE id=$1 FOR UPDATE', [result.accountId]);
+    const alive = await c.query('SELECT external_id,avatar_url,platform FROM accounts WHERE id=$1 FOR UPDATE', [result.accountId]);
     if (!alive.rowCount) return null;
     await c.query('INSERT INTO refresh_results(run_id,account_id,outcome,attempts,detail) VALUES($1,$2,$3,$4,$5) ON CONFLICT (run_id,account_id) DO NOTHING',
       [runId, result.accountId, result.outcome, attempts, result.detail ?? null]);
     if (result.outcome === 'ok') for (const m of result.metrics)
       await c.query('INSERT INTO metric_observations(account_id,metric,value,accuracy,capped,observed_at,run_id) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (account_id,metric,run_id) DO NOTHING',
         [result.accountId, m.metric, m.value, m.accuracy, m.capped === true, observedAt.toISOString(), runId]);
+    // The ordinary full YouTube refresh also persists the official catalogue count.
+    // Keep it outside metric_observations (ranking input), and isolate optional Hub failures.
+    const account = alive.rows[0];
+    if (result.outcome === 'ok' && account.platform === 'youtube' && /^UC[A-Za-z0-9_-]{22}$/.test(String(account.external_id)) && typeof result.publicVideoCount === 'number' && Number.isSafeInteger(result.publicVideoCount) && result.publicVideoCount >= 0) {
+      await c.query('SAVEPOINT public_video_count');
+      try {
+        const saved = await recordObservation({sourceId:'youtube.api',sourceRunRef:'profile-video-count:'+runId,accountId:result.accountId,entityKind:'account',entityId:'youtube:'+account.external_id,metric:'video_count',valueNumeric:result.publicVideoCount,valueText:null,accuracy:'exact',observedAt:observedAt.toISOString(),metadata:{origin:'youtube-profile-refresh'}},c);
+        if (saved === 'invalid') logger.warn({accountId:result.accountId},'YouTube public video count rejected');
+        await c.query('RELEASE SAVEPOINT public_video_count');
+      } catch (err) {
+        await c.query('ROLLBACK TO SAVEPOINT public_video_count');
+        await c.query('RELEASE SAVEPOINT public_video_count');
+        logger.warn({err,accountId:result.accountId},'YouTube public video count unavailable');
+      }
+    }
     let avatarWrite: AvatarWrite = null;
     if (result.outcome === 'ok' && result.avatarUrl) {
       await c.query('UPDATE accounts SET avatar_url=$1 WHERE id=$2', [result.avatarUrl, result.accountId]);
