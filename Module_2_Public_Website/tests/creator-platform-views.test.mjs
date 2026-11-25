@@ -12,11 +12,12 @@ test('the page passes the creator platforms and a validated ?platform= request',
  assert.match(s,/\/\^\(youtube\|instagram\|tiktok\)\$\/\.test\(requested\)/);
  assert.match(s,/<CreatorProfilePage platforms=\{/);
 });
-test('YouTube view follows the approved reference layout and is wired to the public API',()=>{
- const s=read('../src/fifi/pages/creator.tsx'),page=read('../src/app/creators/[slug]/page.tsx'),css=read('../packages/ui/src/styles/creator-youtube.css');
- for(const x of ['Channel performance','Comparable creators · YouTube subscribers','Views gained per day of observed interval','Lifetime view growth','Subscriber history','Video performance','Top videos in tracked sample','Recent tracked videos','Linked public accounts','Views gained · 7 days','Subscriber change · 30 days','YouTube uploads · 30 days'])assert.ok(s.includes(x),x);
- assert.doesNotMatch(s,/FollowButton/);
+test('YouTube reference layout uses existing data and centralized styling',()=>{
+ const s=read('../src/fifi/pages/creator.tsx'),page=read('../src/app/creators/[slug]/page.tsx'),css=read('../packages/ui/src/styles/creator-youtube.css'),view=read('../src/fifi/pages/youtube-reference.tsx');
+ assert.match(s,/return <YouTubeReference/);
+ assert.match(view,/pci-yt-reference/);
+ assert.doesNotMatch(view,/style=\{/);
  assert.match(page,/\/rankings\/youtube\.subscribed\?limit=5/);
  assert.match(read('../packages/ui/src/styles.css'),/creator-youtube\.css/);
- assert.match(css,/\.pci-yt \.yt-barrow\{display:grid;grid-template-columns:minmax\(120px,180px\) 1fr 70px/);
+ assert.match(css,/\.pci-yt-reference \.yr-grid/);
 });
