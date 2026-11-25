@@ -165,8 +165,9 @@ export async function personAnalytics(personId:string, now=new Date()) {
   try{video=await creatorVideoSummary([...accounts.keys()]);}catch{/* analytics table may not exist during initial startup */}
   const currentSubscribers=primary.followers.at(-1)?.value??null;
   const milestone=subscriberMilestone(currentSubscribers,gainAtPeriod(primary.followers,30,now));
+  const instagramHistory=await instagramProfileHistory(personId,now);
   return {
-    video,milestone,
+    video,milestone,instagram:instagramHistory,
     instagramAccountCount:instagram?.accountCount??0,
     instagramSponsorScenarioUsd:instagram?.usd??null,
     instagramSponsorFollowers:instagram?.followers??null,
@@ -179,5 +180,29 @@ export async function personAnalytics(personId:string, now=new Date()) {
     growth:{subscribers:growth(primary.followers),views:growth(primary.views)},
     history:{subscribers:dailyHistory(primary.followers),views:dailyHistory(primary.views)},
     historyAccountCount:all.length
+  };
+}
+
+/** Instagram view of the profile: follower and total-post history of the creator's largest
+ * linked Instagram account (never summed across accounts), plus observed follower change. */
+export async function instagramProfileHistory(personId:string,now=new Date()){
+  const r=await query<MetricRow>(`SELECT a.person_id AS "personId",a.id AS "accountId",o.metric,o.value::text AS value,o.observed_at AS "observedAt"
+    FROM accounts a LEFT JOIN hub_account_metrics o ON o.account_id=a.id AND o.metric IN ('followers','posts_30d')
+      AND o.observed_at >= $2::timestamptz - interval '93 days' AND o.observed_at <= $2::timestamptz
+    WHERE a.person_id=$1 AND a.platform='instagram'
+    ORDER BY a.id,o.metric,o.observed_at`,[personId,now.toISOString()]);
+  const accounts=new Map<string,{followers:ObservationPoint[];posts30d:ObservationPoint[]}>();
+  for(const row of r.rows){
+    const a=accounts.get(row.accountId)??{followers:[],posts30d:[]};
+    const p=asPoint(row);
+    if(p&&row.metric==='followers')a.followers.push(p);else if(p&&row.metric==='posts_30d')a.posts30d.push(p);
+    accounts.set(row.accountId,a);
+  }
+  const all=[...accounts.values()];
+  const primary=all.sort((x,y)=>(y.followers.at(-1)?.value??-1)-(x.followers.at(-1)?.value??-1))[0]??{followers:[],posts30d:[]};
+  return {
+    accountCount:all.length,
+    growth:{followers:{'24h':gainAtPeriod(primary.followers,1,now),'7d':gainAtPeriod(primary.followers,7,now),'30d':gainAtPeriod(primary.followers,30,now)}},
+    history:{followers:dailyHistory(primary.followers),posts30d:dailyHistory(primary.posts30d)}
   };
 }

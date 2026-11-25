@@ -56,3 +56,10 @@ test('the post-refresh mirror types its run id explicitly', ()=>{
   const body=s.slice(s.indexOf('export async function mirrorApiRefresh'),s.indexOf('export async function backfillRecentMetrics'));
   assert.ok(!/\$1(?!::)/.test(body),'every $1 is cast to text or uuid');
 });
+
+test('creator profile exposes Instagram follower and posting history from the hub (largest account, never summed)',()=>{
+  const s=src('modules/creator-analytics/data.ts');
+  assert.ok(s.includes('export async function instagramProfileHistory'));
+  assert.ok(s.includes("o.metric IN ('followers','posts_30d')")&&s.includes("a.platform='instagram'"));
+  assert.ok(s.includes('instagram:instagramHistory'));
+});

@@ -33,6 +33,8 @@ export type PubCreatorAnalytics={
   growth:{subscribers:Record<'24h'|'7d'|'30d',number|null>;views:Record<'24h'|'7d'|'30d',number|null>};
   history:{subscribers:{at:string;value:number}[];views:{at:string;value:number}[]};
   historyAccountCount:number;
+  /** Largest linked Instagram account: recorded follower and posts-per-30-days history. */
+  instagram?:{accountCount:number;growth:{followers:Record<'24h'|'7d'|'30d',number|null>};history:{followers:{at:string;value:number}[];posts30d:{at:string;value:number}[]}};
 };
 export type PubPersonDetail={slug:string;displayName:string;avatarUrl:string|null;categories:{slug:string;label:string}[];accounts:PubFigures[];positions:PubPosition[];analytics?:PubCreatorAnalytics;similarCreators?:{slug:string;displayName:string}[]};
 
