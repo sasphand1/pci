@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-const src=p=>readFileSync(new URL(`../src/${p}`,import.meta.url),'utf8');
+const src=p=>readFileSync(new URL(`../src/${p}`,import.meta.url),'utf8').replace(/\r\n/g,'\n');
 
 const readers=['modules/refresh/summary.ts','modules/publish/overview.ts','modules/creator-analytics/data.ts',
   'modules/public/creator-index.ts','modules/public/queries.ts','modules/ingest/monitor.ts','modules/ingest/read-routes.ts'];
@@ -22,7 +22,7 @@ test('rankings read the hub unless explicitly rolled back', ()=>{
 
 test('hub schema mirrors old writes, copies history once and exposes the readers view', ()=>{
   const ddl=src('lib/hub-schema.ts');
-  const mig=readFileSync(new URL('../database/migrations/110_hub_readers.sql',import.meta.url),'utf8');
+  const mig=readFileSync(new URL('../database/migrations/110_hub_readers.sql',import.meta.url),'utf8').replace(/\r\n/g,'\n');
   for(const s of [ddl,mig]){
     assert.ok(s.includes('CREATE TRIGGER hub_mirror_metric_observations AFTER INSERT ON metric_observations'));
     assert.ok(s.includes("key='legacy_history_v1'"));
@@ -45,7 +45,7 @@ test('hub copies follow the same retention as the old table', ()=>{
 
 test('edits and deletions in the old metric table reach the hub', ()=>{
   const ddl=src('lib/hub-schema.ts');
-  const mig=readFileSync(new URL('../database/migrations/112_hub_mirror_changes.sql',import.meta.url),'utf8');
+  const mig=readFileSync(new URL('../database/migrations/112_hub_mirror_changes.sql',import.meta.url),'utf8').replace(/\r\n/g,'\n');
   assert.ok(ddl.includes(mig.trim()),'startup DDL equals the migration');
   assert.ok(mig.includes('CREATE TRIGGER hub_mirror_metric_changes AFTER UPDATE OR DELETE ON metric_observations'));
   assert.ok(mig.includes('CREATE OR REPLACE FUNCTION hub_refresh_latest'));

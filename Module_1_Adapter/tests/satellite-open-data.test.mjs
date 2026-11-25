@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {airQualityUrl,parseAirQuality,aqiBand,weatherUrl,parseWeather,RIVER_POINTS,floodUrl,parseFlood,gdacsUrl,parseGdacs,parseKp,geomagneticScale,parseCelestrak,parseOpenaqLocations,parseOpenaqLatest,openaqLatestUrl,GIBS_EXTRA_LAYERS,gibsLayerProbeUrl,gibsLayerTemplate,gibsMaxZoom} from '../src/modules/satellite/open-data.mjs';
 import {buildObservationBatch} from '../src/modules/satellite/bulk.mjs';
-const src=p=>readFileSync(new URL(p,import.meta.url),'utf8');
+const src=p=>readFileSync(new URL(p,import.meta.url),'utf8').replace(/\r\n/g,'\n');
 const NOW=Date.parse('2026-11-25T12:30:00Z');
 
 test('air quality: fixed Open-Meteo host, Lahore coordinates, past hours stored and next-24h peak attached',()=>{
