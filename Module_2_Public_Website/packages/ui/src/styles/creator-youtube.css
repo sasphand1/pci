@@ -35,7 +35,6 @@
 @media(max-width:700px){.pci-yt{padding:14px}.pci-yt .yt-grid{grid-template-columns:1fr}.pci-yt .yt-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.pci-yt .yt-card{padding:14px}.pci-yt .yt-barrow{grid-template-columns:100px 1fr 55px;gap:8px}.pci-yt .yt-tile{padding:12px}}
 
 /* YouTube-only Creator Intelligence replica. No rules target the legacy .pci-yt layout. */
-body:has(.pci-yt-reference)>.fifi.contents>header,body:has(.pci-yt-reference)>.fifi>footer{display:none}
 .fifi .pci-yt-reference{--yr-green:#146c4b;--yr-ink:#163c30;--yr-muted:#64786e;--yr-border:#dce5de;--yr-bg:#f8f7f2;--yr-track:#edf3ef;--yr-area:#e2efe8;color:var(--yr-ink);background:var(--yr-bg);font-family:'DM Sans',Arial,sans-serif;font-size:15px;line-height:1.45;min-width:0;width:100%;min-height:100vh;scroll-behavior:smooth;font-variant-numeric:tabular-nums}
 .pci-yt-reference *{box-sizing:border-box}.fifi .pci-yt-reference h1,.fifi .pci-yt-reference h2,.fifi .pci-yt-reference h3,.fifi .pci-yt-reference .yr-metric strong,.fifi .pci-yt-reference .yr-chart-value{font-family:'Newsreader',Georgia,'Times New Roman',serif;color:var(--yr-ink);font-weight:600;letter-spacing:-.025em;line-height:1.08;margin:0}
 .fifi .pci-yt-reference h1{font-size:clamp(38px,4.2vw,64px)}.fifi .pci-yt-reference h2{font-size:clamp(27px,2.5vw,36px)}.fifi .pci-yt-reference h3{font-size:clamp(24px,2.3vw,34px)}.pci-yt-reference a{color:inherit;text-decoration:none}.pci-yt-reference a:hover{text-decoration:underline}.pci-yt-reference a:focus-visible,.pci-yt-reference button:focus-visible,.pci-yt-reference svg g:focus-visible{outline:2px solid var(--yr-green);outline-offset:3px}
@@ -100,3 +99,60 @@ body:has(.pci-yt-reference)>.fifi.contents>header,body:has(.pci-yt-reference)>.f
 .pci-yt-reference .yr-secondary-kpis .yr-metric{box-shadow:0 11px 32px #244d3010;padding:24px}
 .fifi .pci-yt-reference .yr-secondary-kpis .yr-metric>strong{font-size:clamp(28px,3.5vw,49px)}
 @media(max-width:760px){.pci-yt-reference .yr-secondary-kpis .yr-metric{padding:18px}.fifi .pci-yt-reference .yr-secondary-kpis .yr-metric>strong{font-size:clamp(25px,3.5vw,34px)}}
+
+/* YouTube creator profile — integrated into the shared Fifi homepage design. */
+.fifi .pci-yt-reference.fifi-creator-template {
+  --yr-green:var(--primary); --yr-ink:var(--foreground); --yr-muted:var(--muted-foreground);
+  --yr-border:var(--border); --yr-bg:var(--background); --yr-track:var(--muted); --yr-area:var(--secondary);
+  background:transparent; min-height:0; font-size:14px; line-height:1.5;
+}
+.pci-yt-reference.fifi-creator-template .yr-content {max-width:none; padding:0; gap:20px; margin:0}
+.pci-yt-reference.fifi-creator-template .yr-hero {padding:20px; gap:16px}
+.pci-yt-reference.fifi-creator-template .yr-identity {gap:16px}
+.pci-yt-reference.fifi-creator-template .yr-avatar {width:64px;height:64px;flex:0 0 64px;border-radius:12px;border:1px solid var(--border);box-shadow:none;background:var(--primary);color:var(--primary-foreground)}
+.fifi .pci-yt-reference.fifi-creator-template h1 {font-family:var(--font-display,"Newsreader",Georgia,serif);font-size:clamp(28px,3.4vw,42px);font-weight:500;letter-spacing:-.035em;color:var(--primary);line-height:1.1}
+.fifi .pci-yt-reference.fifi-creator-template h2 {font:700 20px/1.3 var(--font-sans,"DM Sans",Arial,sans-serif);letter-spacing:-.015em;color:var(--foreground)}
+.fifi .pci-yt-reference.fifi-creator-template h3 {font:700 16px/1.35 var(--font-sans,"DM Sans",Arial,sans-serif);letter-spacing:0;color:var(--foreground)}
+.fifi .pci-yt-reference.fifi-creator-template .yr-rank-inline {font:600 18px/1 var(--font-sans,"DM Sans",Arial,sans-serif);color:var(--muted-foreground);letter-spacing:0}
+.pci-yt-reference.fifi-creator-template .yr-handle {font-size:12px;margin-top:4px}
+.pci-yt-reference.fifi-creator-template .yr-local-nav {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.pci-yt-reference.fifi-creator-template .yr-local-nav nav {display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.pci-yt-reference.fifi-creator-template .yr-local-nav a {font-size:12px;font-weight:600}
+.pci-yt-reference.fifi-creator-template .yr-kpis {gap:12px}
+.pci-yt-reference.fifi-creator-template .yr-secondary-kpis {margin-top:0}
+.pci-yt-reference.fifi-creator-template .yr-metric {gap:6px;min-height:112px;justify-content:space-between}
+.fifi .pci-yt-reference.fifi-creator-template .yr-metric>strong {font:700 clamp(21px,2.5vw,32px)/1.15 var(--font-sans,"DM Sans",Arial,sans-serif);letter-spacing:-.035em;color:var(--foreground)}
+.fifi .pci-yt-reference.fifi-creator-template .yr-primary-kpis .yr-metric:first-child>strong,.pci-yt-reference.fifi-creator-template .yr-primary-kpis .yr-metric:first-child>span,.pci-yt-reference.fifi-creator-template .yr-primary-kpis .yr-metric:first-child>small {color:var(--primary-foreground)}
+.pci-yt-reference.fifi-creator-template .yr-metric>span,.pci-yt-reference.fifi-creator-template .yr-chart-label,.pci-yt-reference.fifi-creator-template .yr-observation>span {font-size:11px;letter-spacing:.025em;text-transform:none;color:var(--muted-foreground)}
+.pci-yt-reference.fifi-creator-template .yr-eyebrow {font-size:11px;letter-spacing:.12em;color:var(--gold-foreground)}
+.pci-yt-reference.fifi-creator-template .yr-section {margin-top:0;gap:14px;scroll-margin-top:100px}
+.pci-yt-reference.fifi-creator-template .yr-section-head {padding:0;gap:14px}
+.pci-yt-reference.fifi-creator-template .yr-section-head>p,.pci-yt-reference.fifi-creator-template .yr-sub {font-size:12px}
+.pci-yt-reference.fifi-creator-template .yr-grid {gap:16px}
+.pci-yt-reference.fifi-creator-template .yr-card {gap:12px}
+.pci-yt-reference.fifi-creator-template .yr-growth-grid .yr-card,.pci-yt-reference.fifi-creator-template .yr-portfolio-grid .yr-card {min-height:0}
+.fifi .pci-yt-reference.fifi-creator-template .yr-chart-value {font:700 clamp(18px,2.1vw,25px)/1.2 var(--font-sans,"DM Sans",Arial,sans-serif);letter-spacing:-.025em;color:var(--primary)}
+.pci-yt-reference.fifi-creator-template .yr-chip {font-size:11px;padding:6px 10px;background:var(--secondary);color:var(--primary)}
+.pci-yt-reference.fifi-creator-template .yr-gridline {stroke:var(--border)}
+.pci-yt-reference.fifi-creator-template .yr-line {stroke:var(--primary);stroke-width:2.5}
+.pci-yt-reference.fifi-creator-template .yr-dot {fill:var(--card);stroke:var(--primary)}
+.pci-yt-reference.fifi-creator-template .yr-scatter-dot {fill:var(--chart-3)}
+.pci-yt-reference.fifi-creator-template .yr-legend-controls button[aria-pressed=true] {background:var(--secondary);border-color:var(--ring);color:var(--primary)}
+.pci-yt-reference.fifi-creator-template .yr-comparison-detail {background:var(--secondary);border-color:var(--border);color:var(--foreground)}
+.pci-yt-reference.fifi-creator-template .yr-observation {background:var(--background);border-color:var(--border);border-radius:12px;padding:14px}
+.pci-yt-reference.fifi-creator-template .yr-methodology {padding:20px;scroll-margin-top:100px}
+.pci-yt-reference.fifi-creator-template .yr-foot {margin:0;padding:0 2px;flex-wrap:wrap}
+.pci-yt-reference.fifi-creator-template#overview {scroll-margin-top:90px}
+@media(max-width:760px){
+  .pci-yt-reference.fifi-creator-template .yr-content {gap:16px}
+  .pci-yt-reference.fifi-creator-template .yr-hero {padding:16px}
+  .pci-yt-reference.fifi-creator-template .yr-identity {gap:12px}
+  .pci-yt-reference.fifi-creator-template .yr-avatar {width:52px;height:52px;flex-basis:52px}
+  .pci-yt-reference.fifi-creator-template .yr-kpis {gap:10px}
+  .pci-yt-reference.fifi-creator-template .yr-grid {gap:12px}
+  .pci-yt-reference.fifi-creator-template .yr-metric {min-height:102px}
+  .fifi .pci-yt-reference.fifi-creator-template .yr-metric>strong {font-size:clamp(20px,4.8vw,28px)}
+  .pci-yt-reference.fifi-creator-template .yr-section-head {align-items:start}
+  .pci-yt-reference.fifi-creator-template .yr-section-head>p {text-align:left}
+  .pci-yt-reference.fifi-creator-template .yr-local-nav {justify-content:flex-start}
+}
