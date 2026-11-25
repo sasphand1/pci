@@ -1,18 +1,18 @@
 // Strict allowlist; no remote URL or executable provider configuration from the admin UI.
 export const PROVIDERS = Object.freeze({
- firms:{label:'NASA FIRMS (VIIRS)',kind:'fire',implemented:true,auth:'NASA_FIRMS_MAP_KEY',minMinutes:180},
- power:{label:'NASA POWER (daily meteorology)',kind:'rainfall,solar',implemented:true,auth:null,minMinutes:1440},
+ firms:{label:'NASA FIRMS fire / heat hotspots (VIIRS)',kind:'fire',implemented:true,auth:'NASA_FIRMS_MAP_KEY',minMinutes:180},
+ power:{label:'NASA POWER daily rainfall and sunlight',kind:'rainfall,solar',implemented:true,auth:null,minMinutes:1440},
  eonet:{label:'NASA EONET natural events',kind:'natural_event',implemented:true,auth:null,minMinutes:360},
- gibs:{label:'NASA GIBS satellite imagery',kind:'imagery',implemented:true,auth:null,minMinutes:1440},
- gpm:{label:'NASA GPM IMERG (rainfall imagery only)',kind:'rainfall imagery',implemented:true,auth:null,minMinutes:360},
- sentinel1:{label:'Copernicus Sentinel-1 (scene catalogue)',kind:'scene',implemented:true,auth:null,minMinutes:1440},
- sentinel2:{label:'Copernicus Sentinel-2 (scene catalogue)',kind:'scene',implemented:true,auth:null,minMinutes:1440},
- sentinel5p:{label:'Copernicus Sentinel-5P (scene catalogue)',kind:'scene',implemented:true,auth:null,minMinutes:1440},
- usgs:{label:'USGS Earthquake Reports (not early warning)',kind:'earthquake',implemented:true,auth:null,minMinutes:60},
- landsat:{label:'USGS Landsat Surface Temperature (scene discovery only)',kind:'thermal raster',implemented:true,auth:null,minMinutes:1440},
- ecostress:{label:'NASA ECOSTRESS Water Stress (scene discovery only)',kind:'evapotranspiration raster',implemented:true,auth:null,minMinutes:1440},
- smap:{label:'NASA SMAP Regional Soil Moisture (scene discovery only)',kind:'soil moisture raster',implemented:true,auth:null,minMinutes:1440},
- blackmarble:{label:'NASA VIIRS Black Marble Night Lights (scene discovery only)',kind:'night lights raster',implemented:true,auth:null,minMinutes:1440}
+ usgs:{label:'USGS earthquake reports (not early warning)',kind:'earthquake',implemented:true,auth:null,minMinutes:60},
+ gibs:{label:'NASA GIBS map layers (true colour, night lights, dust, snow)',kind:'imagery',implemented:true,auth:null,minMinutes:1440},
+ gpm:{label:'NASA GPM IMERG rain map (imagery only)',kind:'rainfall imagery',implemented:true,auth:null,minMinutes:360},
+ airquality:{label:'Copernicus CAMS air quality (PM2.5, PM10, NO2, ozone, dust, UV)',kind:'air_quality',implemented:true,auth:null,minMinutes:60},
+ weather:{label:'Open-Meteo weather and 7-day forecast',kind:'weather',implemented:true,auth:null,minMinutes:60},
+ flood:{label:'GloFAS river flow forecast (Indus, Jhelum, Chenab, Ravi, Sutlej, Kabul, Swat)',kind:'river_flow',implemented:true,auth:null,minMinutes:1440},
+ gdacs:{label:'GDACS disaster alerts (UN / EC)',kind:'disaster_alert',implemented:true,auth:null,minMinutes:60},
+ swpc:{label:'NOAA SWPC space weather (Kp index)',kind:'space_weather',implemented:true,auth:null,minMinutes:180},
+ celestrak:{label:'CelesTrak orbits (ISS, Tiangong and other stations)',kind:'orbit',implemented:true,auth:null,minMinutes:360},
+ openaq:{label:'OpenAQ ground air-quality stations',kind:'aq_station',implemented:true,auth:'OPENAQ_API_KEY',minMinutes:60}
 });
 export const CITIES=Object.freeze({lahore:[74.3587,31.5204],karachi:[67.0099,24.8615],islamabad:[73.0479,33.6844],peshawar:[71.5249,34.0151],quetta:[67.0011,30.1798],multan:[71.5249,30.1575],faisalabad:[73.1350,31.4504],hyderabad:[68.3578,25.3960]});
 export function validateProvider(id){return Object.hasOwn(PROVIDERS,id)}

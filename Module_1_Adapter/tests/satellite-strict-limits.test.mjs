@@ -10,7 +10,9 @@ test('FIRMS limits all requests to 8 slots per 24 hours under default policy',()
  assert.equal(isDue('2026-11-22T00:00:00.000Z','firms',60,Date.parse('2026-11-22T03:00:00.000Z')),true);
 });
 test('all other provider policies use conservative minimums',()=>{
- for(const id of ['power','gibs','sentinel1','sentinel2','sentinel5p'])assert.equal(minimumIntervalMinutes(id),1440);
+ for(const id of ['power','gibs','flood'])assert.equal(minimumIntervalMinutes(id),1440);
+ for(const id of ['airquality','weather','gdacs','openaq','usgs'])assert.equal(minimumIntervalMinutes(id),60);
+ for(const id of ['sentinel1','landsat'])assert.throws(()=>minimumIntervalMinutes(id));
  for(const id of ['eonet','gpm'])assert.equal(minimumIntervalMinutes(id),360);
  assert.equal(effectiveIntervalMinutes('firms',360),360);
  assert.throws(()=>minimumIntervalMinutes('unknown'));

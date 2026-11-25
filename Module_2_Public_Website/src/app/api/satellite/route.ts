@@ -1,21 +1,26 @@
 import {NextRequest,NextResponse} from 'next/server';
 export const dynamic='force-dynamic';
 const cities=new Set(['lahore','karachi','islamabad','peshawar','quetta','multan','faisalabad','hyderabad']);
-const missions=new Set(['sentinel1','sentinel2','sentinel5p']);
-/** Read-only same-origin proxy. An explicit allowlist prevents arbitrary URLs or SSRF. */
+/** City-specific metrics → Module 1 path. */
+const perCity:Record<string,(c:string)=>string>={
+ 'rainfall':c=>`rainfall/latest?city=${c}`,'solar':c=>`solar/latest?city=${c}`,
+ 'rainfall-history':c=>`rainfall/history?city=${c}&days=30`,'solar-history':c=>`solar/history?city=${c}&days=30`,
+ 'air-quality':c=>`air-quality/latest?city=${c}`,'air-quality-history':c=>`air-quality/history?city=${c}&hours=48`,
+ 'weather':c=>`weather/latest?city=${c}`
+};
+/** Region-wide metrics → Module 1 path. */
+const regional:Record<string,string>={
+ 'natural-events':'natural-events/latest','earthquakes':'earthquakes/latest','imagery':'imagery/latest','gpm-imagery':'gpm/imagery/latest',
+ 'imagery-layers':'imagery/layers','alerts':'alerts/latest','rivers':'rivers/latest','space-weather':'space-weather/latest',
+ 'air-stations':'air-stations/latest','orbits':'orbits/latest'
+};
+/** Read-only same-origin proxy. A fixed allowlist of metrics prevents arbitrary URLs or SSRF. */
 export async function GET(req:NextRequest){
  const metric=req.nextUrl.searchParams.get('metric')||'';
  const city=req.nextUrl.searchParams.get('city')||'';
- const mission=req.nextUrl.searchParams.get('mission')||'';
  let path:string;
- if((metric==='rainfall'||metric==='solar')&&cities.has(city))path=`${metric}/latest?city=${encodeURIComponent(city)}`;
- else if((metric==='rainfall-history'||metric==='solar-history')&&cities.has(city))path=`${metric==='rainfall-history'?'rainfall':'solar'}/history?city=${encodeURIComponent(city)}&days=30`;
- else if(metric==='natural-events'&&!city&&!mission)path='natural-events/latest';
- else if(metric==='earthquakes'&&!city&&!mission)path='earthquakes/latest';
- else if(metric==='science-scenes'&&['landsat','ecostress','smap','blackmarble'].includes(mission)&&!city)path=`science-scenes/latest?dataset=${encodeURIComponent(mission)}`;
- else if(metric==='imagery'&&!city&&!mission)path='imagery/latest';
- else if(metric==='gpm-imagery'&&!city&&!mission)path='gpm/imagery/latest';
- else if(metric==='scenes'&&missions.has(mission)&&!city)path=`scenes/latest?mission=${encodeURIComponent(mission)}`;
+ if(Object.hasOwn(perCity,metric)&&cities.has(city))path=perCity[metric](encodeURIComponent(city));
+ else if(Object.hasOwn(regional,metric)&&!city)path=regional[metric];
  else return NextResponse.json({data:[],error:'INVALID_FILTER'},{status:400});
  const api=(process.env.ADAPTER_INTERNAL_URL||process.env.NEXT_PUBLIC_ADAPTER_API_URL||'').replace(/\/$/,'');
  if(!/^https?:\/\//.test(api))return NextResponse.json({data:[],error:'SATELLITE_API_UNCONFIGURED'},{status:503});

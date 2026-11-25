@@ -17,7 +17,7 @@ test('thermal records are geolocated observations, not fires',()=>{
 });
 test('five decision tools, no inline React styles, and original NOT GPM disclaimer',()=>{
  const s=source('../src/components/SatelliteDashboard.tsx');
- for(const [id,title] of [['farm','Farm Doctor'],['land','Land DNA'],['water','Water Guardian'],['solar','Solar Advisor'],['city','City Health']]){
+ for(const [id,title] of [['farm','Farm Doctor'],['safety','Safety Watch'],['water','Water Guardian'],['solar','Solar Advisor'],['city','City Health']]){
   assert.match(s,new RegExp(`id:'${id}'`));
   assert.ok(s.includes(`title:'${title}'`));
  }

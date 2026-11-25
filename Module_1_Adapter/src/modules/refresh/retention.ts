@@ -27,5 +27,12 @@ export async function runHubRetention(env: NodeJS.ProcessEnv = process.env): Pro
   // Google Maps Platform terms allow only short-term caching of place details: keep 30 days of readings.
   const places = await query(`DELETE FROM ingest_observations WHERE entity_kind='place' AND observed_at < now() - interval '30 days'`);
   out.places = places.rowCount ?? 0;
+  // Satellite sub-bucket: hourly city readings grow fast; keep PCI_RETENTION_DAYS_SATELLITE (default 90).
+  const raw = Number(env.PCI_RETENTION_DAYS_SATELLITE ?? 90);
+  const satDays = Number.isInteger(raw) && raw >= 7 && raw <= 3650 ? raw : 90;
+  const sat = await query(`DELETE FROM ingest_observations WHERE source_id LIKE 'sat\\_%' AND observed_at < now() - make_interval(days => $1)`, [satDays]);
+  out.satellite = sat.rowCount ?? 0;
+  const detail = await query(`DELETE FROM satellite.observations WHERE metric IN ('air_quality','weather','aq_station','orbit','space_weather','river_flow') AND observed_at < now() - make_interval(days => $1)`, [satDays]).catch(() => ({ rowCount: 0 }));
+  out.satelliteDetail = detail.rowCount ?? 0;
   return out;
 }

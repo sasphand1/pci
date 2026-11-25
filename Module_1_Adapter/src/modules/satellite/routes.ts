@@ -5,6 +5,9 @@ import {cacheRead,redis} from '../../lib/redis.js';
 import {handler,HttpError} from '../../lib/errors.js';
 import {requireAdmin,roles,audit,type AdminIdentity} from '../auth/auth.js';
 import {providers,configured,satelliteTick} from './service.js';
+import {setHubEnabled} from './hub.js';
+import {RIVER_POINTS,gibsLayerTemplate,gibsMaxZoom,aqiBand} from './open-data.mjs';
+import type {SatelliteMetric} from './bulk.mjs';
 import {PROVIDERS,CITIES} from './catalog.mjs';
 import {minimumIntervalMinutes} from './policy.mjs';
 import {gibsDisplayTemplate,gpmWmsURL} from './feeds.mjs';
@@ -14,7 +17,7 @@ const city=z.enum(Object.keys(CITIES) as [string,...string[]]);
 const days=z.coerce.number().int().min(1).max(30).default(7);
 const limit=z.coerce.number().int().min(1).max(200).default(100);
 const idSchema=z.enum(Object.keys(PROVIDERS) as [string,...string[]]);
-const list=async(metric:'fire'|'rainfall'|'solar'|'natural_event'|'scene'|'imagery'|'earthquake'|'science_scene',location:string,n:number,backDays:number,providerId:string|null=null)=>{
+const list=async(metric:SatelliteMetric,location:string,n:number,backDays:number,providerId:string|null=null)=>{
  const epoch=(await redis.get('satellite:epoch'))??'0';
  return cacheRead(`satellite:observations:v1:${epoch}:${metric}:${location}:${n}:${backDays}:${providerId??'all'}`,async()=>{
   const r=await query(`SELECT obs.location,obs.observed_at,obs.payload,obs.provider FROM satellite.observations obs JOIN satellite.providers cfg ON cfg.id=obs.provider AND cfg.enabled=true WHERE metric=$1 AND ($2='all' OR location=$2) AND observed_at>=now()-($3::int*interval '1 day') AND ($5::text IS NULL OR obs.provider=$5) ORDER BY observed_at DESC,obs.id DESC LIMIT $4`,[metric,location,backDays,n,providerId]);
@@ -22,7 +25,7 @@ const list=async(metric:'fire'|'rainfall'|'solar'|'natural_event'|'scene'|'image
  },30);
 };
 satellitePublicRoutes.use((_req,res,next)=>{res.setHeader('Cache-Control','public, max-age=60, stale-while-revalidate=180');next();});
-satellitePublicRoutes.get('/openapi.json',(_req,res)=>res.json({openapi:'3.0.3',info:{title:'PCI Satellite Intelligence API',version:'0.1.0',description:'Public read-only satellite-derived estimates. NASA POWER rainfall is not GPM; NASA FIRMS anomalies are not confirmed fires.'},servers:[{url:'/api/v1/satellite'}],paths:Object.fromEntries(['/sources','/fires/latest','/fires/history','/rainfall/latest','/rainfall/history','/solar/latest','/solar/history','/natural-events/latest','/earthquakes/latest','/science-scenes/latest','/scenes/latest','/imagery/latest','/gpm/imagery/latest'].map(p=>[p,{get:{summary:`Satellite data ${p}`,responses:{'200':{description:'Data with provenance, observation time and limitations'},'429':{description:'Rate limit exceeded'}}}}]))}));
+satellitePublicRoutes.get('/openapi.json',(_req,res)=>res.json({openapi:'3.0.3',info:{title:'PCI Satellite Intelligence API',version:'0.4.0',description:'Public read-only satellite-derived estimates. NASA POWER rainfall is not GPM; NASA FIRMS anomalies are not confirmed fires.'},servers:[{url:'/api/v1/satellite'}],paths:Object.fromEntries(['/sources','/fires/latest','/fires/history','/rainfall/latest','/rainfall/history','/solar/latest','/solar/history','/natural-events/latest','/earthquakes/latest','/imagery/latest','/imagery/layers','/gpm/imagery/latest','/air-quality/latest','/air-quality/history','/air-stations/latest','/weather/latest','/rivers/latest','/alerts/latest','/space-weather/latest','/orbits/latest'].map(p=>[p,{get:{summary:`Satellite data ${p}`,responses:{'200':{description:'Data with provenance, observation time and limitations'},'429':{description:'Rate limit exceeded'}}}}]))}));
 satellitePublicRoutes.get('/sources',handler(async(_req,res)=>{res.json({data:(await providers()).map(p=>({id:p.id,label:p.label,kind:p.kind,enabled:p.enabled,implemented:p.implemented,lastSuccessAt:p.last_success_at,lastAttemptAt:p.last_attempt_at,refreshQueued:Boolean(p.refresh_requested_at),available:p.enabled&&p.implemented&&p.configured&&Boolean(p.last_success_at)&&Date.now()-new Date(p.last_success_at!).getTime()<Math.max(172800000,p.refresh_minutes*120000)}))});}));
 satellitePublicRoutes.get('/fires/latest',handler(async(req,res)=>{const q=limit.parse(req.query.limit);res.json({data:await list('fire','bounding-box',q,4),meta:{status:'satellite_thermal_detections_not_confirmed_fires',source:'NASA FIRMS',provisional:true}});}));
 satellitePublicRoutes.get('/fires/history',handler(async(req,res)=>{const q=days.parse(req.query.days);res.json({data:await list('fire','bounding-box',200,q),meta:{days:q,source:'NASA FIRMS',provisional:true}});}));
@@ -36,25 +39,56 @@ satellitePublicRoutes.get('/earthquakes/latest',handler(async(req,res)=>{
  const n=limit.parse(req.query.limit);
  res.json({data:await list('earthquake','bounding-box',n,7,'usgs'),meta:{source:'USGS ComCat',region:'Pakistan-region bounding box',notEarlyWarning:true,notPrediction:true,mayIncludeNeighboringCountries:true}});
 }));
-// New scientific sources expose verified scene/granule acquisition metadata ONLY.
-// No NDVI, surface temperature, water stress, soil moisture or lighting measurements are implied.
-satellitePublicRoutes.get('/science-scenes/latest',handler(async(req,res)=>{
- const dataset=z.enum(['landsat','ecostress','smap','blackmarble']).parse(req.query.dataset);
- const data=await list('science_scene','bounding-box',30,35,dataset);
- res.json({data,meta:{dataset,scope:'catalogue_only',derivedAnalysisAvailable:false,notPhysicalMeasurements:true}});
-}));
 satellitePublicRoutes.get('/natural-events/latest',handler(async(_req,res)=>{
  res.json({data:await list('natural_event','bounding-box',100,30),meta:{source:'NASA EONET',scope:'Pakistan-region bounding box',notWarning:true}});
 }));
-satellitePublicRoutes.get('/scenes/latest',handler(async(req,res)=>{
- const mission=z.enum(['sentinel1','sentinel2','sentinel5p']).parse(req.query.mission);
- const data=await list('scene','bounding-box',100,30);
- res.json({data:data.filter((row:{provider:string})=>row.provider===mission).slice(0,30),meta:{source:'Copernicus Data Space',mission,scope:'catalogue_only',notDerivedFloodCropOrPollutionData:true}});
-}));
 satellitePublicRoutes.get('/imagery/latest',handler(async(_req,res)=>{
- const data=await list('imagery','bounding-box',1,30,'gibs');
+ // True-colour base layer only; extra layers are listed by /imagery/layers.
+ const data=(await list('imagery','bounding-box',40,30,'gibs')).filter((x:{layerId?:unknown})=>!x.layerId).slice(0,1);
  const day=data[0]?.day;
  res.json({data:typeof day==='string'?[{...data[0],tileTemplate:gibsDisplayTemplate(day),maxZoom:9}]:[],meta:{source:'NASA GIBS',type:'raster_visualization',notQuantitativeObservation:true}});
+}));
+satellitePublicRoutes.get('/imagery/layers',handler(async(_req,res)=>{
+ const seen=new Set<string>();const out:unknown[]=[];
+ for(const x of await list('imagery','bounding-box',60,10,'gibs') as Array<Record<string,unknown>>){
+  const id=x.layerId;if(typeof id!=='string'||seen.has(id))continue;seen.add(id);
+  try{out.push({id,label:x.label,day:x.day,tileTemplate:gibsLayerTemplate(String(x.layer),String(x.tileMatrixSet),String(x.format),String(x.day)),maxZoom:gibsMaxZoom(String(x.tileMatrixSet))});}catch{/* unapproved layer: never published */}
+ }
+ res.json({data:out,meta:{source:'NASA GIBS',type:'raster_visualization',notQuantitativeObservation:true}});
+}));
+const hours=z.coerce.number().int().min(1).max(168).default(24);
+satellitePublicRoutes.get('/air-quality/latest',handler(async(req,res)=>{
+ const location=city.parse(req.query.city??'lahore');const data=await list('air_quality',location,1,2,'airquality') as Array<Record<string,any>>;
+ res.json({data:data.map(x=>({...x,band:aqiBand(x.values?.us_aqi)})),meta:{city:location,source:'Copernicus CAMS via Open-Meteo',modelled:true,notStationMeasurement:true}});
+}));
+satellitePublicRoutes.get('/air-quality/history',handler(async(req,res)=>{
+ const location=city.parse(req.query.city??'lahore'),h=hours.parse(req.query.hours);
+ res.json({data:await list('air_quality',location,h,Math.ceil(h/24)+1,'airquality'),meta:{city:location,hours:h,source:'Copernicus CAMS via Open-Meteo'}});
+}));
+satellitePublicRoutes.get('/air-stations/latest',handler(async(_req,res)=>{
+ res.json({data:await list('aq_station','bounding-box',100,3,'openaq'),meta:{source:'OpenAQ',kind:'ground_station_measurement',coverage:'stations reporting in the last 3 days'}});
+}));
+satellitePublicRoutes.get('/weather/latest',handler(async(req,res)=>{
+ const location=city.parse(req.query.city??'lahore');
+ res.json({data:await list('weather',location,1,2,'weather'),meta:{city:location,source:'Open-Meteo',kind:'model_forecast',notOfficialWarning:true}});
+}));
+satellitePublicRoutes.get('/rivers/latest',handler(async(_req,res)=>{
+ const rows=await list('river_flow','all',200,3,'flood') as Array<Record<string,unknown>>;const seen=new Set<string>();
+ const data=rows.filter(x=>{const id=String(x.pointId??x.location);if(seen.has(id))return false;seen.add(id);return true;});
+ res.json({data,meta:{source:'GloFAS via Open-Meteo',points:Object.keys(RIVER_POINTS).length,modelled:true,notOfficialFloodForecast:true}});
+}));
+satellitePublicRoutes.get('/alerts/latest',handler(async(_req,res)=>{
+ const rows=await list('disaster_alert','bounding-box',100,30,'gdacs') as Array<Record<string,unknown>>;const seen=new Set<string>();
+ const data=rows.filter(x=>{const id=`${x.eventType}:${x.eventId}`;if(seen.has(id))return false;seen.add(id);return true;});
+ res.json({data,meta:{source:'GDACS',region:'Pakistan and the Arabian Sea approach',notNdmaInstruction:true}});
+}));
+satellitePublicRoutes.get('/space-weather/latest',handler(async(_req,res)=>{
+ res.json({data:await list('space_weather','global',1,2,'swpc'),meta:{source:'NOAA SWPC',index:'estimated planetary Kp'}});
+}));
+satellitePublicRoutes.get('/orbits/latest',handler(async(_req,res)=>{
+ const rows=await list('orbit','global',200,3,'celestrak') as Array<Record<string,unknown>>;const seen=new Set<number>();
+ const data=rows.filter(x=>{const id=Number(x.noradId);if(seen.has(id))return false;seen.add(id);return true;});
+ res.json({data,meta:{source:'CelesTrak GP',use:'SGP4 pass prediction (ISS, Tiangong, other stations)'}});
 }));
 satellitePublicRoutes.get('/gpm/imagery/latest',handler(async(_req,res)=>{
  const data=await list('imagery','bounding-box',1,30,'gpm');
@@ -72,6 +106,7 @@ satelliteAdminRoutes.patch('/providers/:id',handler(async(req,res)=>{
   refresh_requested_at=CASE WHEN $2::boolean AND NOT enabled THEN now() WHEN NOT $2::boolean THEN NULL ELSE refresh_requested_at END
   WHERE id=$1 RETURNING id,enabled,refresh_minutes,refresh_requested_at`,[id,changes.enabled,changes.refreshMinutes]);
  await redis.incr('satellite:epoch').catch(()=>undefined);
+ await setHubEnabled(id,changes.enabled);
  await audit((res.locals.admin as AdminIdentity).id,'satellite.provider.update',id,{enabled:changes.enabled,refreshMinutes:changes.refreshMinutes});res.json({data:updated.rows[0]});
  if(changes.enabled) setImmediate(()=>{void satelliteTick();});
 }));
