@@ -7,3 +7,33 @@
 @media(max-width:1050px){.cp-profile .cp-dashboard{grid-template-columns:minmax(0,1fr)}.cp-profile .cp-sidebar{grid-template-columns:repeat(2,minmax(0,1fr))}.cp-profile .cp-hero-body{flex-wrap:wrap}.cp-profile .cp-hero-actions{margin-left:auto}.cp-profile .cp-kpi{padding:10px}}
 @media(max-width:640px){.cp-profile .cp-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cp-profile .cp-two-grid,.cp-profile .cp-sidebar{grid-template-columns:1fr}.cp-profile .cp-hero-body{gap:10px;padding:0 12px 12px;align-items:flex-start}.cp-profile .cp-avatar{width:82px;height:82px;flex-basis:82px;margin-top:-25px;border-radius:13px}.cp-profile .cp-hero-stats{gap:7px}.cp-profile .cp-hero-stats>div:not(.cp-rank){min-width:60px;padding-right:8px}.cp-profile .cp-hero-stats strong{font-size:15px}.cp-profile .cp-hero-actions{width:100%;justify-content:flex-end}.cp-profile .cp-tabs{align-items:flex-start;flex-wrap:wrap}.cp-profile .cp-tabs nav{gap:3px}.cp-profile .cp-tab{padding:6px 9px}.cp-profile .cp-breadcrumb nav{min-width:0}.cp-profile .cp-breadcrumb strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cp-profile .cp-breadcrumb .cp-plain-button{padding:5px 8px}.cp-profile .cp-kpi strong{font-size:17px}}
 .cp-profile .cp-rank{display:flex;flex-wrap:wrap;gap:4px;max-width:230px}.cp-profile .cp-rank span{font-size:10px}.cp-profile .cp-hero-actions button:disabled{background:var(--secondary);color:var(--muted-foreground)}
+
+/* Restored analytics use the existing chart primitives inside unified dashboard cards. */
+.fifi .cp-profile .cp-chart-embed.pci-yt-reference{min-height:0;width:100%;max-width:100%;padding:0;margin:0;background:transparent;font:inherit;display:block;--yr-green:var(--primary);--yr-ink:var(--foreground);--yr-muted:var(--muted-foreground);--yr-border:var(--border);--yr-area:var(--secondary);--yr-track:var(--muted)}
+.cp-profile .cp-chart-embed .yr-daily-scroll .yr-line-plot{width:100%;min-width:min(100%,440px);height:auto}
+.cp-profile .cp-chart-embed .yr-plot{width:100%;height:auto;margin-top:0}
+.cp-profile .cp-chart-embed .yr-daily-readout,.cp-profile .cp-chart-embed .yr-comparison-detail{font-size:10px;min-height:20px;line-height:1.45}
+.cp-profile .cp-chart-embed .yr-bar-row{grid-template-columns:minmax(86px,26%) minmax(0,1fr) auto;gap:8px;font-size:11px}
+.cp-profile .cp-chart-embed .yr-bar-row strong{font-size:11px}
+.cp-profile .cp-chart-embed .yr-legend-controls{gap:6px}
+.cp-profile .cp-chart-embed .yr-legend-controls button{font-size:10px;padding:5px 8px}
+.cp-profile .cp-chart-embed .yr-grouped{min-width:720px;max-width:none;height:auto}
+.cp-profile .cp-chart-embed .yr-empty{min-height:72px;font-size:11px}
+.cp-profile .cp-two-grid>.cp-full-card{grid-column:1/-1}
+.cp-profile .cp-compare-tabs{display:flex;flex-wrap:wrap;gap:5px}
+.cp-profile .cp-compare-tabs .cp-tab{border:1px solid var(--border);font-size:10px;padding:6px 9px}
+.cp-profile .cp-metric-list{display:grid;gap:7px;font-size:11px;margin:0}
+.cp-profile .cp-metric-list>div{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.cp-profile .cp-metric-list dt{color:var(--muted-foreground);min-width:0}
+.cp-profile .cp-metric-list dd{text-align:right;font-weight:600;color:var(--primary);overflow-wrap:anywhere}
+.cp-profile .cp-note-mark{color:var(--primary);font-weight:700;padding:0 2px;text-decoration:underline}
+.cp-profile .cp-footnotes{scroll-margin-top:100px;font-size:11px;color:var(--muted-foreground);line-height:1.55}
+.cp-profile .cp-footnotes b{color:var(--foreground)}
+.cp-profile .cp-video-metrics td a>span:last-child{max-width:160px}
+.cp-profile .cp-kpi>div{min-width:0}
+.cp-profile .cp-kpi strong{font-variant-numeric:tabular-nums}
+@media(min-width:1100px){.cp-profile .cp-two-grid:has(.cp-performance)>.cp-full-card{grid-column:1/-1}}
+.cp-profile .cp-footnotes p[id]{scroll-margin-top:105px}
+.cp-profile .cp-slide-heading,.cp-profile .cp-slide-controls{display:flex;align-items:center;gap:7px}.cp-profile .cp-slide-heading{justify-content:space-between;font-size:11px}.cp-profile .cp-slide-controls{font-size:10px;color:var(--muted-foreground);flex:none}.cp-profile .cp-slide-controls button{display:grid;place-items:center;width:26px;height:26px;border:1px solid var(--border);border-radius:7px;color:var(--primary);font-size:18px;line-height:1}.cp-profile .cp-slide-controls button:disabled{opacity:.35;cursor:default}.cp-profile .cp-metric-slides{display:grid;gap:7px}.cp-profile .cp-slide-second{display:grid;gap:6px;margin-top:8px}.cp-profile .cp-video-controls{justify-content:flex-end;margin-top:4px}.fifi .cp-profile .cp-subheading,.fifi .cp-profile .cp-growth-heading h2{font-size:14px;font-weight:700;color:var(--foreground)}.cp-profile .cp-growth-heading{padding:4px 2px}.cp-profile .cp-metric-slides .cp-big-stat{font-size:22px}.cp-profile .cp-footnotes{margin-top:4px}
+/* Keep restored metrics in a regular two-column grid; the older ordinal span rules no longer apply. */
+@media(min-width:1100px){.cp-profile .cp-two-grid:has(.cp-performance){grid-template-columns:repeat(2,minmax(0,1fr))}.cp-profile .cp-two-grid:has(.cp-performance)>.cp-card{grid-column:auto}.cp-profile .cp-two-grid:has(.cp-performance)>.cp-full-card{grid-column:1/-1}}
