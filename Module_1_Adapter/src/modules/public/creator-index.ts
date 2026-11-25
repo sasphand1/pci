@@ -32,7 +32,7 @@ async function pageIds(o: { search?: string; category?: string; platform: string
     LEFT JOIN published_pointers pp ON pp.scope='wheel.subscribed'
     LEFT JOIN rank_slots rs ON rs.run_id=pp.run_id AND rs.person_id=p.id
     LEFT JOIN LATERAL (SELECT sum(x.v) AS total FROM (SELECT DISTINCT ON (a.id) o2.value AS v FROM accounts a
-      JOIN metric_observations o2 ON o2.account_id=a.id AND o2.metric='followers' WHERE a.person_id=p.id
+      JOIN hub_account_metrics o2 ON o2.account_id=a.id AND o2.metric='followers' WHERE a.person_id=p.id
       ORDER BY a.id, o2.observed_at DESC) x) f ON true`;
   const total = Number((await query(`SELECT count(*)::int AS n FROM people p ${w}`, v)).rows[0].n);
   v.push(o.limit, (o.page - 1) * o.limit);
@@ -45,7 +45,7 @@ async function lastKnown(ids: string[]) {
   if (!ids.length) return out;
   const r = await query(`SELECT a.person_id AS pid, a.id AS aid, a.platform, a.handle, o.metric, o.value::text AS value, o.observed_at AS at
     FROM accounts a LEFT JOIN LATERAL (
-      SELECT DISTINCT ON (metric) metric, value, observed_at FROM metric_observations
+      SELECT DISTINCT ON (metric) metric, value, observed_at FROM hub_account_metrics
       WHERE account_id=a.id AND metric IN ('followers','views','posts_30d') ORDER BY metric, observed_at DESC) o ON true
     WHERE a.person_id = ANY($1::uuid[])`, [ids]);
   for (const x of r.rows) {

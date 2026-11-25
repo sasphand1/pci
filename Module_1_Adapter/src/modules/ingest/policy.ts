@@ -1,6 +1,8 @@
 /** Pure, versioned PCI Ingest decision rules. No platform request is issued here. */
 export type SourceMethod = 'api' | 'http';
 export type Precision = 'exact' | 'rounded' | 'unverified';
+/** The web (http) adapters are lower priority than official APIs and admin entries (.api / .manual). */
+export const methodOf=(sourceId:string):SourceMethod=>sourceId.endsWith('.http')?'http':'api';
 export type Snapshot = { method:SourceMethod; value:number|string; precision:Precision; observedAt:string };
 export type Decision = 'accept'|'reject_stale'|'reject_lower_priority'|'reject_unverified'|'reject_invalid';
 

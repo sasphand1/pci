@@ -18,7 +18,12 @@ export const ENDPOINTS: Endpoint[] = [
     { name: 'page', in: 'query', description: 'Page number (default 1).', schema: { type: 'integer', minimum: 1, default: 1 } },
     { name: 'limit', in: 'query', description: 'Page size, 1 to 100 (default 25).', schema: { type: 'integer', minimum: 1, maximum: 100, default: 25 } }], ok: 'PeopleResponse' },
   { id: 'person', path: '/people/:slug', summary: 'One person', description: 'Accounts with fresh numbers (no older than 7 days) and the published positions this person holds.', params: [
-    { name: 'slug', in: 'path', required: true, description: 'The person\'s slug.', schema: { type: 'string', pattern: '^[a-z0-9-]{2,60}$' } }], ok: 'PersonResponse', notFound: true }
+    { name: 'slug', in: 'path', required: true, description: 'The person\'s slug.', schema: { type: 'string', pattern: '^[a-z0-9-]{2,60}$' } }], ok: 'PersonResponse', notFound: true },
+  { id: 'hallOfFame', path: '/hall-of-fame', summary: 'Hall of fame', description: 'Who held the top positions of a ranking at the end of each week or month (Pakistan time), newest first. Built from every published ranking and kept permanently.', params: [
+    { name: 'scope', in: 'query', description: 'A ranking scope (default wheel.subscribed).', schema: { type: 'string', pattern: '^(wheel\\.(subscribed|viewed|active)|youtube\\.subscribed|instagram\\.followers|category\\.[a-z0-9-]{2,60})$', default: 'wheel.subscribed' } },
+    { name: 'period', in: 'query', description: 'week or month (default week).', schema: { type: 'string', enum: ['week', 'month'], default: 'week' } },
+    { name: 'top', in: 'query', description: 'Positions per period, 1 to 10 (default 1 = only the #1).', schema: { type: 'integer', minimum: 1, maximum: 10, default: 1 } },
+    { name: 'limit', in: 'query', description: 'Number of periods, 1 to 104 (default 12).', schema: { type: 'integer', minimum: 1, maximum: 104, default: 12 } }], ok: 'HallOfFameResponse' }
 ];
 
 export const openapiPath = (p: string) => p.replace(/:([A-Za-z]+)/g, '{$1}');

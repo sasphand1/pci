@@ -3,10 +3,11 @@ import {useState} from 'react';
 import {AdminPage,DataBlock,RoleGate,Status,TableWrap,useData} from '@/components/Shared';
 import {api,errorText,fmtDate,fmtNum} from '@/lib/api';
 import {useAuth} from '@/components/AuthProvider';
-type Source={id:string;platform:string;method:'api'|'http';enabled:boolean;lastSuccessAt:string|null;lastAttemptAt:string|null;lastError:string|null;status:'ok'|'degraded'|'down'|'disabled';consecutiveFailures:number;checkedAt:string|null};
+type Source={id:string;platform:string;method:'api'|'http'|'manual';enabled:boolean;category?:string;label?:string|null;expectedHours?:number;lastSuccessAt:string|null;lastAttemptAt:string|null;lastError:string|null;status:'ok'|'degraded'|'down'|'disabled';consecutiveFailures:number;checkedAt:string|null};
 type Alert={id:string;createdAt:string;kind:string;scope:string|null;severity:'info'|'warning'|'critical';sourceId:string|null;message:string};
 type Job={id:string;sourceId:string;trigger:string;status:string;startedAt:string|null;finishedAt:string|null;errorCode:string|null};
-type Health={sources:Source[];openAlerts:Alert[];recentJobs:Job[];discrepancies7d:number};
+type Stored={category:string;entities:number;fields:number;latestAt:string|null};
+type Health={sources:Source[];openAlerts:Alert[];recentJobs:Job[];discrepancies7d:number;categories?:Stored[]};
 type Coverage={byTier:{platform:string;tier:string;n:number}[];byCategory:{platform:string;category:string;n:number;noData:number}[];freshness:{platform:string;registered:number;fresh:number;withPicture:number;noData:number}[]};
 type Discrepancy={entityId:string;metric:string;apiValue:string;httpValue:string;detectedAt:string};
 const TIERS:[string,string][]=[['1m_plus','1M+'],['500k_1m','500K–1M'],['100k_500k','100K–500K'],['under_100k','Under 100K'],['no_data','No data']];
@@ -21,8 +22,9 @@ function SourceCard({s,owner,csrf,reload}:{s:Source;owner:boolean;csrf?:string;r
   setBusy(true);setError('');
   try{await api(`/admin/ingest/sources/${s.id}`,{method:'PATCH',csrf,body:{enabled:next}});reload();}catch(e){setError(errorText(e));}finally{setBusy(false);}
  }
- return <article className="admin-setting-card"><h3>{s.id}</h3>
-  <p><span className={badge(s.status)}>{s.status}</span> · {s.method==='api'?'Official API':'Public web page'}</p>
+ return <article className="admin-setting-card"><h3>{s.label||s.id}</h3>
+  <p><span className={badge(s.status)}>{s.status}</span> · {s.method==='api'?'Official API':s.method==='manual'?'Admin entry':'Public web page'}{s.category?` · ${s.category}`:''}</p>
+  {s.expectedHours&&<p className="fineprint">{s.id} · expected every {s.expectedHours<48?`${s.expectedHours} hours`:`${Math.round(s.expectedHours/24)} days`}</p>}
   <p className="fineprint">Last success: {fmtDate(s.lastSuccessAt)} · Last attempt: {fmtDate(s.lastAttemptAt)}</p>
   {s.consecutiveFailures>0&&<p className="fineprint">Consecutive failures: {s.consecutiveFailures}</p>}
   {s.lastError&&<p role="alert">Last error: {s.lastError}</p>}
@@ -60,6 +62,11 @@ export default function DataHub(){
   <DataBlock loading={health.loading} error={health.error} empty={!h}>
    <h2>Sources</h2>
    <div className="admin-setting-grid">{h?.sources.map(s=><SourceCard key={`${s.id}-${s.enabled}`} s={s} owner={Boolean(owner)} csrf={csrf} reload={health.reload}/>)}</div>
+   <h2>Stored in the hub</h2>
+   {(h?.categories?.length??0)===0?<p className="muted">Nothing stored yet.</p>:
+    <TableWrap><thead><tr><th>Category</th><th>Items</th><th>Latest values</th><th>Newest reading</th></tr></thead><tbody>
+     {h?.categories?.map(x=><tr key={x.category}><td>{x.category}</td><td>{fmtNum(x.entities)}</td><td>{fmtNum(x.fields)}</td><td>{fmtDate(x.latestAt)}</td></tr>)}
+    </tbody></TableWrap>}
    <h2>Open alerts {h&&h.openAlerts.length>0&&<span className="badge badge-danger">{h.openAlerts.length}</span>}</h2>
    {h&&h.openAlerts.length===0?<p className="muted">No open hub alerts. Alerts clear themselves when the problem goes away.</p>:
     <TableWrap><thead><tr><th>Severity</th><th>Kind</th><th>Message</th><th>Opened</th><th></th></tr></thead><tbody>

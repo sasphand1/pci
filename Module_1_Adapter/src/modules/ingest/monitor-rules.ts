@@ -5,6 +5,8 @@ export type SourceStatus='ok'|'degraded'|'down'|'disabled';
 export type SourceInput={
   id:string;method:'api'|'http';enabled:boolean;lastSuccessAt:string|null;
   consecutiveFailures:number;lastErrorCode:string|null;now:number;checkFreshness:boolean;
+  /** How often the source should deliver. Stale after 1.5x, no data after 3x (24h source: 36h / 72h). */
+  expectedHours?:number;
 };
 const H=3_600_000;
 /** Map an HTTP failure to a stable code. 403/429/captcha = blocked; missing expected markup = shape changed. */
@@ -37,8 +39,9 @@ export function evaluateSource(s:SourceInput):{status:SourceStatus;alerts:HubAle
       if(status==='ok')status='degraded';
     }else{
       const age=(s.now-t)/H;
-      if(age>72){alerts.push({kind:'no_data',severity:'critical',message:`${s.id}: no new data for ${Math.floor(age)} hours.`});status='down';}
-      else if(age>36){alerts.push({kind:'stale',severity:'warning',message:`${s.id}: last data is ${Math.floor(age)} hours old.`});if(status==='ok')status='degraded';}
+      const every=s.expectedHours&&s.expectedHours>0?s.expectedHours:24;
+      if(age>every*3){alerts.push({kind:'no_data',severity:'critical',message:`${s.id}: no new data for ${Math.floor(age)} hours.`});status='down';}
+      else if(age>every*1.5){alerts.push({kind:'stale',severity:'warning',message:`${s.id}: last data is ${Math.floor(age)} hours old.`});if(status==='ok')status='degraded';}
     }
   }
   if(status==='ok'&&s.consecutiveFailures>0)status='degraded';

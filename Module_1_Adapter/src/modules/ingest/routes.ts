@@ -14,6 +14,7 @@ import {POLICY} from './policy.js';
 import {reportSourceResult} from './monitor.js';
 import {classifyHttpFailure} from './monitor-rules.js';
 import {registerHubReadRoutes} from './read-routes.js';
+import {buildHubSpec} from './openapi.js';
 
 export const ingestAdminRoutes=Router();
 ingestAdminRoutes.use('/ingest',requireAdmin);
@@ -27,6 +28,7 @@ async function budget(key:string,max:number){
   catch(e){if(e instanceof HttpError)throw e;throw new HttpError(503,'INGEST_LIMITER_UNAVAILABLE','Collection rate limiter unavailable');}
 }
 
+ingestAdminRoutes.get('/ingest/openapi.json',handler(async(_req,res)=>{res.json(buildHubSpec());}));
 ingestAdminRoutes.get('/ingest/status',handler(async(_req,res)=>res.json({data:await ingestStatus()})));
 ingestAdminRoutes.get('/ingest/policies',handler(async(_req,res)=>res.json({data:{platforms:POLICY,httpDefaultEnabled:false}})));
 

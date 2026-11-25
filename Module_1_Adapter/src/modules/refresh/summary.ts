@@ -51,7 +51,7 @@ export async function getCollectionSummary(): Promise<CollectionSummary> {
         COUNT(DISTINCT (observed_at AT TIME ZONE 'Asia/Karachi')::date)::int AS days,
         MIN((observed_at AT TIME ZONE 'Asia/Karachi')::date)::text AS "firstDay",
         MAX((observed_at AT TIME ZONE 'Asia/Karachi')::date)::text AS "lastDay"
-      FROM metric_observations`),
+      FROM hub_account_metrics`),
     query<MetricSummaryRow>(`
       SELECT a.platform, o.metric,
         COUNT(*)::int AS observations,
@@ -59,7 +59,7 @@ export async function getCollectionSummary(): Promise<CollectionSummary> {
         COUNT(DISTINCT (o.observed_at AT TIME ZONE 'Asia/Karachi')::date)::int AS days,
         MIN((o.observed_at AT TIME ZONE 'Asia/Karachi')::date)::text AS "firstDay",
         MAX((o.observed_at AT TIME ZONE 'Asia/Karachi')::date)::text AS "lastDay"
-      FROM metric_observations o
+      FROM hub_account_metrics o
       JOIN accounts a ON a.id = o.account_id
       WHERE a.platform IN ('youtube', 'instagram')
       GROUP BY a.platform, o.metric
@@ -76,7 +76,7 @@ export async function getCollectionSummary(): Promise<CollectionSummary> {
       samples AS (
         SELECT (o.observed_at AT TIME ZONE 'Asia/Karachi')::date AS day,
           a.platform, COUNT(*)::int AS observations
-        FROM metric_observations o
+        FROM hub_account_metrics o
         JOIN accounts a ON a.id = o.account_id
         WHERE o.observed_at >= now() - interval '15 days'
           AND a.platform IN ('youtube', 'instagram')

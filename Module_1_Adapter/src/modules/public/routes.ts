@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { handler, HttpError } from '../../lib/errors.js';
 import { registerEndpoints } from './endpoints.js';
-import { categoryList, categoryLabels, directory, peopleCount, personDetail, pointers, rankings } from './queries.js';
+import { categoryList, categoryLabels, directory, hallOfFame, peopleCount, personDetail, pointers, rankings } from './queries.js';
 import { PLATFORM_SCOPES, ROW_SIZE, SCOPE_RE, WHEEL_CARDS, WHEEL_SCOPES, isStale, likePattern, pageOf } from './shape.js';
 
 export const publicRankingRoutes = Router();
@@ -11,6 +11,10 @@ export const publicRankingRoutes = Router();
 publicRankingRoutes.use((_req, res, next) => { res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60'); next(); });
 
 const rankingQuery = z.object({ limit: z.coerce.number().int().min(1).max(100).default(100) });
+const hallQuery = z.object({
+  scope: z.string().default('wheel.subscribed'), period: z.enum(['week', 'month']).default('week'),
+  top: z.coerce.number().int().min(1).max(10).default(1), limit: z.coerce.number().int().min(1).max(104).default(12)
+});
 const peopleQuery = z.object({
   search: z.string().trim().max(100).optional(), category: z.string().regex(/^[a-z0-9-]{2,60}$/).optional(),
   page: z.coerce.number().int().min(1).max(10000).default(1), limit: z.coerce.number().int().min(1).max(100).default(25)
@@ -50,5 +54,10 @@ registerEndpoints(publicRankingRoutes, {
     const d = await personDetail(slug);
     if (!d) throw new HttpError(404, 'NOT_FOUND', 'Person not found');
     res.json({ data: d });
+  }),
+  hallOfFame: handler(async (req, res) => {
+    const q = hallQuery.parse(req.query);
+    if (!SCOPE_RE.test(q.scope)) throw new HttpError(400, 'BAD_SCOPE', 'Unknown ranking');
+    res.json({ data: await hallOfFame(q.scope, q.period, q.top, q.limit) });
   })
 });

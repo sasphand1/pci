@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { query, transaction } from '../../lib/db.js';
-import { HttpError } from '../../lib/errors.js';
+import { HttpError, logger } from '../../lib/errors.js';
 import { FIXED_SCOPES, FRESHNESS_DAYS_DEFAULT, rankScope, removePerson, type Entry, type RankInput, type RankResult, type Unranked } from '../../engine/index.js';
 import { diffRankings, type RankDiff } from './diff.js';
 import { minCoverageFrom, runGates, type GateFailure } from './gates.js';
@@ -8,6 +8,7 @@ import { minCoverageFrom, runGates, type GateFailure } from './gates.js';
 export type Db = { query: (sql: string, values?: unknown[]) => Promise<{ rows: any[]; rowCount: number | null }> };
 const poolDb: Db = { query: (s, v) => query(s, v) };
 type Trigger = 'manual' | 'scheduled' | 'system';
+if (process.env.PCI_INGEST_RANKING === 'false') logger.warn('PCI_INGEST_RANKING=false: rankings read the legacy metric table instead of the hub');
 
 // ---------- loading ----------
 export async function loadRankInput(db: Db, now: Date, freshnessDays = FRESHNESS_DAYS_DEFAULT): Promise<RankInput> {
@@ -17,8 +18,9 @@ export async function loadRankInput(db: Db, now: Date, freshnessDays = FRESHNESS
     db.query('SELECT id, created_at FROM people'),
     db.query('SELECT id, person_id, platform FROM accounts'),
     db.query('SELECT pc.person_id, c.slug FROM person_categories pc JOIN categories c ON c.id=pc.category_id'),
-    // Newest observation per account and metric inside the freshness window (same rule the engine applies).
-    db.query(process.env.PCI_INGEST_RANKING==='true'
+    // Newest hub value per account and metric inside the freshness window (same rule the engine applies).
+    // The hub is the ranking input. PCI_INGEST_RANKING=false is an explicit, logged rollback to the old table.
+    db.query(process.env.PCI_INGEST_RANKING!=='false'
       ? `SELECT a.id AS account_id,l.metric,l.value_numeric::text AS value,
            CASE WHEN l.accuracy='rounded' THEN 'rounded3' ELSE 'exact' END AS accuracy,l.observed_at
          FROM ingest_latest l JOIN accounts a

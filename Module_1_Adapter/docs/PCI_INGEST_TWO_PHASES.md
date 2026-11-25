@@ -60,6 +60,6 @@ The enclosed isolated logic tests cover API precedence, missing/invalid counts, 
 
 ### Ranking cutover
 
-Default `PCI_INGEST_RANKING=false` preserves unchanged legacy ranking inputs. After backfilling recent observations (`{ "historyDays": 7, "videos": true }`) and comparing rankings/coverage, set the flag to `true` to read the validated `ingest_latest` account projection instead. The old ranking math, buckets, quality gates and published snapshot fallback are preserved. Never flip this flag on production without shadow comparison and a rollback path.
+Cutover is done (Hub update 1). Rankings read `ingest_latest` by default, and every other reader (public site, creator profiles, analytics, admin overview, coverage checks) reads the `hub_account_metrics` view. Every write to the old `metric_observations` table is copied into the hub by a database trigger in the same transaction, and the full old history was copied once (`hub_meta.legacy_history_v1`). `PCI_INGEST_RANKING=false` is an emergency rollback for rankings only and logs a warning at startup.
 
 YouTube video sampling now preserves per-video description, views, likes and comment totals directly from the existing `videos.list` response. It consumes **no extra YouTube quota** beyond the existing collection.

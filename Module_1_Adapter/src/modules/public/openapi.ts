@@ -26,7 +26,10 @@ export const schemas: Record<string, unknown> = {
   PersonDetail: obj({ slug: str, displayName: str, avatarUrl: nstr, categories: arr(ref('Category')), accounts: arr(ref('AccountFigures')), positions: arr(ref('Position')) }),
   PersonResponse: envelope(ref('PersonDetail')),
   Status: envelope(obj({ publishedAt: nstr, stale: bool, people: int, scopes: arr(obj({ scope: str, publishedAt: nstr, stale: bool, covered: int })) })),
-  Error: obj({ error: obj({ code: str, message: str }) })
+  HallOfFameHolder: obj({ slot: int, rank: int, value: int, displayName: str, slug: nstr }),
+  HallOfFamePeriod: obj({ periodStart: { type: 'string', format: 'date' }, publishedAt: str, holders: arr(ref('HallOfFameHolder')) }),
+  HallOfFameResponse: envelope(obj({ scope: str, period: { type: 'string', enum: ['week', 'month'] }, periods: arr(ref('HallOfFamePeriod')) })),
+    Error: obj({ error: obj({ code: str, message: str }) })
 };
 
 function operation(e: Endpoint) {

@@ -20,7 +20,7 @@ export async function instagramSponsorScenarios(personIds:string[],now=new Date(
     o.value::text AS followers,o.observed_at AS "observedAt"
     FROM accounts a
     LEFT JOIN LATERAL (
-      SELECT value,observed_at FROM metric_observations
+      SELECT value,observed_at FROM hub_account_metrics
       WHERE account_id=a.id AND metric='followers'
         AND observed_at >= $2::timestamptz - interval '7 days'
         AND observed_at <= $2::timestamptz
@@ -83,7 +83,7 @@ export async function monthlyEstimates(personIds:string[], now = new Date()):Pro
   if (!personIds.length) return out;
   const result = await query<MetricRow>(`SELECT a.person_id AS "personId", a.id AS "accountId", 'views' AS metric,
     o.value::text AS value, o.observed_at AS "observedAt"
-    FROM accounts a LEFT JOIN metric_observations o ON o.account_id=a.id AND o.metric='views'
+    FROM accounts a LEFT JOIN hub_account_metrics o ON o.account_id=a.id AND o.metric='views'
       AND o.observed_at >= $2::timestamptz - interval '32 days' AND o.observed_at <= $2::timestamptz
     WHERE a.person_id = ANY($1::uuid[]) AND a.platform='youtube'
     ORDER BY a.person_id,a.id,o.observed_at`, [personIds,now.toISOString()]);
@@ -129,7 +129,7 @@ export async function personAnalytics(personId:string, now=new Date()) {
   const instagram=(await instagramSponsorScenarios([personId],now)).get(personId);
   const result=await query<MetricRow>(`SELECT a.person_id AS "personId", a.id AS "accountId", o.metric,
     o.value::text AS value, o.observed_at AS "observedAt"
-    FROM accounts a LEFT JOIN metric_observations o ON o.account_id=a.id
+    FROM accounts a LEFT JOIN hub_account_metrics o ON o.account_id=a.id
       AND o.metric IN ('followers','views')
       AND o.observed_at >= $2::timestamptz - interval '93 days'
       AND o.observed_at <= $2::timestamptz

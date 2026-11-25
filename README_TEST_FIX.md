@@ -1,1 +1,0 @@
-Fixes the obsolete satellite-dispatch regression test. Extract at PCI_Clean root, replacing Module_1_Adapter/tests/satellite-dispatch.test.mjs. The source files and API request policy are unchanged. Run npm --prefix Module_1_Adapter test and npm --prefix Module_1_Adapter run build before committing.

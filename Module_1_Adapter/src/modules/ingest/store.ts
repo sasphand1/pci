@@ -1,18 +1,30 @@
 import type pg from 'pg';
 import {query,transaction} from '../../lib/db.js';
-import {decideValue,isDiscrepancy,validCount,type Precision,type SourceMethod,type Snapshot} from './policy.js';
+import {decideValue,isDiscrepancy,methodOf,validCount,type Precision,type SourceMethod,type Snapshot} from './policy.js';
+export {methodOf};
 
+/** Any registered hub source: '<family>.<api|http|manual>' such as youtube.api, google_places.api, commodities.manual. */
+export type SourceId=`${string}.${'api'|'http'|'manual'}`;
 export type MetricObservation={
-  sourceId:'youtube.api'|'instagram.api'|'youtube.http'|'instagram.http'|'tiktok.http';
-  sourceRunRef:string; accountId:string|null; entityKind:'account'|'content'|'comment';
+  sourceId:SourceId;
+  sourceRunRef:string; accountId:string|null;
+  /** account, content, comment for creators; place, commodity, trend, city ... for other categories. */
+  entityKind:string;
   entityId:string; metric:string; valueNumeric:number|null; valueText:string|null;
+  /** Decimal places: real value = valueNumeric / 10^valueScale (0..6, default 0). */
+  valueScale?:number;
   accuracy:Precision; observedAt:string; metadata?:Record<string,unknown>;
 };
 const metricRe=/^[a-z][a-z0-9_]{0,63}$/;
+const sourceRe=/^[a-z][a-z0-9_]{1,31}\.(api|http|manual)$/;
+const kindRe=/^[a-z][a-z0-9_]{1,31}$/;
+
 
 /** One canonical writer for API and HTTP fields. Fail-closed input validation. */
 export async function recordObservation(input:MetricObservation):Promise<'stored'|'duplicate'|'invalid'> {
-  if(!metricRe.test(input.metric)||!input.entityId||input.entityId.length>300||
+  const scale=input.valueScale??0;
+  if(!sourceRe.test(input.sourceId)||!kindRe.test(input.entityKind)||!Number.isInteger(scale)||scale<0||scale>6||
+    !metricRe.test(input.metric)||!input.entityId||input.entityId.length>300||
     !input.sourceRunRef||input.sourceRunRef.length>200||
     (input.valueNumeric===null&&input.valueText===null)||
     (input.valueNumeric!==null&&!validCount(input.valueNumeric))||
@@ -22,11 +34,11 @@ export async function recordObservation(input:MetricObservation):Promise<'stored
     JSON.stringify(input.metadata??{}).length>4000)return 'invalid';
   return transaction(async tx=>{
     const r=await tx.query(`INSERT INTO ingest_observations
-      (source_id,source_run_ref,account_id,entity_kind,entity_id,metric,value_numeric,value_text,accuracy,observed_at,raw_metadata)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb)
+      (source_id,source_run_ref,account_id,entity_kind,entity_id,metric,value_numeric,value_scale,value_text,accuracy,observed_at,raw_metadata)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)
       ON CONFLICT(source_id,source_run_ref,entity_kind,entity_id,metric) DO NOTHING RETURNING id`,[
       input.sourceId,input.sourceRunRef,input.accountId,input.entityKind,input.entityId,input.metric,
-      input.valueNumeric,input.valueText,input.accuracy,input.observedAt,JSON.stringify(input.metadata??{})]);
+      input.valueNumeric,scale,input.valueText,input.accuracy,input.observedAt,JSON.stringify(input.metadata??{})]);
     if(!r.rowCount)return 'duplicate';
     await updateLatest(tx,input);
     return 'stored';
@@ -37,9 +49,9 @@ async function updateLatest(tx:pg.PoolClient, v:MetricObservation){
   const current=await tx.query(`SELECT l.*,s.method FROM ingest_latest l JOIN ingest_sources s ON s.id=l.source_id
       WHERE l.entity_kind=$1 AND l.entity_id=$2 AND l.metric=$3 FOR UPDATE OF l`,[v.entityKind,v.entityId,v.metric]);
   const last=current.rows[0];
-  const candidate:Snapshot={method:v.sourceId.endsWith('.api')?'api':'http',
+  const candidate:Snapshot={method:methodOf(v.sourceId),
     value:v.valueNumeric??v.valueText!,precision:v.accuracy,observedAt:v.observedAt};
-  const prior:Snapshot|null=last?{method:last.method as SourceMethod,
+  const prior:Snapshot|null=last?{method:last.method==='http'?'http':'api',
     value:last.value_numeric!==null?Number(last.value_numeric):last.value_text,
     precision:last.accuracy,observedAt:new Date(last.observed_at).toISOString()}:null;
   // Health of the API source for this platform decides whether HTTP may fill in. Fail open to "healthy"
@@ -65,12 +77,12 @@ async function updateLatest(tx:pg.PoolClient, v:MetricObservation){
     }catch{await tx.query('ROLLBACK TO SAVEPOINT hub_disc');}
   }
   if(decision!=='accept')return;
-  await tx.query(`INSERT INTO ingest_latest(entity_kind,entity_id,metric,source_id,value_numeric,value_text,accuracy,observed_at)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+  await tx.query(`INSERT INTO ingest_latest(entity_kind,entity_id,metric,source_id,value_numeric,value_scale,value_text,accuracy,observed_at)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
     ON CONFLICT(entity_kind,entity_id,metric) DO UPDATE SET
-    source_id=EXCLUDED.source_id,value_numeric=EXCLUDED.value_numeric,value_text=EXCLUDED.value_text,
+    source_id=EXCLUDED.source_id,value_numeric=EXCLUDED.value_numeric,value_scale=EXCLUDED.value_scale,value_text=EXCLUDED.value_text,
     accuracy=EXCLUDED.accuracy,observed_at=EXCLUDED.observed_at,updated_at=now()`,[
-    v.entityKind,v.entityId,v.metric,v.sourceId,v.valueNumeric,v.valueText,v.accuracy,v.observedAt]);
+    v.entityKind,v.entityId,v.metric,v.sourceId,v.valueNumeric,v.valueScale??0,v.valueText,v.accuracy,v.observedAt]);
 }
 
 /** Compatibility bridge: set-based mirror, no upstream network calls.

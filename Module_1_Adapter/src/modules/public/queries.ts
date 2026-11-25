@@ -110,7 +110,7 @@ export async function personDetail(slug: string) {
   const base = (await peopleByIds([id])).get(id); if (!base) return null;
   const [obs, pos, acc] = await Promise.all([
     query(`SELECT DISTINCT ON (o.account_id, o.metric) o.account_id AS "accountId", o.metric, o.value::text AS value, o.observed_at AS "observedAt"
-      FROM metric_observations o JOIN accounts a ON a.id=o.account_id
+      FROM hub_account_metrics o JOIN accounts a ON a.id=o.account_id
       WHERE a.person_id=$1 AND o.observed_at > now() - make_interval(days => $2) ORDER BY o.account_id, o.metric, o.observed_at DESC`, [id, FRESHNESS_DAYS_DEFAULT]),
     query(`SELECT pp.scope, s.slot, s.rank, s.value::text AS value FROM published_pointers pp JOIN rank_slots s ON s.run_id=pp.run_id WHERE s.person_id=$1 ORDER BY pp.scope`, [id]),
     query('SELECT id,platform,handle,external_id FROM accounts WHERE person_id=$1 ORDER BY platform', [id])
@@ -131,4 +131,21 @@ export async function personDetail(slug: string) {
     JOIN people p2 ON p2.id=shared.person_id WHERE mine.person_id=$1 AND p2.id<>$1
     ORDER BY p2.display_name,p2.slug LIMIT 4`,[id]);
   return { slug, displayName: base.displayName, avatarUrl: base.avatarUrl, categories: base.categories, accounts, positions, analytics, similarCreators:similar.rows };
+}
+
+/** Hall of fame: the last published ranking of each week or month, top N holders, newest period first. */
+export async function hallOfFame(scope: string, period: 'week' | 'month', top: number, limit: number) {
+  const r = await query(`WITH periods AS (
+      SELECT DISTINCT period_start FROM hall_of_fame WHERE scope=$1 AND period=$2 ORDER BY period_start DESC LIMIT $4)
+    SELECT h.period_start::text AS "periodStart", h.published_at AS "publishedAt", h.slot, h.rank, h.value::text AS value,
+      h.display_name AS "displayName", p.slug
+    FROM hall_of_fame h JOIN periods x ON x.period_start=h.period_start LEFT JOIN people p ON p.id=h.person_id
+    WHERE h.scope=$1 AND h.period=$2 AND h.slot<=$3 ORDER BY h.period_start DESC, h.slot`, [scope, period, top, limit]);
+  const out: { periodStart: string; publishedAt: string; holders: { slot: number; rank: number; value: number; displayName: string; slug: string | null }[] }[] = [];
+  for (const x of r.rows) {
+    let e = out[out.length - 1];
+    if (!e || e.periodStart !== x.periodStart) { e = { periodStart: x.periodStart, publishedAt: new Date(x.publishedAt).toISOString(), holders: [] }; out.push(e); }
+    e.holders.push({ slot: x.slot, rank: x.rank, value: Number(x.value), displayName: x.displayName, slug: x.slug ?? null });
+  }
+  return { scope, period, periods: out };
 }

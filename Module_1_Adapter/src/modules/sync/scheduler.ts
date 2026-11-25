@@ -9,7 +9,7 @@ import {config} from '../../lib/config.js';
 import {query} from '../../lib/db.js';
 import {logger} from '../../lib/errors.js';
 import {recoverStalledRuns} from '../refresh/service.js';
-import {runRetention} from '../refresh/retention.js';
+import {runHubRetention,runRetention} from '../refresh/retention.js';
 import {startPipeline} from '../publish/pipeline.js';
 import {collectCreatorVideoSnapshots} from '../creator-analytics/videos.js';
 import {mirrorVideoSamples} from '../ingest/store.js';
@@ -122,7 +122,7 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
  tasks.push(cron.schedule('0 3 * * 1',()=>{if(process.env.PCI_LOCAL_PLACES_AUTOFILL!=='true')return;void collectLocalPlaces().then(r=>logger.info(r,'Local places collection')).catch(err=>logger.warn({err},'Local places collection unavailable'));},{timezone:'Asia/Karachi'}));
  tasks.push(cron.schedule('*/15 * * * *',()=>{void runHubCheck().catch(err=>logger.warn({err},'Hub check unavailable'));}));
  tasks.push(cron.schedule('15 */6 * * *',()=>{void refreshCreatorVideoSamples();},{timezone:'Asia/Karachi'}));
- tasks.push(cron.schedule('30 4 * * *',()=>runRetention().then(r=>logger.info(r,'Observation retention done')).then(()=>pruneRankRuns()).catch(e=>logger.error({err:e},'observation retention failed')),{timezone:'Asia/Karachi'}));
+ tasks.push(cron.schedule('30 4 * * *',()=>runRetention().then(r=>logger.info(r,'Observation retention done')).then(()=>runHubRetention()).then(r=>logger.info(r,'Hub retention done')).then(()=>pruneRankRuns()).catch(e=>logger.error({err:e},'observation retention failed')),{timezone:'Asia/Karachi'}));
  // PCI_ZIP_3: the daily pipeline (refresh, rank, publish) with no approval step. Set PCI_PIPELINE_DAILY=false to switch it off.
  tasks.push(cron.schedule('0 9 * * *',async()=>{
    if(process.env.PCI_PIPELINE_DAILY==='false')return;

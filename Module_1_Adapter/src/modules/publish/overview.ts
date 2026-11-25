@@ -12,12 +12,12 @@ export async function getOverview() {
         (SELECT count(*)::int FROM accounts WHERE platform='instagram') AS instagram`)).rows[0], { people: 0, youtube: 0, instagram: 0 }),
     // Latest reading per account within 7 days. An older reading is never counted as a number.
     safe(async () => (await query(`SELECT a.platform, count(*)::int AS fresh, COALESCE(sum(o.value),0)::text AS audience
-        FROM accounts a JOIN LATERAL (SELECT value FROM metric_observations WHERE account_id=a.id AND metric='followers'
+        FROM accounts a JOIN LATERAL (SELECT value FROM hub_account_metrics WHERE account_id=a.id AND metric='followers'
           AND observed_at > now() - interval '7 days' ORDER BY observed_at DESC LIMIT 1) o ON true GROUP BY a.platform`)).rows, [] as { platform: string; fresh: number; audience: string }[]),
     safe(async () => (await query(`SELECT count(*)::int AS n FROM people p WHERE NOT EXISTS (SELECT 1 FROM person_categories c WHERE c.person_id=p.id)`)).rows[0].n as number, 0),
     safe(async () => (await query(`SELECT day::text AS day, platform, sum(v)::text AS value FROM (
           SELECT a.platform, (o.observed_at AT TIME ZONE 'Asia/Karachi')::date AS day, o.account_id, max(o.value) AS v
-          FROM metric_observations o JOIN accounts a ON a.id=o.account_id
+          FROM hub_account_metrics o JOIN accounts a ON a.id=o.account_id
           WHERE o.metric='followers' AND o.observed_at > now() - interval '30 days' GROUP BY 1,2,3) t GROUP BY day, platform ORDER BY day`)).rows, [] as { day: string; platform: string; value: string }[]),
     safe(async () => (await query(`SELECT max(r.published_at) AS at FROM published_pointers p JOIN rank_runs r ON r.id=p.run_id`)).rows[0].at as string | null, null),
     safe(async () => (await query(`SELECT count(*)::int AS n FROM pipeline_alerts WHERE NOT acknowledged`)).rows[0].n as number, 0),

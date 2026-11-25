@@ -122,6 +122,24 @@ export async function setCategories(personId: string, slugs: string[], primary: 
   });
 }
 
+/** Hub rows keyed by platform id (not by account row) do not cascade: remove them explicitly so a
+ * deleted creator leaves nothing behind. Observations cascade from accounts by themselves. */
+async function clearHubRecords(client: pg.PoolClient, personId: string, has: (t: string) => Promise<boolean>): Promise<number> {
+  let n = 0;
+  const keys = (await client.query<{ id: string; key: string }>("SELECT id, platform||':'||external_id AS key FROM accounts WHERE person_id=$1", [personId])).rows;
+  if (!keys.length) return 0;
+  const ids = keys.map((k: { id: string }) => k.id), accountKeys = keys.map((k: { key: string }) => k.key);
+  if (await has('public.ingest_content')) {
+    const content = (await client.query<{ key: string }>("SELECT platform||':'||content_id AS key FROM ingest_content WHERE account_id=ANY($1::uuid[])", [ids])).rows.map((r: { key: string }) => r.key);
+    if (await has('public.ingest_latest')) n += (await client.query("DELETE FROM ingest_latest WHERE (entity_kind='account' AND entity_id=ANY($1::text[])) OR (entity_kind='content' AND entity_id=ANY($2::text[]))", [accountKeys, content])).rowCount ?? 0;
+    if (await has('public.hub_discrepancies')) n += (await client.query('DELETE FROM hub_discrepancies WHERE entity_id=ANY($1::text[])', [[...accountKeys, ...content]])).rowCount ?? 0;
+    n += (await client.query('DELETE FROM ingest_content WHERE account_id=ANY($1::uuid[])', [ids])).rowCount ?? 0;
+  } else if (await has('public.ingest_latest')) {
+    n += (await client.query("DELETE FROM ingest_latest WHERE entity_kind='account' AND entity_id=ANY($1::text[])", [accountKeys])).rowCount ?? 0;
+  }
+  return n;
+}
+
 /** Hard delete. Registry rows go by cascade; linked legacy rows are removed in the same transaction. */
 export async function deletePerson(personId: string, actorId: string | null) {
   return transaction(async client => {
@@ -140,9 +158,10 @@ export async function deletePerson(personId: string, actorId: string | null) {
     // (same transaction) with the same ranking minus this person. Nothing public can still show them.
     await client.query('SELECT pg_advisory_xact_lock(710325)'); // same lock as publishing: a publish and a delete never interleave
     const live = await captureLive(client);
+    const hubRows = await clearHubRecords(client, personId, has);
     await client.query('DELETE FROM people WHERE id=$1', [personId]);
     const republished = await republishWithout(client, live, personId, actorId);
-    await client.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)', [actorId, 'bucket.delete', personId, JSON.stringify({ accounts: acc.rowCount, legacyRows: legacy, republishedScopes: republished })]);
+    await client.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)', [actorId, 'bucket.delete', personId, JSON.stringify({ accounts: acc.rowCount, legacyRows: legacy, hubRows, republishedScopes: republished })]);
     return { deleted: true, accounts: acc.rowCount ?? 0, legacyRows: legacy, republishedScopes: republished };
   });
 }
