@@ -8,3 +8,5 @@ export default async function Rankings(){
  const initial=Object.fromEntries(WHEEL_SCOPES.map((s,i)=>[s,top[i]??null]));
  return <div className="container"><PageHeading eyebrow="Pakistan Creator Index" title="Top 100 Creators" description="Individual creators across YouTube and Instagram, from the latest published rankings. TikTok is not included."/><PublishedTop100 initial={initial} categories={(categories??[]).filter(c=>c.hasRanking).map(c=>({slug:c.slug,label:c.label}))}/></div>;
 }
+
+export const dynamic = 'force-dynamic';

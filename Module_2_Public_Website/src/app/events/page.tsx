@@ -32,3 +32,5 @@ export default async function Events() {
     </>
   );
 }
+
+export const dynamic = 'force-dynamic';

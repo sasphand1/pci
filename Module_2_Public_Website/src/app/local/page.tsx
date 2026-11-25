@@ -12,3 +12,5 @@ export default async function Page() {
   const local = await pubLocal();
   return <FifiPage><LocalPage local={local} /></FifiPage>;
 }
+
+export const dynamic = 'force-dynamic';
