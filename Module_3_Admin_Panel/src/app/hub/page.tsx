@@ -7,6 +7,7 @@ type Source={id:string;platform:string;method:'api'|'http'|'manual';enabled:bool
 type Alert={id:string;createdAt:string;kind:string;scope:string|null;severity:'info'|'warning'|'critical';sourceId:string|null;message:string};
 type Job={id:string;sourceId:string;trigger:string;status:string;startedAt:string|null;finishedAt:string|null;errorCode:string|null};
 type Stored={category:string;entities:number;fields:number;latestAt:string|null};
+type CreatorsBucketStatus={name:string;platform:string;source:string;registered:number;withFollowers:number;withViews:number;withVideoCount:number;withUploads:number;withContent:number;trackedVideos:number;latestAt:string|null};
 type Health={sources:Source[];openAlerts:Alert[];recentJobs:Job[];discrepancies7d:number;categories?:Stored[]};
 type Coverage={byTier:{platform:string;tier:string;n:number}[];byCategory:{platform:string;category:string;n:number;noData:number}[];freshness:{platform:string;registered:number;fresh:number;withPicture:number;noData:number}[]};
 type Discrepancy={entityId:string;metric:string;apiValue:string;httpValue:string;detectedAt:string};
@@ -37,9 +38,10 @@ export default function DataHub(){
  const {identity}=useAuth();const csrf=identity?.csrfToken;const owner=identity?.role==='owner';
  const health=useData<Health>('/admin/ingest/health');
  const coverage=useData<Coverage>('/admin/ingest/coverage');
+ const creatorBucket=useData<CreatorsBucketStatus>('/admin/ingest/creators-bucket');
  const disc=useData<Discrepancy[]>('/admin/ingest/discrepancies');
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[ok,setOk]=useState(''),[showDisc,setShowDisc]=useState(10);
- const reloadAll=()=>{health.reload();coverage.reload();disc.reload();};
+ const reloadAll=()=>{health.reload();coverage.reload();disc.reload();creatorBucket.reload();};
  async function run(){setBusy(true);setError('');setOk('');try{const r=await api<{sources:number;alertsOpened:number}>('/admin/ingest/check',{method:'POST',csrf});setOk(`Checked ${r.sources} sources; ${r.alertsOpened} new alert(s).`);reloadAll();}catch(e){setError(errorText(e));}finally{setBusy(false);}}
  async function fillGraphPictures(){
   setBusy(true);setError('');setOk('');
@@ -67,6 +69,11 @@ export default function DataHub(){
     <TableWrap><thead><tr><th>Category</th><th>Items</th><th>Latest values</th><th>Newest reading</th></tr></thead><tbody>
      {h?.categories?.map(x=><tr key={x.category}><td>{x.category}</td><td>{fmtNum(x.entities)}</td><td>{fmtNum(x.fields)}</td><td>{fmtDate(x.latestAt)}</td></tr>)}
     </tbody></TableWrap>}
+   <h2>Creators Bucket</h2>
+   <DataBlock loading={creatorBucket.loading} error={creatorBucket.error} empty={!creatorBucket.data}>
+    <p className="fineprint">YouTube creator intelligence · read-only derived sub-bucket of the Data Hub. Counts below are coverage, not sums of followers.</p>
+    {creatorBucket.data&&<TableWrap><thead><tr><th>Registered channels</th><th>Subscribers</th><th>Views</th><th>Public video count</th><th>30-day uploads</th><th>Video coverage</th><th>Tracked videos</th><th>Latest video reading</th></tr></thead><tbody><tr>{[creatorBucket.data.registered,creatorBucket.data.withFollowers,creatorBucket.data.withViews,creatorBucket.data.withVideoCount,creatorBucket.data.withUploads,creatorBucket.data.withContent,creatorBucket.data.trackedVideos].map((n,i)=><td key={i}>{fmtNum(n)}</td>)}<td>{fmtDate(creatorBucket.data.latestAt)}</td></tr></tbody></TableWrap>}
+   </DataBlock>
    <h2>Open alerts {h&&h.openAlerts.length>0&&<span className="badge badge-danger">{h.openAlerts.length}</span>}</h2>
    {h&&h.openAlerts.length===0?<p className="muted">No open hub alerts. Alerts clear themselves when the problem goes away.</p>:
     <TableWrap><thead><tr><th>Severity</th><th>Kind</th><th>Message</th><th>Opened</th><th></th></tr></thead><tbody>

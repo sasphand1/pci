@@ -4,6 +4,7 @@ import {handler,HttpError} from '../../lib/errors.js';
 import {query} from '../../lib/db.js';
 import {POLICY,isStale} from './policy.js';
 import {runHubCheck} from './monitor.js';
+import {creatorsBucketStatus} from '../creators-bucket/data.js';
 import {roles} from '../auth/auth.js';
 
 /** Tier boundaries used for coverage counts (subscribers/followers). */
@@ -11,6 +12,7 @@ export const TIERS=[{key:'1m_plus',min:1_000_000},{key:'500k_1m',min:500_000},{k
 
 /** Hub Read API: admin-only. Control-panel pages and consumers read hub data through these routes. */
 export function registerHubReadRoutes(r:Router):void {
+  r.get('/ingest/creators-bucket',handler(async(_req,res)=>res.json({data:await creatorsBucketStatus()})));
   r.get('/ingest/health',handler(async(_req,res)=>{
     const [sources,alerts,jobs,disc,stored]=await Promise.all([
       query(`SELECT s.id,s.platform,s.method,s.enabled,s.category,s.label,s.expected_hours AS "expectedHours",s.last_success_at AS "lastSuccessAt",s.last_attempt_at AS "lastAttemptAt",

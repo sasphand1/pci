@@ -1,5 +1,6 @@
 import type pg from 'pg';
 import {query,transaction} from '../../lib/db.js';
+import {retentionDays} from '../refresh/normalize.js';
 import {decideValue,isDiscrepancy,methodOf,validCount,type Precision,type SourceMethod,type Snapshot} from './policy.js';
 export {methodOf};
 
@@ -152,6 +153,34 @@ export async function backfillRecentMetrics(days=7):Promise<{processed:number;st
  * Safe to retry: deduplicated observations, timestamp-guarded content updates. */
 export async function mirrorVideoSamples():Promise<{processed:number;stored:number}>{
   return transaction(async tx=>{
+    // Creators Bucket bootstrap: preserve original timestamps of real, retained API readings.
+    // No replay of synthetic data and no extension of the configured YouTube retention.
+    const keepDays=Math.min(29,retentionDays('youtube'));
+    await tx.query(`INSERT INTO ingest_observations
+      (source_id,source_run_ref,account_id,entity_kind,entity_id,metric,value_numeric,accuracy,observed_at,raw_metadata)
+      SELECT 'youtube.api','video:'||v.video_id||':'||to_char(h.observed_at AT TIME ZONE 'UTC','YYYYMMDDHH24MISS.US'),
+      v.account_id,'content','youtube:'||v.video_id,'views',h.view_count,'exact',h.observed_at,
+      '{"origin":"retained-video-observation-bridge"}'::jsonb
+      FROM creator_video_view_observations h JOIN creator_video_catalogue v ON v.video_id=h.video_id JOIN accounts a ON a.id=v.account_id
+      WHERE a.platform='youtube' AND h.observed_at BETWEEN now()-make_interval(days => $1) AND now()
+      ON CONFLICT(source_id,source_run_ref,entity_kind,entity_id,metric) DO NOTHING`,[keepDays]);
+    // Legacy channel counts, where genuinely available and fresh, enter the same Hub before reads.
+    await tx.query(`INSERT INTO ingest_observations
+      (source_id,source_run_ref,account_id,entity_kind,entity_id,metric,value_numeric,accuracy,observed_at,raw_metadata)
+      SELECT 'youtube.api','legacy-channel-video-count:'||to_char(s.fetched_at AT TIME ZONE 'UTC','YYYYMMDDHH24MISS.US'),
+      a.id,'account','youtube:'||a.external_id,'video_count',s.video_count,'exact',s.fetched_at,
+      '{"origin":"retained-channel-statistics-bridge"}'::jsonb
+      FROM channel_stats_latest s JOIN creators c ON c.id=s.creator_id JOIN accounts a ON a.platform='youtube' AND a.external_id=c.channel_id
+      WHERE s.video_count IS NOT NULL AND s.fetched_at BETWEEN now()-interval '7 days' AND now()
+      ON CONFLICT(source_id,source_run_ref,entity_kind,entity_id,metric) DO NOTHING`);
+    await tx.query(`INSERT INTO ingest_latest(entity_kind,entity_id,metric,source_id,account_id,value_numeric,accuracy,observed_at)
+      SELECT DISTINCT ON(entity_id,metric) entity_kind,entity_id,metric,source_id,account_id,value_numeric,accuracy,observed_at
+      FROM ingest_observations WHERE entity_kind='account' AND source_id='youtube.api' AND metric='video_count'
+      AND value_numeric IS NOT NULL AND accuracy='exact' AND value_scale=0 AND observed_at BETWEEN now()-interval '7 days' AND now()
+      ORDER BY entity_id,metric,observed_at DESC,id DESC
+      ON CONFLICT(entity_kind,entity_id,metric) DO UPDATE SET source_id=EXCLUDED.source_id,account_id=EXCLUDED.account_id,
+      value_numeric=EXCLUDED.value_numeric,value_text=NULL,value_scale=0,accuracy=EXCLUDED.accuracy,observed_at=EXCLUDED.observed_at,updated_at=now()
+      WHERE EXCLUDED.observed_at>=ingest_latest.observed_at`);
     const source=`FROM creator_video_catalogue v JOIN accounts a ON a.id=v.account_id`;
     const filter=`a.platform='youtube' AND v.last_observed_at>now()-interval '48 hours'`;
     const total=await tx.query<{n:number}>(`SELECT count(*)::int AS n ${source} WHERE ${filter}`);

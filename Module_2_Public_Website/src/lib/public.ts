@@ -1,4 +1,5 @@
 import {adapterGet} from '@/lib/api';
+import type {PubCreatorsBucket} from '@/lib/creators-bucket';
 
 // Shapes returned by /api/v1/public. Everything the site shows comes from rankings that were published.
 export type PubAccount={platform:'youtube'|'instagram';handle:string;url:string|null};
@@ -36,7 +37,7 @@ export type PubCreatorAnalytics={
   /** Largest linked Instagram account: recorded follower and posts-per-30-days history. */
   instagram?:{accountCount:number;growth:{followers:Record<'24h'|'7d'|'30d',number|null>};history:{followers:{at:string;value:number}[];posts30d:{at:string;value:number}[]}};
 };
-export type PubPersonDetail={slug:string;displayName:string;avatarUrl:string|null;categories:{slug:string;label:string}[];accounts:PubFigures[];positions:PubPosition[];analytics?:PubCreatorAnalytics;similarCreators?:{slug:string;displayName:string}[]};
+export type PubPersonDetail={slug:string;displayName:string;avatarUrl:string|null;categories:{slug:string;label:string}[];accounts:PubFigures[];positions:PubPosition[];analytics?:PubCreatorAnalytics;creatorsBucket?:PubCreatorsBucket|null;similarCreators?:{slug:string;displayName:string}[]};
 
 export const WHEEL_SCOPES=['wheel.subscribed','wheel.viewed','wheel.active'] as const;
 export const SCOPE_PATTERN=/^(wheel\.(subscribed|viewed|active)|youtube\.subscribed|instagram\.followers|category\.[a-z0-9-]{2,60})$/;

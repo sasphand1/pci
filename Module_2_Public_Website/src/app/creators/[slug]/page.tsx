@@ -31,11 +31,12 @@ export default async function CreatorPage({params,searchParams}:{params:Promise<
  const ytAccounts=p.accounts.filter(a=>a.platform==='youtube').map(a=>({handle:a.handle,url:a.url,followers:a.followers,views:a.views,posts30d:a.posts30d,asOf:a.observedAt}));
  // Comparable creators: the published YouTube-subscriber ranking (top five); this creator is added if outside it.
  const top=(ytRanking?.entries??[]).slice(0,5).map(e=>({slug:e.person.slug,name:e.person.displayName,value:e.value,self:e.person.slug===p.slug}));
- const ownSubs=ytAccounts.length===1?ytAccounts[0].followers:null;
+ const ytPosition=p.positions.find(x=>x.scope==='youtube.subscribed');
+ const ownSubs=ytPosition?.value??null;
  const comparison=top.some(x=>x.self)||ownSubs===null?top:[...top,{slug:p.slug,name:p.displayName,value:ownSubs,self:true}];
  const a=p.analytics;
  // Allowlist public display fields before crossing the server/client boundary.
  const analytics=a?{history:a.history,growth:a.growth,video:a.video,historyAccountCount:a.historyAccountCount}:null;
  const platforms=[...new Set(p.accounts.map(x=>x.platform).filter((x):x is 'youtube'|'instagram'|'tiktok'=>x==='youtube'||x==='instagram'||x==='tiktok'))];
- return <FifiPage><CreatorProfilePage platforms={platforms} initialPlatform={initialPlatform} creator={creator} rank={best?`#${best.rank}`:'Not ranked'} rankLabel={best?.label??'PCI ranking'} accounts={accounts} ytAccounts={ytAccounts} analytics={analytics} comparison={comparison} rankingDate={ytRanking?.publishedAt??null}/></FifiPage>;
+ return <FifiPage><CreatorProfilePage platforms={platforms} initialPlatform={initialPlatform} creator={creator} rank={best?`#${best.rank}`:'Not ranked'} rankLabel={best?.label??'PCI ranking'} accounts={accounts} ytAccounts={ytAccounts} analytics={analytics} creatorsBucket={p.creatorsBucket??null} ytRank={ytPosition?`#${ytPosition.rank}`:'Not ranked'} comparison={comparison} rankingDate={ytRanking?.publishedAt??null}/></FifiPage>;
 }

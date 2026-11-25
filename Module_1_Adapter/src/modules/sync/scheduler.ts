@@ -76,7 +76,11 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
        WHERE a.platform='youtube' AND a.external_id ~ '^UC[A-Za-z0-9_-]{22}$'
          AND NOT EXISTS(SELECT 1 FROM creator_video_catalogue v WHERE v.account_id=a.id
            AND v.last_observed_at>now()-interval '20 hours')`);
-     if(!(Number(pending.rows[0]?.missing)>0))return;
+     if(!(Number(pending.rows[0]?.missing)>0)){
+       // Existing retained records may need their first Hub projection after an upgrade.
+       try{await mirrorVideoSamples();}catch(err){logger.warn({err},'Creators Bucket Hub projection unavailable');}
+       return;
+     }
      const result=await collectCreatorVideoSnapshots();
      try{await mirrorVideoSamples();}catch(err){logger.warn({err},'Ingest video mirror unavailable');}
      logger.info({...result,pendingAccounts:pending.rows[0].missing},'Creator earnings video sample refresh');

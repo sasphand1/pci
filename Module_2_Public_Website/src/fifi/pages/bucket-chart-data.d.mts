@@ -1,0 +1,12 @@
+import type {BucketObservation,BucketVideo} from '../../lib/creators-bucket';
+export const DAY:number;
+export type BucketPoint={time:number;value:number;from?:number};
+export type RatePoint={time:number;value:number;from:number};
+export type ComparisonPoint=RatePoint&{day:number};
+export type ComparisonData={current:ComparisonPoint[];previous:ComparisonPoint[];start:number;end:number;previousStart:number;days:number};
+export type VideoMetric='currentViews'|'likes'|'comments'|'engagementRate'|'likeRate';
+export function bucketPoints(raw:BucketObservation[],days?:number,end?:number):BucketPoint[];
+export function dailyRates(points:BucketPoint[]):RatePoint[];
+export function averagePace(points:BucketPoint[]):number|null;
+export function periodComparison(points:BucketPoint[],days:number):ComparisonData|null;
+export function rankVideos(videos:BucketVideo[],metric:VideoMetric,limit?:number):BucketVideo[];

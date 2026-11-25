@@ -1,0 +1,10 @@
+export type Point={at:string;value:number;from?:string};
+export const DAY:number;
+export function count(v:unknown):number|null;
+export function series(rows:{at:string;value:unknown}[],now?:number):Point[];
+export function daily(rows:{at:string;value:unknown}[],now?:number):Point[];
+export function gain(rows:Point[],days:number,now?:number,allowDecrease?:boolean):number|null;
+export function average(xs:(number|null)[]):number|null;
+export function engagement(views:number|null,likes:number|null,comments:number|null):number|null;
+export function likeRate(views:number|null,likes:number|null):number|null;
+export function periodRates(rows:Point[],days:number,now?:number):Point[];

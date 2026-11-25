@@ -3,6 +3,7 @@ import {logger} from '../../lib/errors.js';
 import {YoutubeClient,chunks,countOrNull,dateOrNull,thumbUrl} from '../youtube/client.js';
 import type {ObservationPoint} from './engine.js';
 import {videoMilestones,velocityPerHour,breakoutFactor} from './engine.js';
+import {recordObservation} from '../ingest/store.js';
 
 const MAX_CHANNELS=150;
 const VIDEOS_PER_CHANNEL=50;
@@ -21,7 +22,7 @@ export async function collectCreatorVideoSnapshots():Promise<{channels:number;vi
   locked=true;
   const accounts=(await query<ChannelAccount>(`SELECT id,external_id FROM accounts
     WHERE platform='youtube' AND external_id ~ '^UC[A-Za-z0-9_-]{22}$'
-    ORDER BY id LIMIT $1`,[MAX_CHANNELS])).rows;
+    ORDER BY (SELECT max(v.last_observed_at) FROM creator_video_catalogue v WHERE v.account_id=accounts.id) NULLS FIRST,id LIMIT $1`,[MAX_CHANNELS])).rows;
   const yt=new YoutubeClient();
   let failed=0,seen=0;
   const observedAt=new Date().toISOString();
@@ -32,7 +33,14 @@ export async function collectCreatorVideoSnapshots():Promise<{channels:number;vi
     const byId=new Map(channelDetails.map(c=>[c.id,c]));
     for(const account of channelGroup) {
       try {
-        const uploads=byId.get(account.external_id)?.contentDetails?.relatedPlaylists?.uploads;
+        const channel=byId.get(account.external_id);
+        // Reuse the already-fetched channels.list response: zero additional upstream calls.
+        const rawCount=countOrNull(channel?.statistics?.videoCount);
+        if(rawCount!==null&&Number.isSafeInteger(Number(rawCount))&&Number(rawCount)>=0){
+          try{await recordObservation({sourceId:'youtube.api',sourceRunRef:'channel-video-count:'+observedAt,accountId:account.id,entityKind:'account',entityId:'youtube:'+account.external_id,metric:'video_count',valueNumeric:Number(rawCount),valueText:null,accuracy:'exact',observedAt,metadata:{origin:'youtube-channel-statistics'}});}
+          catch(err){logger.warn({err,accountId:account.id},'Creators Bucket channel video count unavailable');}
+        }
+        const uploads=channel?.contentDetails?.relatedPlaylists?.uploads;
         if(!uploads){failed++;continue;}
         const ids=await yt.uploads(uploads,VIDEOS_PER_CHANNEL);
         const samples:Sample[]=[];
@@ -57,8 +65,8 @@ export async function collectCreatorVideoSnapshots():Promise<{channels:number;vi
               ON CONFLICT(video_id) DO UPDATE SET account_id=EXCLUDED.account_id,title=EXCLUDED.title,
               description=EXCLUDED.description,published_at=EXCLUDED.published_at,thumbnail_url=EXCLUDED.thumbnail_url,
               duration_iso=EXCLUDED.duration_iso,view_count=EXCLUDED.view_count,
-              like_count=COALESCE(EXCLUDED.like_count,creator_video_catalogue.like_count),
-              comment_count=COALESCE(EXCLUDED.comment_count,creator_video_catalogue.comment_count),
+              like_count=EXCLUDED.like_count,
+              comment_count=EXCLUDED.comment_count,
               last_observed_at=EXCLUDED.last_observed_at`,
               [s.videoId,s.accountId,s.title,s.description,s.publishedAt,s.thumbnailUrl,s.durationIso,
                 s.views,s.likes,s.comments,observedAt]);

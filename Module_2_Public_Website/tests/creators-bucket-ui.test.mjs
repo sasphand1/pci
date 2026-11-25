@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {bucketPoints,dailyRates,averagePace,periodComparison,rankVideos,DAY} from '../src/fifi/pages/bucket-chart-data.mjs';
+const base=Date.parse('2026-11-25T09:00:00Z');
+const obs=(d,value)=>({at:new Date(base+d*DAY).toISOString(),value});
+const point=(d,value)=>({time:base+d*DAY,value});
+test('selected windows preserve recorded points, original timestamps and genuine zero',()=>{assert.deepEqual(bucketPoints([obs(-12,1),obs(-7,5),obs(-3,null),obs(0,9)],7),[point(-7,5),point(0,9)]);assert.deepEqual(bucketPoints([obs(0,0)],7),[point(0,0)]);});
+test('rolling chart carries exact recorded interval and excludes future points',()=>{const at=obs(-7,1).at;const raw=[{...obs(0,10),from:at},{at:'2999-01-01',value:100}];assert.deepEqual(bucketPoints(raw,7),[{...point(0,10),from:base-7*DAY}]);});
+test('daily rate uses actual elapsed time without inventing missing days',()=>{assert.deepEqual(dailyRates([point(-6,100),point(-4,130),point(-3,120),point(0,300)]),[{time:base-4*DAY,from:base-6*DAY,value:15}]);assert.equal(averagePace([point(-2,10),point(0,30)]),10);assert.equal(averagePace([point(0,30)]),null);});
+test('complete 7-day comparison uses both actual observed periods, no resampling',()=>{const pts=Array.from({length:15},(_,i)=>point(i-14,i*100));const r=periodComparison(pts,7);assert.ok(r);assert.equal(r.current.length,7);assert.equal(r.previous.length,7);assert.equal(r.current[0].day,1);assert.equal(r.previous.at(-1).time,base-7*DAY);assert.equal(r.current[0].value,100);});
+test('comparison unavailable when prior period missing, reset or coverage too sparse',()=>{assert.equal(periodComparison([point(-7,100),point(0,200)],7),null);assert.equal(periodComparison(Array.from({length:8},(_,i)=>point(i-7,i)),7),null);const pts=Array.from({length:15},(_,i)=>point(i-14,i<8?i*10:0));assert.equal(periodComparison(pts,7),null);});
+test('top video ordering uses actual selected field; missing excluded, zero retained, deterministic ties',()=>{const v=[{videoId:'b',currentViews:5,likes:null},{videoId:'a',currentViews:5,likes:0},{videoId:'c',currentViews:null,likes:7}];assert.deepEqual(rankVideos(v,'currentViews').map(x=>x.videoId),['a','b']);assert.deepEqual(rankVideos(v,'likes').map(x=>x.videoId),['c','a']);});
