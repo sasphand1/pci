@@ -31,7 +31,7 @@ function PhotoView({p,compact=false}:{p:PubPlace;compact?:boolean}){
   {url&&cached&&<RestaurantCredit p={p}/>}
   {url&&live&&!cached&&<div className="mt-1 break-words text-[10px] leading-tight text-muted-foreground">
    <a href={live.googleMapsUri} target="_blank" rel="noopener noreferrer" className="underline">Google Maps</a>
-   {live.authorAttributions.map((a,i)=><div key={i} className="flex flex-wrap items-center gap-1">{a.photoUri&&<img src={a.photoUri} alt="" width={16} height={16} referrerPolicy="no-referrer"/>}{a.uri?<a href={a.uri} target="_blank" rel="noopener noreferrer" className="underline">{a.displayName}</a>:<span>{a.displayName}</span>}</div>)}
+   {live.authorAttributions.map((a,i)=><div key={i} className="text-[9px] leading-tight">{a.uri?<a href={a.uri} target="_blank" rel="noopener noreferrer" className="underline">{a.displayName}</a>:<span>{a.displayName}</span>}</div>)}
   </div>}
  </div>;
 }
