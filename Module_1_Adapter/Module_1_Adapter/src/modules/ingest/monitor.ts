@@ -59,14 +59,14 @@ export async function runHubCheck():Promise<{sources:number;alertsOpened:number}
   let opened=0,n=0;
   await query(`DELETE FROM ingest_jobs WHERE trigger='system' AND created_at<now()-interval '14 days'`).catch(()=>undefined);
   try {
-    const src=await query<{id:string;method:'api'|'http';enabled:boolean;last_success_at:string|null;cf:number|null;code:string|null}>(
-      `SELECT s.id,s.method,s.enabled,s.last_success_at,h.consecutive_failures AS cf,h.last_error_code AS code
+    const src=await query<{id:string;method:'api'|'http'|'manual';enabled:boolean;last_success_at:string|null;cf:number|null;code:string|null;expected_hours:number|null}>(
+      `SELECT s.id,s.method,s.enabled,s.last_success_at,s.expected_hours,h.consecutive_failures AS cf,h.last_error_code AS code
        FROM ingest_sources s LEFT JOIN hub_source_health h ON h.source_id=s.id ORDER BY s.id`);
     const now=Date.now();
     for(const s of src.rows){
       n++;
-      const ev=evaluateSource({id:s.id,method:s.method,enabled:s.enabled,lastSuccessAt:s.last_success_at,
-        consecutiveFailures:s.cf??0,lastErrorCode:s.code,now,checkFreshness:s.method==='api'});
+      const ev=evaluateSource({id:s.id,method:s.method==='http'?'http':'api',enabled:s.enabled,lastSuccessAt:s.last_success_at,
+        consecutiveFailures:s.cf??0,lastErrorCode:s.code,now,checkFreshness:s.method==='api',expectedHours:s.expected_hours??24});
       const extra:HubAlert[]=[];
       if(s.id==='youtube.api'&&s.enabled){
         const day=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Los_Angeles',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());

@@ -12,8 +12,8 @@ export const TIERS=[{key:'1m_plus',min:1_000_000},{key:'500k_1m',min:500_000},{k
 /** Hub Read API: admin-only. Control-panel pages and consumers read hub data through these routes. */
 export function registerHubReadRoutes(r:Router):void {
   r.get('/ingest/health',handler(async(_req,res)=>{
-    const [sources,alerts,jobs,disc]=await Promise.all([
-      query(`SELECT s.id,s.platform,s.method,s.enabled,s.last_success_at AS "lastSuccessAt",s.last_attempt_at AS "lastAttemptAt",
+    const [sources,alerts,jobs,disc,stored]=await Promise.all([
+      query(`SELECT s.id,s.platform,s.method,s.enabled,s.category,s.label,s.expected_hours AS "expectedHours",s.last_success_at AS "lastSuccessAt",s.last_attempt_at AS "lastAttemptAt",
         s.last_error AS "lastError",CASE WHEN NOT s.enabled THEN 'disabled' WHEN h.status='disabled' THEN 'degraded'
           ELSE COALESCE(h.status,'ok') END AS status,
         COALESCE(h.consecutive_failures,0) AS "consecutiveFailures",h.checked_at AS "checkedAt"
@@ -22,9 +22,11 @@ export function registerHubReadRoutes(r:Router):void {
         WHERE NOT acknowledged AND hub_key IS NOT NULL ORDER BY created_at DESC LIMIT 50`),
       query(`SELECT id,source_id AS "sourceId",trigger,status,started_at AS "startedAt",finished_at AS "finishedAt",error_code AS "errorCode"
         FROM ingest_jobs ORDER BY created_at DESC LIMIT 20`),
-      query(`SELECT count(*)::int AS n FROM hub_discrepancies WHERE detected_at>now()-interval '7 days'`)
+      query(`SELECT count(*)::int AS n FROM hub_discrepancies WHERE detected_at>now()-interval '7 days'`),
+      query(`SELECT s.category,count(DISTINCT (l.entity_kind,l.entity_id))::int AS entities,count(*)::int AS fields,max(l.observed_at) AS "latestAt"
+        FROM ingest_latest l JOIN ingest_sources s ON s.id=l.source_id GROUP BY s.category ORDER BY s.category`)
     ]);
-    res.json({data:{sources:sources.rows,openAlerts:alerts.rows,recentJobs:jobs.rows,discrepancies7d:disc.rows[0].n}});
+    res.json({data:{sources:sources.rows,openAlerts:alerts.rows,recentJobs:jobs.rows,discrepancies7d:disc.rows[0].n,categories:stored.rows}});
   }));
 
   r.get('/ingest/alerts',handler(async(req,res)=>{

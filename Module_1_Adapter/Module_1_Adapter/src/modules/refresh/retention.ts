@@ -24,5 +24,8 @@ export async function runHubRetention(env: NodeJS.ProcessEnv = process.env): Pro
       AND entity_id LIKE $1 AND observed_at < now() - make_interval(days => $2)`, [`${platform}:%`, days]);
     out[platform] = r.rowCount ?? 0;
   }
+  // Google Maps Platform terms allow only short-term caching of place details: keep 30 days of readings.
+  const places = await query(`DELETE FROM ingest_observations WHERE entity_kind='place' AND observed_at < now() - interval '30 days'`);
+  out.places = places.rowCount ?? 0;
   return out;
 }

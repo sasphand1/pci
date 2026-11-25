@@ -132,3 +132,20 @@ export async function personDetail(slug: string) {
     ORDER BY p2.display_name,p2.slug LIMIT 4`,[id]);
   return { slug, displayName: base.displayName, avatarUrl: base.avatarUrl, categories: base.categories, accounts, positions, analytics, similarCreators:similar.rows };
 }
+
+/** Hall of fame: the last published ranking of each week or month, top N holders, newest period first. */
+export async function hallOfFame(scope: string, period: 'week' | 'month', top: number, limit: number) {
+  const r = await query(`WITH periods AS (
+      SELECT DISTINCT period_start FROM hall_of_fame WHERE scope=$1 AND period=$2 ORDER BY period_start DESC LIMIT $4)
+    SELECT h.period_start::text AS "periodStart", h.published_at AS "publishedAt", h.slot, h.rank, h.value::text AS value,
+      h.display_name AS "displayName", p.slug
+    FROM hall_of_fame h JOIN periods x ON x.period_start=h.period_start LEFT JOIN people p ON p.id=h.person_id
+    WHERE h.scope=$1 AND h.period=$2 AND h.slot<=$3 ORDER BY h.period_start DESC, h.slot`, [scope, period, top, limit]);
+  const out: { periodStart: string; publishedAt: string; holders: { slot: number; rank: number; value: number; displayName: string; slug: string | null }[] }[] = [];
+  for (const x of r.rows) {
+    let e = out[out.length - 1];
+    if (!e || e.periodStart !== x.periodStart) { e = { periodStart: x.periodStart, publishedAt: new Date(x.publishedAt).toISOString(), holders: [] }; out.push(e); }
+    e.holders.push({ slot: x.slot, rank: x.rank, value: Number(x.value), displayName: x.displayName, slug: x.slug ?? null });
+  }
+  return { scope, period, periods: out };
+}
