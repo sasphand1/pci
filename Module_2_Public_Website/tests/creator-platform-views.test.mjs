@@ -1,23 +1,8 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
+import {platformAudience,recordedTotal,historyWindow,rankContent} from '../src/fifi/pages/creator-profile-data.mjs';
 const read=p=>readFileSync(new URL(p,import.meta.url),'utf8');
-test('the developer layout is the YouTube view; Instagram and TikTok get their own views',()=>{
- const s=read('../src/fifi/pages/creator.tsx');
- assert.match(s,/function YouTubeCreatorView\(/);assert.match(s,/function PlatformPendingView\(/);
- assert.match(s,/platform==='youtube'\?<YouTubeCreatorView \{\.\.\.props\} switcher=\{switcher\}\/>:<PlatformPendingView/);
- assert.match(s,/const order:ProfilePlatform\[\]=\['youtube','instagram','tiktok'\];const have=order\.filter\(p=>platforms\.includes\(p\)\)/);
- assert.doesNotMatch(s,/style=\{/);
-});
-test('the page passes the creator platforms and a validated ?platform= request',()=>{
- const s=read('../src/app/creators/[slug]/page.tsx');
- assert.match(s,/\/\^\(youtube\|instagram\|tiktok\)\$\/\.test\(requested\)/);
- assert.match(s,/<CreatorProfilePage platforms=\{/);
-});
-test('YouTube reference layout uses existing data and centralized styling',()=>{
- const s=read('../src/fifi/pages/creator.tsx'),page=read('../src/app/creators/[slug]/page.tsx'),css=read('../packages/ui/src/styles/creator-youtube.css'),view=read('../src/fifi/pages/youtube-reference.tsx');
- assert.match(s,/return <YouTubeReference/);
- assert.match(view,/pci-yt-reference/);
- assert.doesNotMatch(view,/style=\{/);
- assert.match(page,/\/rankings\/youtube\.subscribed\?limit=5/);
- assert.match(read('../packages/ui/src/styles.css'),/creator-youtube\.css/);
- assert.match(css,/\.pci-yt-reference \.yr-grid/);
-});
+test('the public creator entry point is a unified person profile, not a platform-specific dispatcher',()=>{const s=read('../src/fifi/pages/creator.tsx'),v=read('../src/fifi/pages/creator-profile.tsx');assert.match(s,/export \{CreatorProfilePage\} from '\.\/creator-profile'/);assert.doesNotMatch(s,/function YouTubeCreatorView|function PlatformPendingView|return platform==='youtube'/);assert.match(v,/export function CreatorProfilePage/);assert.match(v,/data-creator-template="fifi-unified-profile-v1"/);});
+test('route keeps existing public payload and provides raw follower counts for platform distribution',()=>{const s=read('../src/app/creators/[slug]/page.tsx');assert.match(s,/followersCount:a.followers/);assert.match(s,/<CreatorProfilePage platforms=\{/);assert.match(s,/creatorsBucket=\{p.creatorsBucket\?\?null\}/);});
+test('mixed accounts are grouped without inventing counts for missing platforms',()=>{const rows=platformAudience([{platform:'YouTube',followersCount:20},{platform:'Instagram',followersCount:10},{platform:'youtube',followersCount:5}]);assert.deepEqual(rows.map(r=>r.count),[25,10,null]);assert.equal(recordedTotal(rows),35);assert.equal(rows[2].linked,false);});
+test('missing counts and real zero are distinguished',()=>{assert.equal(recordedTotal(platformAudience([{platform:'Instagram',followersCount:0}])),0);assert.equal(recordedTotal(platformAudience([{platform:'YouTube',followersCount:10},{platform:'Instagram',followersCount:null}])),null);assert.equal(recordedTotal(platformAudience([])),null);});
+test('history uses available observation window and content ranks real views',()=>{const pts=[{at:'2026-11-01',value:1},{at:'2026-11-22',value:2},{at:'2026-11-25',value:3}];assert.deepEqual(historyWindow(pts,7).map(p=>p.value),[2,3]);assert.deepEqual(rankContent([{videoId:'x',currentViews:null},{videoId:'a',currentViews:0},{videoId:'b',currentViews:4}]).map(v=>v.videoId),['b','a']);});

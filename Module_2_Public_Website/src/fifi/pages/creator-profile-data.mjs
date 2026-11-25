@@ -1,0 +1,5 @@
+export const PLATFORMS=['YouTube','Instagram','TikTok'];
+export function platformAudience(accounts){return PLATFORMS.map(platform=>{const rows=accounts.filter(a=>a.platform.toLowerCase()===platform.toLowerCase());const known=rows.length>0&&rows.every(a=>Number.isSafeInteger(a.followersCount)&&a.followersCount>=0);return {platform,linked:rows.length>0,count:known?rows.reduce((n,a)=>n+a.followersCount,0):null};});}
+export function recordedTotal(rows){const linked=rows.filter(r=>r.linked);return linked.length&&linked.every(r=>r.count!==null)?linked.reduce((n,r)=>n+r.count,0):null;}
+export function historyWindow(points,days){const valid=points.filter(p=>Number.isFinite(Date.parse(p.at))&&Number.isFinite(p.value)&&p.value>=0).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));if(!valid.length)return [];const end=Date.parse(valid.at(-1).at);return valid.filter(p=>Date.parse(p.at)>=end-days*86400000);}
+export function rankContent(videos){return videos.filter(v=>Number.isFinite(v.currentViews)&&v.currentViews>=0).sort((a,b)=>b.currentViews-a.currentViews||a.videoId.localeCompare(b.videoId));}

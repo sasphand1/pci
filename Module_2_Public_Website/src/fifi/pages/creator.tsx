@@ -1,6 +1,5 @@
 'use client';
 import {useState,type ReactNode} from 'react';
-import {YouTubeReference} from './youtube-reference';
 import type {Peer} from './youtube-profile-data.mjs';
 import {Link} from '@/fifi/router';
 import {Pic} from '@/fifi/components/page-elements';
@@ -13,7 +12,7 @@ import {PeriodComparisonChart,EngagementScatter,pointLabel,exact,timestamp} from
 
 export type ProfilePlatform='youtube'|'instagram'|'tiktok';
 export type CreatorProfileProps={creator:RealCreator;rank:string;rankLabel:string;
- accounts:{platform:string;handle:string;url:string|null;followers:string;views:string;posts30d:string;asOf:string}[];
+ accounts:{platform:string;handle:string;url:string|null;followers:string;followersCount?:number|null;views:string;posts30d:string;asOf:string}[];
  ytAccounts:{handle:string;url:string|null;followers:number|null;views:number|null;posts30d:number|null;asOf:string|null;avatarUrl?:string|null}[];
  analytics:Pick<PubCreatorAnalytics,'history'|'growth'|'video'|'historyAccountCount'>|null;
  creatorsBucket?:PubCreatorsBucket|null;ytRank?:string;
@@ -58,34 +57,5 @@ function Trend({title,points,area=false,fallback=null,rank=false}:{title:string;
 }
 const percent=(n:number|null|undefined)=>n==null?null:n.toFixed(2)+'%';
 const TOP_METRICS:{key:VideoMetric;label:string}[]=[{key:'currentViews',label:'Views'},{key:'likes',label:'Likes'},{key:'comments',label:'Comments'},{key:'engagementRate',label:'Engagement'},{key:'likeRate',label:'Like rate'}];
-/** The YouTube view of any creator, built to match the approved reference layout (PCI-creator-final.html). */
-function YouTubeCreatorView(props:CreatorProfileProps&{switcher?:ReactNode}){
- return <YouTubeReference {...props}/>;
-}
-
-const PLATFORM_LABEL:Record<ProfilePlatform,string>={youtube:'YouTube',instagram:'Instagram',tiktok:'TikTok'};
-/** Picks the platform view to open: the requested one if the creator has it, otherwise YouTube, Instagram, TikTok in that order. */
-export function pickPlatform(platforms:ProfilePlatform[],requested?:string|null):ProfilePlatform{
- const order:ProfilePlatform[]=['youtube','instagram','tiktok'];const have=order.filter(p=>platforms.includes(p));
- return have.find(p=>p===requested)??have[0]??'youtube';
-}
-/** Instagram and TikTok get their own designs later; until then they show only that platform's recorded figures. */
-function PlatformPendingView({creator,rank,rankLabel,accounts,platform,switcher}:CreatorProfileProps&{platform:ProfilePlatform;switcher?:ReactNode}){
- const mine=accounts.filter(a=>a.platform.toLowerCase()===platform);
- return <main className="page-main pci-yt">
-  <div className="yt-note"><Link to="/creators">← Creator Index</Link> / Creator profile</div>{switcher}
-  <section className="yt-card"><div className="yt-profile"><Pic src={creator.image} alt={creator.name} className="yt-avatar"/><div className="yt-grow"><p className="yt-eyebrow">{creator.category} · {PLATFORM_LABEL[platform]} profile</p><h1>{creator.name}</h1><p className="yt-note">{mine[0]?.handle??creator.handle} · {creator.city}</p></div></div>
-   <Tiles items={[[`${PLATFORM_LABEL[platform]} followers`,mine.length===1?mine[0].followers:mine.length?`${mine.length} accounts`:null],['Posts · 30 days',mine.length===1?mine[0].posts30d:null],['As of',mine[0]?.asOf??null],[rankLabel==='PCI ranking'?'PCI ranking':`PCI ranking · ${rankLabel}`,rank]]}/></section>
-  <section className="yt-card"><h2>{PLATFORM_LABEL[platform]} accounts</h2><div className="yt-table"><table><thead><tr>{['Account','Followers','Posts, 30 days','As of'].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{mine.map(a=><tr key={a.handle}><td>{a.url?<a href={a.url} target="_blank" rel="noopener noreferrer">{a.handle}</a>:a.handle}</td><td>{a.followers}</td><td>{a.posts30d}</td><td>{a.asOf}</td></tr>)}</tbody></table></div>
-   <p className="yt-note">The dedicated {PLATFORM_LABEL[platform]} view is being designed. These are the platform-reported figures recorded by PCI. A number older than 7 days is shown as not available rather than as zero.</p></section>
- </main>;
-}
-/** One profile per creator with a layout per platform. */
-export function CreatorProfilePage(props:CreatorProfileProps){
- const platforms=props.platforms?.length?props.platforms:(['youtube'] as ProfilePlatform[]);
- const [platform,setPlatform]=useState<ProfilePlatform>(pickPlatform(platforms,props.initialPlatform));
- const order=(['youtube','instagram','tiktok'] as ProfilePlatform[]).filter(p=>platforms.includes(p));
- const choose=(p:ProfilePlatform)=>{setPlatform(p);try{const u=new URL(window.location.href);if(p===order[0])u.searchParams.delete('platform');else u.searchParams.set('platform',p);window.history.replaceState(null,'',u.pathname+u.search);}catch{/* URL sync is optional */}};
- const switcher=order.length>1?<nav className="yt-tabs" aria-label="Platform view">{order.map(p=><button key={p} type="button" aria-pressed={platform===p} onClick={()=>choose(p)}>{PLATFORM_LABEL[p]}</button>)}</nav>:null;
- return platform==='youtube'?<YouTubeCreatorView {...props} switcher={switcher}/>:<PlatformPendingView {...props} platform={platform} switcher={switcher}/>;
-}
+/** All creator accounts now use the same person-level profile dashboard. */
+export {CreatorProfilePage} from './creator-profile';

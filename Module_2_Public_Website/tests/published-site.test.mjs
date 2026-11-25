@@ -22,11 +22,11 @@ test('pages read published data through the public helpers',()=>{
 });
 test('the old video pages redirect instead of showing stale lists',()=>assert.match(read('src/app/videos/page.tsx'),/redirect\('\/creators'\)/));
 test('profile pages say numbers older than 7 days are not shown as zero',()=>{
- assert.match(read('src/fifi/pages/creator.tsx'),/older than 7 days/);
+ assert.match(read('src/fifi/pages/creator-profile.tsx'),/older than 7 days/);
  assert.match(read('src/app/methodology/page.tsx'),/never zero/);
 });
 test('external account links open safely',()=>{
- for(const f of ['src/components/RankingTable.tsx','src/fifi/pages/creator.tsx'])assert.match(read(f),/rel="noopener noreferrer"/,f);
+ for(const f of ['src/components/RankingTable.tsx','src/fifi/pages/creator-profile.tsx'])assert.match(read(f),/rel="noopener noreferrer"/,f);
 });
 test('pictures are only shown from known image hosts',()=>{
  for(const f of ['src/components/RankingTable.tsx','src/components/PublishedWheel.tsx','src/components/PublishedRows.tsx'])assert.match(read(f),/safeCreatorImage/,f);
