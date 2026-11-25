@@ -1,5 +1,6 @@
 import {buildObservationBatch,SATELLITE_BATCH_SIZE,type SatelliteBatchObservation,type SatelliteProviderId} from './bulk.mjs';
 import {writeHub,reportHub} from './hub.js';
+import {publishInsights} from './insights-service.js';
 import {airQualityUrl,parseAirQuality,weatherUrl,parseWeather,RIVER_POINTS,floodUrl,parseFlood,gdacsUrl,parseGdacs,SWPC_KP_URL,parseKp,CELESTRAK_STATIONS_URL,parseCelestrak,OPENAQ_LOCATIONS_URL,openaqLatestUrl,parseOpenaqLocations,parseOpenaqLatest,GIBS_EXTRA_LAYERS,gibsLayerProbeUrl} from './open-data.mjs';
 import {minimumIntervalMinutes,effectiveIntervalMinutes} from './policy.mjs';
 import {readLimitedText} from './guard.mjs';
@@ -156,7 +157,7 @@ async function ingestOpenaq(){
 const CONNECTORS:Record<string,()=>Promise<number>>={firms:ingestFirms,power:ingestPower,eonet:ingestEonet,usgs:ingestUsgs,gibs:ingestGibs,gpm:ingestGpm,
  airquality:ingestAirQuality,weather:ingestWeather,flood:ingestFlood,gdacs:ingestGdacs,swpc:ingestSwpc,celestrak:ingestCelestrak,openaq:ingestOpenaq};
 export async function ingest(id:string){if(!allowed[id]?.implemented||!CONNECTORS[id])throw Error('Provider connector has not been implemented');if(!configured(id))throw Error('Provider server credentials are not configured');
- try{const count=await CONNECTORS[id]();await query('UPDATE satellite.providers SET last_attempt_at=now(),last_success_at=now(),refresh_requested_at=NULL,last_error=NULL WHERE id=$1',[id]);await redis.incr('satellite:epoch').catch(()=>undefined);await reportHub(id,true);return count;}
+ try{const count=await CONNECTORS[id]();await query('UPDATE satellite.providers SET last_attempt_at=now(),last_success_at=now(),refresh_requested_at=NULL,last_error=NULL WHERE id=$1',[id]);await redis.incr('satellite:epoch').catch(()=>undefined);await reportHub(id,true);if(id==='airquality'||id==='weather')void publishInsights();return count;}
  catch(e){const message=e instanceof Error?e.message:'Unknown provider error';await query('UPDATE satellite.providers SET last_attempt_at=now(),refresh_requested_at=NULL,last_error=$2 WHERE id=$1',[id,message.slice(0,200)]);await reportHub(id,false,message);throw e;}
 }
 // Database claim prevents concurrent API/worker refresh, even across processes.

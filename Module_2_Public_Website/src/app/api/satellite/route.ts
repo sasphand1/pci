@@ -6,13 +6,13 @@ const perCity:Record<string,(c:string)=>string>={
  'rainfall':c=>`rainfall/latest?city=${c}`,'solar':c=>`solar/latest?city=${c}`,
  'rainfall-history':c=>`rainfall/history?city=${c}&days=30`,'solar-history':c=>`solar/history?city=${c}&days=30`,
  'air-quality':c=>`air-quality/latest?city=${c}`,'air-quality-history':c=>`air-quality/history?city=${c}&hours=48`,
- 'weather':c=>`weather/latest?city=${c}`
+ 'weather':c=>`weather/latest?city=${c}`,'insights':c=>`insights?city=${c}`
 };
 /** Region-wide metrics → Module 1 path. */
 const regional:Record<string,string>={
  'natural-events':'natural-events/latest','earthquakes':'earthquakes/latest','imagery':'imagery/latest','gpm-imagery':'gpm/imagery/latest',
  'imagery-layers':'imagery/layers','alerts':'alerts/latest','rivers':'rivers/latest','space-weather':'space-weather/latest',
- 'air-stations':'air-stations/latest','orbits':'orbits/latest'
+ 'air-stations':'air-stations/latest','orbits':'orbits/latest','rankings':'rankings/weekly'
 };
 /** Read-only same-origin proxy. A fixed allowlist of metrics prevents arbitrary URLs or SSRF. */
 export async function GET(req:NextRequest){

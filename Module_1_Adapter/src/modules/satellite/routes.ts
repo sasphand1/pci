@@ -6,6 +6,7 @@ import {handler,HttpError} from '../../lib/errors.js';
 import {requireAdmin,roles,audit,type AdminIdentity} from '../auth/auth.js';
 import {providers,configured,satelliteTick} from './service.js';
 import {setHubEnabled} from './hub.js';
+import {insightsSnapshot} from './insights-service.js';
 import {RIVER_POINTS,gibsLayerTemplate,gibsMaxZoom,aqiBand} from './open-data.mjs';
 import type {SatelliteMetric} from './bulk.mjs';
 import {PROVIDERS,CITIES} from './catalog.mjs';
@@ -25,7 +26,7 @@ const list=async(metric:SatelliteMetric,location:string,n:number,backDays:number
  },30);
 };
 satellitePublicRoutes.use((_req,res,next)=>{res.setHeader('Cache-Control','public, max-age=60, stale-while-revalidate=180');next();});
-satellitePublicRoutes.get('/openapi.json',(_req,res)=>res.json({openapi:'3.0.3',info:{title:'PCI Satellite Intelligence API',version:'0.4.0',description:'Public read-only satellite-derived estimates. NASA POWER rainfall is not GPM; NASA FIRMS anomalies are not confirmed fires.'},servers:[{url:'/api/v1/satellite'}],paths:Object.fromEntries(['/sources','/fires/latest','/fires/history','/rainfall/latest','/rainfall/history','/solar/latest','/solar/history','/natural-events/latest','/earthquakes/latest','/imagery/latest','/imagery/layers','/gpm/imagery/latest','/air-quality/latest','/air-quality/history','/air-stations/latest','/weather/latest','/rivers/latest','/alerts/latest','/space-weather/latest','/orbits/latest'].map(p=>[p,{get:{summary:`Satellite data ${p}`,responses:{'200':{description:'Data with provenance, observation time and limitations'},'429':{description:'Rate limit exceeded'}}}}]))}));
+satellitePublicRoutes.get('/openapi.json',(_req,res)=>res.json({openapi:'3.0.3',info:{title:'PCI Satellite Intelligence API',version:'0.5.0',description:'Public read-only satellite-derived estimates. NASA POWER rainfall is not GPM; NASA FIRMS anomalies are not confirmed fires.'},servers:[{url:'/api/v1/satellite'}],paths:Object.fromEntries(['/sources','/fires/latest','/fires/history','/rainfall/latest','/rainfall/history','/solar/latest','/solar/history','/natural-events/latest','/earthquakes/latest','/imagery/latest','/imagery/layers','/gpm/imagery/latest','/insights','/rankings/weekly','/air-quality/latest','/air-quality/history','/air-stations/latest','/weather/latest','/rivers/latest','/alerts/latest','/space-weather/latest','/orbits/latest'].map(p=>[p,{get:{summary:`Satellite data ${p}`,responses:{'200':{description:'Data with provenance, observation time and limitations'},'429':{description:'Rate limit exceeded'}}}}]))}));
 satellitePublicRoutes.get('/sources',handler(async(_req,res)=>{res.json({data:(await providers()).map(p=>({id:p.id,label:p.label,kind:p.kind,enabled:p.enabled,implemented:p.implemented,lastSuccessAt:p.last_success_at,lastAttemptAt:p.last_attempt_at,refreshQueued:Boolean(p.refresh_requested_at),available:p.enabled&&p.implemented&&p.configured&&Boolean(p.last_success_at)&&Date.now()-new Date(p.last_success_at!).getTime()<Math.max(172800000,p.refresh_minutes*120000)}))});}));
 satellitePublicRoutes.get('/fires/latest',handler(async(req,res)=>{const q=limit.parse(req.query.limit);res.json({data:await list('fire','bounding-box',q,4),meta:{status:'satellite_thermal_detections_not_confirmed_fires',source:'NASA FIRMS',provisional:true}});}));
 satellitePublicRoutes.get('/fires/history',handler(async(req,res)=>{const q=days.parse(req.query.days);res.json({data:await list('fire','bounding-box',200,q),meta:{days:q,source:'NASA FIRMS',provisional:true}});}));
@@ -76,6 +77,16 @@ satellitePublicRoutes.get('/rivers/latest',handler(async(_req,res)=>{
  const rows=await list('river_flow','all',200,3,'flood') as Array<Record<string,unknown>>;const seen=new Set<string>();
  const data=rows.filter(x=>{const id=String(x.pointId??x.location);if(seen.has(id))return false;seen.add(id);return true;});
  res.json({data,meta:{source:'GloFAS via Open-Meteo',points:Object.keys(RIVER_POINTS).length,modelled:true,notOfficialFloodForecast:true}});
+}));
+// Combined decision cards and weekly city rankings, computed from the stored observations above.
+satellitePublicRoutes.get('/insights',handler(async(req,res)=>{
+ const location=city.parse(req.query.city??'lahore');const snap=await insightsSnapshot();
+ const data=snap.cities[location];
+ res.json({data:data?[{...data,generatedAt:snap.generatedAt}]:[],meta:{city:location,disclaimer:snap.disclaimer,modelled:true,notOfficialWarning:true}});
+}));
+satellitePublicRoutes.get('/rankings/weekly',handler(async(_req,res)=>{
+ const snap=await insightsSnapshot();
+ res.json({data:snap.rankings,meta:{window:'last 7 days',generatedAt:snap.generatedAt,cities:Object.keys(snap.cities).length,disclaimer:snap.disclaimer}});
 }));
 satellitePublicRoutes.get('/alerts/latest',handler(async(_req,res)=>{
  const rows=await list('disaster_alert','bounding-box',100,30,'gdacs') as Array<Record<string,unknown>>;const seen=new Set<string>();

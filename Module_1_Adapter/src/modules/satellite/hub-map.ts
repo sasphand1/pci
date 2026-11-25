@@ -45,3 +45,11 @@ export function hubReadings(provider:string,rows:SatelliteBatchObservation[]):Hu
  return out;
 }
 
+
+/** Combined scores for the hub: Go-Out Score per city and the weekly ranking winners. */
+export function insightReadings(cities:Record<string,{goOut:{score:number;level:string}|null}>,rankings:Array<{id:string;winner:{city:string;value:number|null}|null}>,observedAt:string):HubReading[]{
+ const out:HubReading[]=[];
+ for(const [city,x] of Object.entries(cities))if(x.goOut)out.push(r('city',`city:${city}`,'go_out_score',x.goOut.score,0,observedAt,undefined,x.goOut.level));
+ for(const k of rankings)if(k.winner&&METRIC.test(k.id))out.push(r('ranking',`ranking:${k.id}`,'winner_value',k.winner.value,1,observedAt,undefined,k.winner.city));
+ return out;
+}

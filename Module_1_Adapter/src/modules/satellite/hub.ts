@@ -6,14 +6,18 @@ import {query} from '../../lib/db.js';
 import {logger} from '../../lib/errors.js';
 import {reportSourceResult} from '../ingest/monitor.js';
 import type {SatelliteBatchObservation} from './bulk.mjs';
-import {hubReadings,hubSourceId,KIND,METRIC} from './hub-map.js';
+import {hubReadings,hubSourceId,KIND,METRIC,type HubReading} from './hub-map.js';
 export {hubReadings,hubSourceId};
 
 /** Batched insert into the hub (observations + latest), deduplicated per source/run/entity/metric. */
 export async function writeHub(provider:string,rows:SatelliteBatchObservation[]):Promise<number>{
- const readings=hubReadings(provider,rows).filter(x=>KIND.test(x.entityKind)&&METRIC.test(x.metric)&&x.entityId.length<=300&&(x.value!==null||x.text!==null)&&Number.isFinite(Date.parse(x.observedAt))&&x.scale>=0&&x.scale<=6);
+ return writeHubReadings(hubSourceId(provider),hubReadings(provider,rows));
+}
+/** Writes already-mapped readings (also used for the combined scores source). */
+export async function writeHubReadings(source:string,all:HubReading[]):Promise<number>{
+ const readings=all.filter(x=>KIND.test(x.entityKind)&&METRIC.test(x.metric)&&x.entityId.length<=300&&(x.value!==null||x.text!==null)&&Number.isFinite(Date.parse(x.observedAt))&&x.scale>=0&&x.scale<=6);
  if(!readings.length)return 0;
- const source=hubSourceId(provider);let written=0;
+ let written=0;
  for(let i=0;i<readings.length;i+=500){
   const b=readings.slice(i,i+500);
   const cols={kind:b.map(x=>x.entityKind),id:b.map(x=>x.entityId),metric:b.map(x=>x.metric),

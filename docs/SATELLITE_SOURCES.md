@@ -23,3 +23,20 @@ Removed in v4: Sentinel-1, Sentinel-2, Sentinel-5P, Landsat, ECOSTRESS, SMAP and
 Public API (Module 1, `/api/v1/satellite`): `/air-quality/latest?city=`, `/air-quality/history?city=&hours=`, `/air-stations/latest`, `/weather/latest?city=`, `/rivers/latest`, `/alerts/latest`, `/space-weather/latest`, `/orbits/latest`, `/imagery/layers`, plus the existing fire, rainfall, solar, earthquake, natural-event and imagery routes. OpenAPI: `/api/v1/satellite/openapi.json`.
 
 Licences: Open-Meteo data is free for non-commercial use; a commercial Pulsr needs an Open-Meteo API plan (or direct Copernicus access). Attribute Copernicus/CAMS, GloFAS, NASA, USGS, GDACS, NOAA, CelesTrak and OpenAQ on the page. None of these outputs is an official PMD, NDMA or FFD warning.
+
+## Combined scores (v5)
+
+Built in `Module_1_Adapter/src/modules/satellite/insights.mjs` from stored observations only (enabled sources):
+
+| Card | Inputs | Endpoint |
+|---|---|---|
+| Go-Out Score 0-100 (good / fair / limit / avoid) | CAMS AQI, feels-like max, UV, rain chance | `/insights?city=` |
+| Smog and heatwave watch | hourly AQI (7 days), 7-day forecast | `/insights?city=` |
+| Is my area safe today | GDACS, USGS (300 km, 7 days), FIRMS (50 km), GloFAS (150 km) | `/insights?city=` |
+| Farm: irrigation, spray window, heat stress, river | NASA POWER rain, forecast, GloFAS | `/insights?city=` |
+| Industry: solar, insurers/banks, logistics, power, telecom/GPS, health | all of the above + Kp | `/insights?city=` |
+| Weekly city rankings | 7-day AQI average, peak feels-like, POWER rain, Go-Out Score | `/rankings/weekly` |
+
+Go-Out Scores and ranking winners are written to the Data Hub as source `sat_insights.api` (category satellite)
+after every air-quality or weather collection. None of these are official PMD, NDMA or FFD warnings.
+The globe propagates CelesTrak elements in the browser (`public/satellite-orbits.js`, Kepler + J2): good for a live dot, not for pass predictions.

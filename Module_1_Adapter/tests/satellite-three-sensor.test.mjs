@@ -32,7 +32,7 @@ test('FIRMS UI handles empty observations without inventing hotspots',async()=>{
  assert.match(empty.explanation,/does not establish that no fires occurred/i);
  assert.match(s,/fireInsight=summarizeThermalDetections\(fireRows\)/);
  assert.match(s,/Finding title="Thermal observations" detail=\{fireInsight\.explanation\}/);
- assert.match(s,/<details className=\{styles\.mapDisclosure\}>/);
+ assert.match(s,/<div className=\{styles\.globeFrame\}><iframe ref=\{mapFrame\}/);
  assert.match(s,/fireRows\.filter\(p=>typeof p\.latitude/);
  assert.doesNotMatch(s,/Thermal hotspots \(last 3 days\)/);
  assert.doesNotMatch(s,/No current records/);

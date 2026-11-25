@@ -1,5 +1,5 @@
 import {pool} from './db.js';
-/** Same additive DDL as migrations 104-119 (hub parts); executed at startup (after publication and ingest schemas). */
+/** Same additive DDL as migrations 104-120 (hub parts); executed at startup (after publication and ingest schemas). */
 export const HUB_SCHEMA_SQL = `-- PCI Hub v1 (additive). Monitor state, discrepancies and alert metadata.
 DO $$ BEGIN
   IF to_regclass('public.pipeline_alerts') IS NOT NULL THEN
@@ -439,6 +439,9 @@ INSERT INTO ingest_sources(id,platform,method,enabled,category,expected_hours,la
  ('sat_swpc.api','sat_swpc','api',false,'satellite',5,'NOAA space weather'),
  ('sat_celestrak.api','sat_celestrak','api',false,'satellite',9,'CelesTrak orbits'),
  ('sat_openaq.api','sat_openaq','api',false,'satellite',2,'OpenAQ ground stations')
+ON CONFLICT (id) DO NOTHING;
+INSERT INTO ingest_sources(id,platform,method,enabled,category,expected_hours,label) VALUES
+ ('sat_insights.api','sat_insights','api',false,'satellite',3,'Satellite scores: Go-Out Score and weekly city rankings')
 ON CONFLICT (id) DO NOTHING;
 `;
 export async function ensureHubSchema():Promise<void> {

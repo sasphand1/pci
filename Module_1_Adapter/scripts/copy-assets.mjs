@@ -26,6 +26,7 @@ const runtimeModules=[
   'modules/engine/status.mjs',
   'modules/satellite/catalog.mjs',
   'modules/satellite/open-data.mjs',
+  'modules/satellite/insights.mjs',
   'modules/satellite/guard.mjs',
   'modules/satellite/bulk.mjs',
   'modules/satellite/feeds.mjs',
