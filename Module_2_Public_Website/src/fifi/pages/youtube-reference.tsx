@@ -1,96 +1,98 @@
 'use client';
 import {useState,type ReactNode} from 'react';
 import {Link} from '@/fifi/router';
-import {Pic} from '@/fifi/components/page-elements';
 import type {CreatorProfileProps} from './creator';
-import {bucketPoints,dailyRates,averagePace,type BucketPoint} from './bucket-chart-data.mjs';
-import {observedPortfolio,type Band} from './youtube-profile-data.mjs';
+import {observedPortfolio,cohortSeries,groupedDaily,VIEW_BANDS,type Band,type Point,type Rate,type AgePoint,type Peer} from './youtube-profile-data.mjs';
 
-const fmt=(v:number|null|undefined)=>v==null?'—':Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:2}).format(v);
+const fmt=(v:number|null|undefined,digits=2)=>v==null?'—':Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:digits}).format(v);
 const exact=(v:number|null|undefined)=>v==null?'Not available':Intl.NumberFormat('en-US',{maximumFractionDigits:2}).format(v);
 const pct=(v:number|null)=>v==null?'—':v.toFixed(1)+'%';
+const signed=(v:number|null,compact=false)=>v==null?'—':(v>=0?'+':'')+(compact?fmt(v):exact(v));
 const date=(v:string|number|null|undefined)=>v==null||!Number.isFinite(new Date(v).getTime())?'Not available':new Date(v).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
-const shortDate=(v:number)=>new Date(v).toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'});
+const time=(v:number|string)=>new Date(v).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'UTC'}).replace(',','');
+const shortDate=(v:string|number)=>new Date(v).toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'});
 const sum=(values:(number|null)[])=>values.length&&values.every(v=>v!==null)?values.reduce<number>((a,b)=>a+(b??0),0):null;
+const videoUrl=(id:string)=>'https://www.youtube.com/watch?v='+encodeURIComponent(id);
+const color=(i:number)=>`yr-color-${i%6}`;
+const COMPARE=['Subscribers','Lifetime views','Public videos','Daily views gained','Video view bands'] as const;
+const headings=['Subscriber comparison','Lifetime view comparison','Public video comparison','Daily view-gain comparison','Tracked videos by view band'];
 function MetricCard({label,value,note}:{label:string;value:string;note:string}){return <article className="yr-metric"><span>{label}</span><strong>{value}</strong><small>{note}</small></article>}
-function ChartCard({title,subtitle,children}:{title:string;subtitle:string;children:ReactNode}){return <article className="yr-card"><h3>{title}</h3><p className="yr-sub">{subtitle}</p>{children}</article>}
-function Empty({children='Not enough recorded data yet.'}:{children?:ReactNode}){return <div className="yr-empty">{children}</div>}
-function LineChart({points,area=false,bars=false,rank=false}:{points:BucketPoint[];area?:boolean;bars?:boolean;rank?:boolean}){
- const [selected,setSelected]=useState<string|null>(null);
- const p=points;if(p.length<(bars?1:2))return <Empty/>;
- const min=Math.min(...p.map(x=>x.value)),max=Math.max(...p.map(x=>x.value));
- const low=bars?0:min,high=max===low?low+1:max;
+function Chip({children}:{children:ReactNode}){return <span className="yr-chip">{children}</span>}
+function ChartCard({title,eyebrow,badge,value,children,note}:{title:string;eyebrow?:string;badge?:string;value?:string;children:ReactNode;note?:string}){return <article className="yr-card"><div className="yr-card-head"><div>{eyebrow&&<p className="yr-eyebrow">{eyebrow}</p>}{value===undefined?<h3>{title}</h3>:<><p className="yr-chart-label">{title}</p><strong className="yr-chart-value">{value}</strong></>}</div>{badge&&<Chip>{badge}</Chip>}</div>{children}{note&&<p className="yr-chart-note">{note}</p>}</article>}
+function Empty({children='Not enough recorded observations yet.'}:{children?:ReactNode}){return <div className="yr-empty">{children}</div>}
+function LineChart({points,label,zero=false}:{points:Point[];label:string;zero?:boolean}){
+ const [focus,setFocus]=useState<string|null>(null);const p=points;
+ if(p.length<2)return <Empty/>;
+ const min=Math.min(...p.map(x=>x.value)),max=Math.max(...p.map(x=>x.value)),range=max-min||Math.max(Math.abs(max)*.1,1);
+ const low=zero?Math.min(0,min):Math.max(0,min-range*.25),high=Math.max(low+1,max+range*.2);
  const start=p[0].time,end=p.at(-1)!.time;
- const x=(v:number)=>end===start?265:58+(v-start)/(end-start)*414;
- const y=(v:number)=>rank?20+(v-low)/(high-low)*135:155-(v-low)/(high-low)*135;
+ const x=(v:number)=>end===start?260:60+(v-start)/(end-start)*455;
+ const y=(v:number)=>174-(v-low)/(high-low)*150;
  const line=p.map(q=>`${x(q.time)},${y(q.value)}`).join(' ');
- const ticks=Array.from({length:5},(_,i)=>low+(high-low)*i/4);
- return <><svg className="yr-plot" viewBox="0 0 490 185" role="img" aria-label="Recorded observations chart">
- {ticks.map((v,i)=><g key={i}><line x1="58" x2="472" y1={y(v)} y2={y(v)} className="yr-gridline"/><text x="50" y={y(v)+3} textAnchor="end">{rank?'#'+Math.round(v):fmt(v)}</text></g>)}
- {area&&!bars&&<polygon className="yr-area" points={`${x(start)},155 ${line} ${x(end)},155`}/>}
- {!bars&&<polyline className="yr-line" points={line}/>}
- {p.map((q,i)=>{const label=`${date(q.time)}: ${rank?'#':''}${exact(q.value)}${q.from===undefined?'':` · from ${date(q.from)}`}`;return <g key={q.time} tabIndex={0} aria-label={label} onFocus={()=>setSelected(label)} onBlur={()=>setSelected(null)} onPointerEnter={()=>setSelected(label)} onPointerLeave={()=>setSelected(null)} onClick={()=>setSelected(label)}><title>{label}</title>{bars?<rect className="yr-bar" x={x(q.time)-Math.min(9,180/p.length)} y={y(q.value)} width={Math.min(18,360/p.length)} height={Math.max(0,155-y(q.value))} rx="2"/>:<><circle cx={x(q.time)} cy={y(q.value)} r="8" fill="transparent"/><circle className="yr-dot" cx={x(q.time)} cy={y(q.value)} r={i===p.length-1?3.5:2.4}/></>}</g>})}
- <text x="58" y="175">{shortDate(start)}</text>{end!==start&&<text x="472" y="175" textAnchor="end">{shortDate(end)}</text>}
- </svg><p className="yr-chart-note" aria-live="polite">{selected??`${p.length} recorded ${bars?'intervals':'observations'}`}</p></>;
+ return <><svg className="yr-plot yr-line-plot" viewBox="0 0 535 207" role="img" aria-label={label}>
+ {Array.from({length:4},(_,i)=>low+(high-low)*i/3).map((v,i)=><g key={i}><line x1="60" x2="515" y1={y(v)} y2={y(v)} className="yr-gridline"/><text x="51" y={y(v)+4} textAnchor="end">{fmt(v,3)}</text></g>)}
+ <polygon className="yr-area" points={`${x(start)},174 ${line} ${x(end)},174`}/><polyline className="yr-line" points={line}/>
+ {p.map(q=>{const desc=`${time(q.time)} UTC: ${exact(q.value)}`;return <g key={q.time} tabIndex={0} aria-label={desc} onFocus={()=>setFocus(desc)} onBlur={()=>setFocus(null)} onPointerEnter={()=>setFocus(desc)} onPointerLeave={()=>setFocus(null)}><title>{desc}</title><circle cx={x(q.time)} cy={y(q.value)} r="9" fill="transparent"/><circle className="yr-dot" cx={x(q.time)} cy={y(q.value)} r="4"/></g>})}
+ <text x="60" y="195">{date(start)}</text><text x="515" y="195" textAnchor="end">{date(end)}</text></svg>{focus&&<p className="yr-hover" aria-live="polite">{focus}</p>}</>;
 }
-function HorizontalBars({rows}:{rows:{label:string;value:number;self?:boolean;href?:string}[]}){
+function HorizontalBars({rows,compact=false}:{rows:{label:string;value:number|null;color:number;href?:string;key:string}[];compact?:boolean}){
  if(!rows.length)return <Empty>No comparable recorded values available.</Empty>;
- const max=Math.max(1,...rows.map(r=>r.value));return <div className="yr-bars">{rows.map((r,i)=><div className={'yr-bar-row'+(r.self?' yr-self':'')} key={i}><span title={r.label}>{r.href?<a href={r.href} target="_blank" rel="noopener noreferrer">{r.label}</a>:r.label}</span><svg viewBox="0 0 100 12" preserveAspectRatio="none" role="img" aria-label={`${r.label}: ${exact(r.value)}`}><title>{exact(r.value)}</title><rect className="yr-track" width="100" height="12" rx="2"/><rect className={r.self?'yr-bar-active':'yr-bar'} width={100*r.value/max} height="12" rx="2"/></svg><strong>{fmt(r.value)}</strong></div>)}</div>;
+ const max=Math.max(1,...rows.flatMap(r=>r.value===null?[]:[r.value]));return <div className={'yr-bars'+(compact?' yr-bars-compact':'')}>{rows.map((r,i)=>{const label=`${r.label}: ${exact(r.value)}`;const content=<>{compact&&<span className="yr-index">{i+1}</span>}<span className="yr-row-label" title={r.label}>{r.label}</span><svg viewBox="0 0 100 10" preserveAspectRatio="none" role="img" aria-label={label}><title>{label}</title><rect className="yr-track" width="100" height="10" rx="5"/>{r.value!==null&&<rect className={color(r.color)} width={100*r.value/max} height="10" rx="5"/>}</svg><strong>{fmt(r.value,compact?2:1)}</strong></>;return r.href?<a key={r.key} className="yr-bar-row" href={r.href} target="_blank" rel="noopener noreferrer" aria-label={label}>{content}</a>:<div key={r.key} className="yr-bar-row">{content}</div>})}</div>;
 }
-function BandChart({rows}:{rows:Band[]}){if(!rows.length)return <Empty/>;const max=Math.max(1,...rows.map(r=>r.value));return <svg className="yr-plot yr-band-plot" viewBox="0 0 490 185" role="img" aria-label="Tracked video distribution">{[0,.25,.5,.75,1].map(t=><g key={t}><line x1="53" x2="475" y1={150-t*125} y2={150-t*125} className="yr-gridline"/><text x="46" y={153-t*125} textAnchor="end">{fmt(t*max)}</text></g>)}{rows.map((r,i)=><g key={r.label} tabIndex={0} aria-label={`${r.label}: ${exact(r.value)}`}><title>{r.label}: {exact(r.value)}</title><rect className="yr-bar" x={72+i*83} y={150-r.value/max*125} width="44" height={r.value/max*125} rx="3"/><text x={94+i*83} y="170" textAnchor="middle">{r.label}</text></g>)}</svg>}
+function Scatter({points}:{points:AgePoint[]}){
+ if(!points.length)return <Empty/>;const maxAge=Math.max(1,...points.map(p=>p.days)),maxViews=Math.max(1,...points.map(p=>p.value));
+ const x=(d:number)=>58+455*d/maxAge,y=(v:number)=>265-230*Math.sqrt(v/maxViews); // square-root axis expands dense low-view region, labels match actual scale
+ return <svg className="yr-plot yr-scatter" viewBox="0 0 535 300" role="img" aria-label="Views by actual video age; square-root view axis">
+ {[0,.25,.5,.75,1].map(t=>{const v=t*t*maxViews;return <g key={t}><line x1="58" x2="513" y1={y(v)} y2={y(v)} className="yr-gridline"/><text x="50" y={y(v)+4} textAnchor="end">{fmt(v)}</text></g>})}
+ {points.map(p=><a key={p.videoId} href={videoUrl(p.videoId)} target="_blank" rel="noopener noreferrer" aria-label={`${p.title}: ${exact(p.value)} views, ${p.days.toFixed(1)} days old`}><title>{p.title}: {exact(p.value)} views · {p.days.toFixed(1)} days</title><circle className="yr-scatter-dot" cx={x(p.days)} cy={y(p.value)} r="4.4"/></a>)}
+ <text x="58" y="289">Newer</text><text x="513" y="289" textAnchor="end">Older · {Math.ceil(maxAge)} days</text></svg>;
+}
+function BandChart({rows}:{rows:Band[]}){if(!rows.length)return <Empty/>;const max=Math.max(1,...rows.map(r=>r.value));return <svg className="yr-plot yr-band-plot" viewBox="0 0 535 300" role="img" aria-label="Tracked video distribution">{[.25,.5,.75].map(t=><line key={t} x1="5" x2="530" y1={253-t*190} y2={253-t*190} className="yr-gridline"/>)}{rows.map((r,i)=>{const cx=53+i*107,h=r.value/max*190;return <g key={r.label} tabIndex={0} aria-label={`${r.label}: ${r.value}`}><title>{r.label}: {r.value}</title>{r.value>0&&<path className={color(i)} d={`M${cx-22} 253 V${253-Math.max(0,h-8)} Q${cx-22} ${253-h} ${cx-14} ${253-h} H${cx+14} Q${cx+22} ${253-h} ${cx+22} ${253-Math.max(0,h-8)} V253 Z`}/>}<text className="yr-band-number" x={cx} y="56" textAnchor="middle">{r.value}</text><text x={cx} y="272" textAnchor="middle">{r.label}</text></g>})}<line x1="5" x2="530" y1="284" y2="284" className="yr-gridline"/></svg>}
+function IntervalBars({rates}:{rates:Rate[]}){if(!rates.length)return <Empty/>;const max=Math.max(1,...rates.map(r=>r.value));return <div className="yr-intervals">{rates.slice(-8).map((r,i)=><div className="yr-interval" key={r.time}><div className="yr-interval-date"><strong>{time(r.from)}</strong><span>to {time(r.time)}</span></div><svg viewBox="0 0 100 10" preserveAspectRatio="none" role="img" aria-label={`${fmt(r.value)}/day`}><title>{exact(r.value)} views/day</title><rect width="100" height="10" rx="5" className="yr-track"/><rect width={r.value/max*100} height="10" rx="5" className={color(i)}/></svg><strong>{fmt(r.value)}/day</strong><small>{signed(r.gain)} in {r.hours.toFixed(1)}h</small></div>)}</div>}
+function GroupedBars({peers,groups,distribution=false}:{peers:Peer[];groups:{label:string;values:(number|null)[]}[];distribution?:boolean}){
+ if(!groups.length)return <Empty>No comparable observed intervals available yet.</Empty>;
+ const max=Math.max(1,...groups.flatMap(g=>g.values.filter((n):n is number=>n!==null))),width=Math.max(660,groups.length*(peers.length*14+26)),step=(width-65)/groups.length,bw=Math.min(17,(step-12)/Math.max(peers.length,1));
+ return <><div className="yr-legend">{peers.map((p,i)=><span key={p.slug}><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect className={color(i)} width="12" height="12" rx="3"/></svg>{p.name}</span>)}</div><div className="yr-scroll-plot"><svg className="yr-grouped" viewBox={`0 0 ${width} 255`} width={width} role="img" aria-label={distribution?'Video view bands by creator':'Daily view-gain rates by creator'}>{[0,.25,.5,.75,1].map(t=><g key={t}><line className="yr-gridline" x1="55" x2={width-8} y1={220-t*190} y2={220-t*190}/><text x="47" y={224-t*190} textAnchor="end">{fmt(max*t)}</text></g>)}{groups.map((g,i)=><g key={g.label}>{peers.map((p,j)=>{const n=g.values[j],x=55+i*step+(step-bw*peers.length)/2+j*bw;const label=`${p.name} · ${g.label}: ${n==null?'Not available':exact(n)}`;return <g key={p.slug} tabIndex={0} aria-label={label}><title>{label}</title>{n==null?<line className="yr-missing" x1={x+2} x2={x+bw-2} y1="215" y2="215"/>:<rect className={color(j)} x={x+1} y={220-n/max*190} width={Math.max(1,bw-2)} height={n/max*190} rx="2"/>}</g>})}<text x={55+(i+.5)*step} y="242" textAnchor="middle">{g.label}</text></g>)}</svg></div></>;
+}
 function Observation({label,value,children}:{label:string;value:string;children:ReactNode}){return <article className="yr-observation"><span>{label}</span><strong>{value}</strong><p>{children}</p></article>}
-const COMPARE=['Subscribers','Lifetime views','Public videos','Average daily views gained'] as const;
-export function YouTubeReference({creator,ytRank,ytAccounts,creatorsBucket:bucket,comparison,rankingDate,switcher}:CreatorProfileProps&{switcher?:ReactNode}){
- const [metric,setMetric]=useState<(typeof COMPARE)[number]>('Subscribers');
- const [span,setSpan]=useState(30);
+export function YouTubeReference({creator,ytRank,ytAccounts,creatorsBucket:bucket,comparison,comparisonPeers,rankingDate,switcher}:CreatorProfileProps&{switcher?:ReactNode}){
+ const [metric,setMetric]=useState(0);const [section,setSection]=useState('overview');
  const subs=bucket?bucket.totals.subscribers:sum(ytAccounts.map(a=>a.followers));
  const views=bucket?bucket.totals.views:sum(ytAccounts.map(a=>a.views));
  const totalVideos=bucket?.totals.totalVideos??null;
  const recorded=ytAccounts.map(a=>a.asOf).filter((s):s is string=>!!s).sort().at(-1)??null;
- const vp=bucketPoints(bucket?.history.views??[],span),sp=bucketPoints(bucket?.history.subscribers??[],span),rp=bucketPoints(bucket?.history.ranks??[],span);
- const rates=dailyRates(vp),pace=averagePace(vp);
- const portfolio=observedPortfolio(bucket?.video.videos??[]);
- const handle=bucket?.primaryHandle||ytAccounts[0]?.handle||'';
- const ownMetric=metric==='Lifetime views'?views:metric==='Public videos'?totalVideos:pace;
- const comparable=metric==='Subscribers'?comparison.map(c=>({label:c.name,value:c.value,self:c.self})):ownMetric==null?[]:[{label:creator.name,value:ownMetric,self:true}];
- const top=portfolio.known.slice(0,5).flatMap(v=>v.currentViews===null?[]:[{label:v.title,value:v.currentViews,href:'https://www.youtube.com/watch?v='+encodeURIComponent(v.videoId)}]);
- return <main className="page-main pci-yt-reference">
- <div className="yr-breadcrumb"><Link to="/creators">← Creator Index</Link><span>/</span> Creator profile</div>
- {switcher}
- <section className="yr-hero">
-  <div className="yr-identity"><Pic src={creator.image} alt={creator.name} className="yr-avatar"/><div><div className="yr-eyebrow"><span className="yr-youtube-mark">▶</span> YOUTUBE CREATOR PROFILE</div><h1>{creator.name}</h1><p className="yr-handle">{handle||'YouTube'} <span>·</span> {creator.category} <span>·</span> Pakistan</p><div className="yr-rank">PCI rank {ytRank??'Not ranked'}</div></div></div>
-  <div className="yr-fresh"><span>DATA AS OF</span><strong>{date(recorded)}</strong><small>Source: PCI Data Hub</small></div>
- </section>
- <div className="yr-kpis">
-  <MetricCard label="Subscribers" value={fmt(subs)} note="YouTube public count"/>
-  <MetricCard label="Lifetime views" value={fmt(views)} note="Total channel views"/>
-  <MetricCard label="Public videos" value={fmt(totalVideos)} note="Public channel uploads"/>
-  <MetricCard label="Average daily views gained" value={fmt(pace)} note={`Observed intervals · ${span} days`}/>
- </div>
- <div className="yr-notice"><span className="yr-info">i</span><div><strong>Baseline &amp; coverage notice</strong><p>Figures reflect recorded public YouTube observations. Historical growth requires sufficient observations; unavailable values are not estimated. {bucket?.historyAccountCount&&bucket.historyAccountCount>1?`History covers ${handle||'the primary channel'}; totals cover linked YouTube accounts.`:''}</p></div></div>
- <div className="yr-kpis">
-  <MetricCard label="Tracked views" value={fmt(portfolio.total)} note={bucket?`${portfolio.known.length} videos with observed views`:'Video observations unavailable'}/>
-  <MetricCard label="Top-video share" value={pct(portfolio.topShare)} note="Share of tracked views"/>
-  <MetricCard label="Top-five share" value={pct(portfolio.topFiveShare)} note="Share of tracked views"/>
-  <MetricCard label="Median tracked video" value={fmt(portfolio.median)} note="Median views in tracked sample"/>
- </div>
- <section className="yr-section"><div className="yr-section-head"><div><h2>Growth signals</h2><p>Observed channel performance and ranking history</p></div><div className="yr-tabs" role="group" aria-label="Observation window">{[7,30,90].map(n=><button type="button" key={n} aria-pressed={span===n} onClick={()=>setSpan(n)}>{n}D</button>)}</div></div><div className="yr-grid">
-  <ChartCard title="Daily views gained" subtitle="Observed daily view-gain rate"><LineChart points={rates} bars/></ChartCard>
-  <ChartCard title="Lifetime view growth" subtitle="Recorded channel view count"><LineChart points={vp} area/></ChartCard>
-  <ChartCard title="Subscriber history" subtitle="Recorded public subscriber count"><LineChart points={sp}/></ChartCard>
-  <ChartCard title="PCI rank movement" subtitle="Published YouTube subscriber ranking"><LineChart points={rp} rank/></ChartCard>
+ const cohort=bucket?.video.cohort??null,series=cohortSeries(cohort),baseline=series.points[0]?.time,last=series.points.at(-1)?.time;
+ const portfolio=observedPortfolio(bucket?.video.videos??[]),handle=bucket?.primaryHandle||ytAccounts[0]?.handle||'';
+ const own:Peer={slug:creator.slug,name:creator.name,subscribers:subs,views,publicVideos:totalVideos,cohort,bands:portfolio.bands};
+ const peers:Peer[]=comparisonPeers?.length?[...comparisonPeers]:comparison.map(c=>c.self?{...own,subscribers:c.value}:{slug:c.slug,name:c.name,subscribers:c.value,views:null,publicVideos:null,cohort:null,bands:[]});
+ if(!peers.some(p=>p.slug===creator.slug))peers.push(own);
+ const top=portfolio.known.slice(0,7).flatMap((v,i)=>v.currentViews===null?[]:[{key:v.videoId,label:v.title,value:v.currentViews,color:i,href:videoUrl(v.videoId)}]);
+ const daily=groupedDaily(peers),bandGroups=VIEW_BANDS.map(label=>({label,values:peers.map(p=>p.bands.find(b=>b.label===label)?.value??null)}));
+ const cohortLabel=cohort?`${cohort.videoCount}-video cohort`:'Tracked cohort';
+ const latest=last===undefined?date(recorded):`${date(last)} ${new Date(last).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'UTC'})} UTC`;
+ const labelFor=(v:number|null)=>v===null?'—':`${fmt(v)}/day`;
+ return <main className="pci-yt-reference" id="overview">
+ <header className="yr-masthead"><div className="yr-mast-inner"><Link to="/creators" className="yr-brand"><b>fifi<span>♥</span></b><span>CREATOR INTELLIGENCE</span></Link><nav className="yr-nav" aria-label="Creator intelligence sections">{[['overview','Overview'],['growth','Growth'],['comparison','Comparison'],['insights','Insights']].map(([id,title])=><a key={id} href={'#'+id} aria-current={section===id?'location':undefined} onClick={()=>setSection(id)}>{title}</a>)}</nav><Chip>PCI live data</Chip></div></header>
+ <div className="yr-content">{switcher}
+ <section className="yr-hero"><div className="yr-identity"><div className="yr-avatar" role="img" aria-label={creator.name}>{creator.name.trim().split(/\s+/).slice(0,2).map(n=>n[0]?.toUpperCase()).join('')}</div><div><p className="yr-eyebrow">YouTube creator · Captured PCI data</p><div className="yr-name-row"><h1>{creator.name}</h1><Chip>PCI {ytRank??'Not ranked'}</Chip></div><p className="yr-handle">{ytAccounts[0]?.url?<a href={ytAccounts[0].url} target="_blank" rel="noopener noreferrer">{handle||'YouTube'} ↗</a>:handle||'YouTube'}</p></div></div><div className="yr-fresh"><strong><i/>Data starts {baseline===undefined?'—':date(baseline)+' UTC'}</strong><small>Latest: {latest}</small></div></section>
+ <div className="yr-kpis yr-primary-kpis"><MetricCard label="Subscribers" value={fmt(subs)} note="Current public channel total"/><MetricCard label="Lifetime views" value={fmt(views,3)} note="Current public channel total"/><MetricCard label="Public videos" value={totalVideos===null?'—':exact(totalVideos)} note="Current published catalogue"/><MetricCard label="Average daily views gained" value={fmt(series.pace)} note={baseline===undefined?'Fixed-cohort history unavailable':`Since ${shortDate(baseline)} · consistent ${cohort?.videoCount}-video cohort`}/></div>
+ <div className="yr-notice"><span className="yr-info">i</span><p><strong>{baseline===undefined?'Baseline unavailable:':`${shortDate(baseline)} is the baseline:`}</strong> {cohort?`Daily gain is calculated from ${cohort.videoCount} videos observed in each selected round.`:'The fixed-cohort series requires repeated recorded video observations.'} {portfolio.total===null?'Latest tracked totals are unavailable.':`The ${exact(portfolio.total)} latest-view sum covers ${portfolio.known.length} videos and remains a separate, non-synchronized figure.`}</p></div>
+ <div className="yr-kpis yr-secondary-kpis"><MetricCard label="Tracked views" value={fmt(portfolio.total)} note={`Latest available sum across ${portfolio.known.length} videos`}/><MetricCard label="Top-video share" value={pct(portfolio.topShare)} note="Concentration in the #1 tracked video"/><MetricCard label="Top-five share" value={pct(portfolio.topFiveShare)} note="How much the leading five contribute"/><MetricCard label="Median tracked video" value={fmt(portfolio.median)} note="Latest available views"/></div>
+ <section className="yr-section" id="growth"><div className="yr-section-head"><div><p className="yr-eyebrow">Performance movement{baseline===undefined?'':` · Since ${shortDate(baseline)}`}</p><h2>Growth signals from {series.points.length?`${series.points.length} observation rounds`:'recorded observations'}</h2></div><p>Compact lines reveal direction without overstating the short observation window.</p></div><div className="yr-grid yr-growth-grid">
+ <ChartCard title="Total tracked views" value={series.delta===null?'—':`${signed(series.delta)} · ${series.change===null?'—':signed(series.change)+'%'} observed`} badge={cohortLabel} note={series.points.length?`${series.points.length} snapshots · ${exact(series.points[0].value)} → ${exact(series.points.at(-1)?.value)} views · UTC`:undefined}><LineChart points={series.points} label="Total tracked views"/></ChartCard>
+ <ChartCard title="Cumulative views gained" value={signed(series.delta,true)} badge="From baseline"><LineChart points={series.cumulative} label="Cumulative views gained" zero/></ChartCard>
+ <ChartCard title="Daily view velocity" value={labelFor(series.pace)} badge="24h rate"><LineChart points={series.rates} label="Daily view velocity"/></ChartCard>
+ <ChartCard title="Median video views" value={fmt(series.medians.at(-1)?.value)} badge={cohortLabel}><LineChart points={series.medians} label="Median video views"/></ChartCard>
+ </div><p className="yr-chart-note">All four lines use the same fixed video cohort and baseline. Missing observations are not filled or interpolated.</p></section>
+ <section className="yr-section" id="comparison"><div className="yr-section-head"><div><p className="yr-eyebrow">Current platform scale</p><h2>Creator comparison</h2></div><p>Switch metrics to compare like-for-like channel KPIs.</p></div><article className="yr-card yr-comparison"><div className="yr-tabs" role="group" aria-label="Comparison metric">{COMPARE.map((m,i)=><button type="button" key={m} aria-pressed={metric===i} onClick={()=>setMetric(i)}>{m}</button>)}</div><div className="yr-card-head"><div><h3>{headings[metric]}</h3><p className="yr-sub">{['Current public totals · millions','Current public lifetime totals','Current published catalogue','24-hour rate by interval ending UTC day','Distribution of tracked video performance'][metric]}</p></div><Chip>{['Millions','Lifetime totals','Videos','Daily rates','Vertical bars'][metric]}</Chip></div>
+ {metric<3?<HorizontalBars rows={peers.map((p,i)=>({key:p.slug,label:p.name,value:metric===0?p.subscribers:metric===1?p.views:p.publicVideos,color:i}))}/>:metric===3?<GroupedBars peers={peers} groups={daily.map(g=>({label:shortDate(g.day+'T00:00:00Z'),values:g.values}))}/>:<GroupedBars peers={peers} groups={bandGroups} distribution/>}<p className="yr-chart-note">{metric===0?`Published PCI ranking · ${date(rankingDate)}.`:metric===3?'Same creator colors across tabs. Rates use actual observed intervals; missing creator-days are marked, never invented.':metric===4?'Same creator colors across tabs. Counts cover each creator’s observed video sample.':'Latest available public channel totals; missing figures remain unavailable.'}</p></article></section>
+ <section className="yr-section" id="insights"><div className="yr-grid yr-portfolio-grid">
+ <ChartCard title="Views by video age" eyebrow="Tracked portfolio" badge={`${portfolio.dated} videos`} note="Each point is an observed video. It reveals breakout performance and whether older uploads continue to dominate. View axis uses square-root scaling."><Scatter points={portfolio.age}/></ChartCard>
+ <ChartCard title="Tracked videos by view band" eyebrow="Performance distribution" badge="Vertical bars" note="A compact distribution shows whether portfolio performance is broad or concentrated in a few breakout videos."><BandChart rows={portfolio.bands}/></ChartCard>
+ <ChartCard title="Daily view-gain rate by interval" eyebrow={`View velocity${baseline===undefined?'':` · Since ${shortDate(baseline)}`}`} badge={cohortLabel} note="Each bar converts the actual gain between two snapshots into a 24-hour rate. No missing calendar-day values are interpolated."><IntervalBars rates={series.rates}/></ChartCard>
+ <ChartCard title="Top-performing tracked videos" eyebrow="Latest available snapshots" badge="Horizontal bars" note="Each bar uses the latest available observation. Click any bar or title to open the original YouTube video."><HorizontalBars rows={top} compact/></ChartCard>
  </div></section>
- <section className="yr-section"><div className="yr-section-head"><div><h2>Creator comparison</h2><p>Compare public YouTube metrics across PCI creators</p></div></div><article className="yr-card yr-comparison"><div className="yr-tabs" role="group" aria-label="Comparison metric">{COMPARE.map(m=><button type="button" key={m} aria-pressed={metric===m} onClick={()=>setMetric(m)}>{m}</button>)}</div><HorizontalBars rows={comparable}/><p className="yr-chart-note">{metric==='Subscribers'?`Published PCI ranking · ${date(rankingDate)}`:'Peer values not connected yet; only the selected creator is shown when recorded.'}</p></article></section>
- <section className="yr-section"><div className="yr-section-head"><div><h2>Portfolio analytics</h2><p>Analysis of recorded videos in the tracked sample</p></div></div><div className="yr-grid">
-  <ChartCard title="Views by video age" subtitle="Observed views grouped by age at observation"><BandChart rows={portfolio.age}/><p className="yr-chart-note">{portfolio.dated} videos with known publication and observation dates</p></ChartCard>
-  <ChartCard title="Tracked videos by view band" subtitle="Distribution of tracked video performance"><BandChart rows={portfolio.bands}/><p className="yr-chart-note">{portfolio.known.length} videos with observed views</p></ChartCard>
-  <ChartCard title="Daily view-gain rate by interval" subtitle="Actual elapsed days between valid observations"><LineChart points={rates}/></ChartCard>
-  <ChartCard title="Top-performing tracked videos" subtitle="Ranked by observed lifetime video views"><HorizontalBars rows={top}/></ChartCard>
- </div></section>
- <section className="yr-section"><div className="yr-section-head"><div><h2>Provenance &amp; validation</h2><p>Source-backed observations and data coverage</p></div></div><div className="yr-provenance">
-  <Observation label="Channel observations" value={exact(bucket?vp.length:null)}>Recorded view readings within the selected period.</Observation>
-  <Observation label="Video sample coverage" value={exact(bucket?portfolio.known.length:null)}>Tracked videos with a recorded public view count.</Observation>
-  <Observation label="Latest channel observation" value={date(recorded)}>Latest available linked YouTube account observation.</Observation>
- </div><p className="yr-foot">Source: PCI Data Hub / Creators Bucket. YouTube public subscriber counts are rounded by YouTube. Daily rates use elapsed observation intervals; no missing history is backfilled.</p></section>
- </main>;
+ <section className="yr-card yr-provenance-card"><p className="yr-eyebrow">Provenance &amp; validation</p><h3>Source-backed observations{baseline===undefined?'':` starting ${date(baseline)}`}</h3><div className="yr-provenance"><Observation label="Channel snapshot" value={`${fmt(subs)} subscribers · ${fmt(views,3)} views`}>Current public channel analytics.</Observation><Observation label="Video dataset" value={`${cohort?exact(cohort.observationCount)+' cohort observations · ':''}${portfolio.known.length} videos`}>{cohort?`${series.points.length} observation rounds; ${cohort.videoCount}-video complete cohort.`:'Fixed-cohort history not available yet.'}</Observation><Observation label="Observed" value={baseline===undefined?'Not available':`${date(baseline)} – ${date(last)} UTC`}>Dates come directly from recorded PCI data.</Observation><Observation label="Data discipline" value="No earnings or invented history">Missing observations and unsupported metrics are not drawn.</Observation></div></section>
+ <footer className="yr-foot"><span>PCI · Creator Intelligence</span><span>Source: PCI Hub / Creators Bucket</span></footer>
+ </div></main>;
 }

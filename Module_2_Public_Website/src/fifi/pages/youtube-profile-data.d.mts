@@ -1,5 +1,11 @@
 import type {BucketVideo} from '../../lib/creators-bucket';
 export type Band={label:string;value:number};
-export const AGE_BANDS:string[];
+export type Cohort={videoCount:number;observationCount:number;points:{at:string;total:number;median:number}[]};
+export type Point={time:number;value:number};
+export type Rate=Point&{from:number;gain:number;hours:number};
+export type AgePoint={videoId:string;title:string;days:number;value:number};
+export type Peer={slug:string;name:string;subscribers:number|null;views:number|null;publicVideos:number|null;cohort:Cohort|null;bands:Band[]};
 export const VIEW_BANDS:string[];
-export function observedPortfolio(videos:BucketVideo[]):{known:BucketVideo[];total:number|null;median:number|null;topShare:number|null;topFiveShare:number|null;age:Band[];bands:Band[];dated:number};
+export function observedPortfolio(videos:BucketVideo[]):{known:BucketVideo[];total:number|null;median:number|null;topShare:number|null;topFiveShare:number|null;age:AgePoint[];bands:Band[];dated:number};
+export function cohortSeries(cohort:Cohort|null|undefined):{points:Point[];medians:Point[];cumulative:Point[];rates:Rate[];pace:number|null;delta:number|null;change:number|null};
+export function groupedDaily(peers:Peer[]):{day:string;values:(number|null)[]}[];

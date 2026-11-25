@@ -6,6 +6,7 @@ import {pubGet,type PubPersonDetail,type PubRanking} from '@/lib/public';
 import {FifiPage} from '@/fifi/FifiPage';
 import {CreatorProfilePage} from '@/fifi/pages/creator';
 import type {RealCreator} from '@/fifi/lib/real';
+import {observedPortfolio,type Peer} from '@/fifi/pages/youtube-profile-data.mjs';
 const valid=(s:string)=>/^[a-z0-9-]{2,60}$/.test(s);
 export async function generateMetadata({params}:{params:Promise<{slug:string}>}):Promise<Metadata>{
  const {slug}=await params;
@@ -34,9 +35,18 @@ export default async function CreatorPage({params,searchParams}:{params:Promise<
  const ytPosition=p.positions.find(x=>x.scope==='youtube.subscribed');
  const ownSubs=ytPosition?.value??null;
  const comparison=top.some(x=>x.self)||ownSubs===null?top:[...top,{slug:p.slug,name:p.displayName,value:ownSubs,self:true}];
+ // Compare at most five YouTube creators, including the selected creator. Read only the existing public profile API.
+ const peerSeeds=top.some(x=>x.self)?top:[...top.slice(0,4),{slug:p.slug,name:p.displayName,value:ownSubs,self:true}];
+ const comparisonPeers:Peer[]=ytAccounts.length?await Promise.all(peerSeeds.map(async seed=>{
+  const detail=seed.self?p:await pubGet<PubPersonDetail>(`/people/${encodeURIComponent(seed.slug)}`).catch(()=>null);
+  const bucket=detail?.creatorsBucket??null;
+  const yt=detail?.accounts.filter(a=>a.platform==='youtube')??[];
+  const total=(field:'followers'|'views')=>yt.length&&yt.every(a=>typeof a[field]==='number')?yt.reduce((n,a)=>n+(a[field]??0),0):null;
+  return {slug:seed.slug,name:seed.name,subscribers:seed.value??(bucket?bucket.totals.subscribers:total('followers')),views:bucket?bucket.totals.views:total('views'),publicVideos:bucket?.totals.totalVideos??null,cohort:bucket?.video.cohort??null,bands:observedPortfolio(bucket?.video.videos??[]).bands};
+ })):[];
  const a=p.analytics;
  // Allowlist public display fields before crossing the server/client boundary.
  const analytics=a?{history:a.history,growth:a.growth,video:a.video,historyAccountCount:a.historyAccountCount}:null;
  const platforms=[...new Set(p.accounts.map(x=>x.platform).filter((x):x is 'youtube'|'instagram'|'tiktok'=>x==='youtube'||x==='instagram'||x==='tiktok'))];
- return <FifiPage><CreatorProfilePage platforms={platforms} initialPlatform={initialPlatform} creator={creator} rank={best?`#${best.rank}`:'Not ranked'} rankLabel={best?.label??'PCI ranking'} accounts={accounts} ytAccounts={ytAccounts} analytics={analytics} creatorsBucket={p.creatorsBucket??null} ytRank={ytPosition?`#${ytPosition.rank}`:'Not ranked'} comparison={comparison} rankingDate={ytRanking?.publishedAt??null}/></FifiPage>;
+ return <FifiPage><CreatorProfilePage platforms={platforms} initialPlatform={initialPlatform} creator={creator} rank={best?`#${best.rank}`:'Not ranked'} rankLabel={best?.label??'PCI ranking'} accounts={accounts} ytAccounts={ytAccounts} analytics={analytics} creatorsBucket={p.creatorsBucket??null} ytRank={ytPosition?`#${ytPosition.rank}`:'Not ranked'} comparison={comparison} comparisonPeers={comparisonPeers} rankingDate={ytRanking?.publishedAt??null}/></FifiPage>;
 }

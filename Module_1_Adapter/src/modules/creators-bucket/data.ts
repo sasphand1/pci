@@ -1,4 +1,5 @@
 import {query} from '../../lib/db.js';
+import {fixedVideoCohort} from './cohort.mjs';
 import {videoMilestones,velocityPerHour,breakoutFactor} from '../creator-analytics/engine.js';
 import {series,daily,gain,average,engagement,likeRate,periodRates,DAY,type Point} from './logic.mjs';
 
@@ -50,7 +51,7 @@ export async function creatorsBucket(personId:string,now=new Date()){
  for(const v of videos){if(v.publishedAt&&v.views24h!==null)v.breakoutFactor=breakoutFactor(v.views24h,videos.filter(p=>p.publishedAt&&p.publishedAt<v.publishedAt!&&p.views24h!==null).map(p=>p.views24h!));}
  const known=videos.filter(v=>v.currentViews!==null),topVideos=[...known].sort((a,b)=>b.currentViews!-a.currentViews!).slice(0,10).map(v=>({videoId:v.videoId,title:v.title,views:v.currentViews!,publishedAt:v.publishedAt}));
  const posts30d=sumMetric('posts');
- return {source:'PCI Hub / Creators Bucket',asOf:stamp,primaryHandle:primary.handle,accountStats,historyAccountCount:accounts.length,history:{views,subscribers,ranks},growth:{views:growth(primary.views),subscribers:growth(primary.subscribers,true)},weeklyViews:periodRates(views,7,n),monthlyViews:periodRates(views,30,n),totals:{subscribers:sumMetric('subscribers'),views:sumMetric('views'),totalVideos:sumMetric('totalVideos'),posts30d,publishingFrequency:posts30d===null?null:posts30d/30},video:{sampledVideos:known.length,averageViews:average(videos.map(v=>v.currentViews)),averageLikes:average(videos.map(v=>v.likes)),averageComments:average(videos.map(v=>v.comments)),averageEngagement:average(videos.map(v=>v.engagementRate)),averageLikeRate:average(videos.map(v=>v.likeRate)),likesCoverage:videos.filter(v=>v.likes!==null).length,commentsCoverage:videos.filter(v=>v.comments!==null).length,engagementCoverage:videos.filter(v=>v.engagementRate!==null).length,topVideos,videos}};
+ return {source:'PCI Hub / Creators Bucket',asOf:stamp,primaryHandle:primary.handle,accountStats,historyAccountCount:accounts.length,history:{views,subscribers,ranks},growth:{views:growth(primary.views),subscribers:growth(primary.subscribers,true)},weeklyViews:periodRates(views,7,n),monthlyViews:periodRates(views,30,n),totals:{subscribers:sumMetric('subscribers'),views:sumMetric('views'),totalVideos:sumMetric('totalVideos'),posts30d,publishingFrequency:posts30d===null?null:posts30d/30},video:{cohort:fixedVideoCohort(readings,content,n),sampledVideos:known.length,averageViews:average(videos.map(v=>v.currentViews)),averageLikes:average(videos.map(v=>v.likes)),averageComments:average(videos.map(v=>v.comments)),averageEngagement:average(videos.map(v=>v.engagementRate)),averageLikeRate:average(videos.map(v=>v.likeRate)),likesCoverage:videos.filter(v=>v.likes!==null).length,commentsCoverage:videos.filter(v=>v.comments!==null).length,engagementCoverage:videos.filter(v=>v.engagementRate!==null).length,topVideos,videos}};
 }
 
 /** Admin-only inventory of this sub-bucket. Counts are coverage, not creator metrics. */

@@ -17,6 +17,7 @@ import { dirname, extname, resolve } from 'node:path';
 // Every production runtime asset imported by compiled files must be copied explicitly.
 const runtimeModules=[
   'modules/creators-bucket/logic.mjs',
+  'modules/creators-bucket/cohort.mjs',
   'modules/events/classifier.mjs',
   'modules/youtube/normalizers.mjs',
   'modules/ranking/rank.mjs',

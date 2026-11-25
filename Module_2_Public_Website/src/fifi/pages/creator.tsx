@@ -1,6 +1,7 @@
 'use client';
 import {useState,type ReactNode} from 'react';
 import {YouTubeReference} from './youtube-reference';
+import type {Peer} from './youtube-profile-data.mjs';
 import {Link} from '@/fifi/router';
 import {Pic} from '@/fifi/components/page-elements';
 import type {RealCreator} from '@/fifi/lib/real';
@@ -16,7 +17,7 @@ export type CreatorProfileProps={creator:RealCreator;rank:string;rankLabel:strin
  ytAccounts:{handle:string;url:string|null;followers:number|null;views:number|null;posts30d:number|null;asOf:string|null}[];
  analytics:Pick<PubCreatorAnalytics,'history'|'growth'|'video'|'historyAccountCount'>|null;
  creatorsBucket?:PubCreatorsBucket|null;ytRank?:string;
- comparison:{slug:string;name:string;value:number;self:boolean}[];rankingDate:string|null;
+ comparison:{slug:string;name:string;value:number;self:boolean}[];comparisonPeers?:Peer[];rankingDate:string|null;
  platforms?:ProfilePlatform[];initialPlatform?:string|null};
 
 const fmt=(v:number|string|null|undefined)=>v==null?'Not available':typeof v==='string'?v:new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:2}).format(v);
