@@ -1,6 +1,7 @@
 import { lookup } from 'node:dns/promises';
 import { request } from 'node:https';
 import { sniffImage } from '../ingest/avatar-cache-rules.js';
+import { authorizedWebsitePhotos } from './image-authority.js';
 import { MAX_IMAGE_BYTES, publicIPv4, safeSource, commonsQuery, allowedCommonsLicense, extractWebsiteImages, commonsPhotoTitle, identityWords } from './image-rules.mjs';
 
 // DNS is resolved once and the validated IPv4 address is pinned for the actual TLS connection.
@@ -56,17 +57,19 @@ export async function discoverCommons(name:string,city:string,area?:string|null,
 }
 
 
-export type ImageCandidate={title:string;sourceUrl:string;permissionUrl:string;attribution:string;licence:string;licenceUrl:string|null;origin?:string;sourcePage?:string};
+export type ImageCandidate={title:string;sourceUrl:string;permissionUrl:string;attribution:string;licence:string;licenceUrl:string|null;origin?:string;sourcePage?:string;autoAuthorized?:true};
 export type ImageDiscovery={candidates:ImageCandidate[];diagnostics:string[];status:'found'|'none'|'failed'};
 // The result is only a review queue. Website images have no assumed licence or attribution.
-export async function discoverRestaurantImages(name:string,city:string,area?:string|null,manualWebsite?:string):Promise<ImageDiscovery>{
+export async function discoverRestaurantImages(name:string,city:string,area?:string|null,manualWebsite?:string,address?:string|null):Promise<ImageDiscovery>{
  const diagnostics:string[]=[];let successful=0;
  const website=manualWebsite;
  const commonsTask=(async()=>{try{let c=await discoverCommons(name,city,area);successful++;if(!c.length&&identityWords(name).length)c=await discoverCommons(name,city,area,true);diagnostics.push(`Commons: ${c.length} photo candidates`);return c.map(x=>({...x,origin:'Wikimedia Commons'}));}catch(e){diagnostics.push(`Commons: ${errorCode(e)}`);return [];}})();
- const siteTask=(async()=>{
+ const siteTask=(async():Promise<ImageCandidate[]>=>{
   if(!website){diagnostics.push('Website: no supplied or discovered URL');return [];}
   const url=website;try{const r=await boundedHttps(url,500000,'text/html');if(r.type!=='text/html')throw new Error('NOT_HTML');const c=extractWebsiteImages(r.body.toString('utf8'),url,name);successful++;diagnostics.push(`Website: ${c.length} non-logo image candidates`);
-   return c.map(x=>({title:x.label||`${name} — ${x.kind} image candidate`,sourceUrl:x.url,permissionUrl:'',attribution:'',licence:'',licenceUrl:null,sourcePage:url,origin:'Website supplied or identified; identity and rights unverified'}));
+   const authorized=authorizedWebsitePhotos(r.body.toString('utf8'),url,name,address??null);
+   diagnostics.push(`Website: ${authorized.length} explicitly licensed branch-matched candidates`);
+   return [...authorized,...c.filter(x=>!authorized.some(a=>a.sourceUrl===x.url)).map(x=>({title:x.label||`${name} - ${x.kind} image candidate`,sourceUrl:x.url,permissionUrl:'',attribution:'',licence:'',licenceUrl:null,sourcePage:url,origin:'Website supplied or identified; identity and rights unverified'}))];
   }catch(e){diagnostics.push(`Website: ${errorCode(e)}`);return [];}
  })();
  const [site,commons]=await Promise.all([siteTask,commonsTask]);const unique=new Map<string,ImageCandidate>();for(const c of [...site,...commons])if(!unique.has(c.sourceUrl))unique.set(c.sourceUrl,c);

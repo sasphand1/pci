@@ -18,6 +18,7 @@ import {fillInstagramAvatars} from '../ingest/avatar-fill.js';
 import {fillGraphInstagramAvatars} from '../ingest/graph-avatar-fill.js';
 import {cacheInstagramAvatars} from '../ingest/avatar-cache.js';
 import {collectLocalPlaces} from '../local/collect.js';
+import {fillRestaurantHttpPhotos} from '../local/image-autofill.js';
 import {pruneRankRuns} from '../publish/service.js';
 import {cleanupRetention,enqueueSync,ensureFreshness,recoverStalledJobs,takeNextJob,performSync} from './service.js';
 
@@ -118,6 +119,10 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
  }));
  // Keep our own copy of Instagram pictures (image servers only, no Meta API quota).
  tasks.push(cron.schedule('10,40 * * * *',()=>{void cacheInstagramAvatars({limit:20}).catch(err=>logger.warn({err},'Avatar cache unavailable'));}));
+ // Independent HTTP photo worker: bounded batches, no public visitor triggers.
+ const httpPhotos=()=>{if(stopped||process.env.PCI_RESTAURANT_HTTP_AUTOFILL!=='true')return;void fillRestaurantHttpPhotos().then(r=>logger.info(r,'Restaurant HTTP photo collection')).catch(err=>logger.warn({err},'Restaurant HTTP photo collection failed'));};
+ tasks.push(cron.schedule('5 */2 * * *',httpPhotos));
+ httpPhotos();
  // Weekly Top 20 restaurants for Karachi, Lahore and Islamabad (Google Places). Needs GOOGLE_PLACES_API_KEY; off unless PCI_LOCAL_PLACES_AUTOFILL=true.
  tasks.push(cron.schedule('0 3 * * 1',()=>{if(process.env.PCI_LOCAL_PLACES_AUTOFILL!=='true')return;void collectLocalPlaces().then(r=>logger.info(r,'Local places collection')).catch(err=>logger.warn({err},'Local places collection unavailable'));},{timezone:'Asia/Karachi'}));
  tasks.push(cron.schedule('*/15 * * * *',()=>{void runHubCheck().catch(err=>logger.warn({err},'Hub check unavailable'));}));

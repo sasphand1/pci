@@ -10,6 +10,7 @@ import { isPlaceId } from './rules.mjs';
 import { collectAuthorizedImage, discoverRestaurantImages } from './image-http.js';
 import { MAX_CACHE_BYTES, safeSource } from './image-rules.mjs';
 import { fetchGooglePhoto, GooglePhotoError } from './google-photo.js';
+import { fillRestaurantHttpPhotos } from './image-autofill.js';
 import { discoverGoogleWebsite, publicGooglePhotosEnabled, reserveGooglePhoto, photoWidth } from './photo-policy.js';
 import { MAX_AGE_DAYS, MIN_REVIEWS, TOP_N } from './rules.mjs';
 
@@ -51,8 +52,13 @@ restaurantImageAdminRoutes.post('/google-preview',handler(async(req,res)=>{
   res.json({data});
  }catch(e){if(e instanceof GooglePhotoError)throw new HttpError(e.status,e.code,e.message);throw e;}
 }));
+restaurantImageAdminRoutes.post('/http-fill',roles('owner','editor'),handler(async(_req,res)=>{
+ await limit('http-fill',30);
+ const data=await fillRestaurantHttpPhotos({manual:true,limit:1});
+ res.json({data});
+}));
 restaurantImageAdminRoutes.get('/',handler(async(_req,res)=>{
- const r=await query(`SELECT p.place_id AS "placeId",p.name,p.city,p.area,c.source_url AS "sourceUrl",c.permission_url AS "permissionUrl",c.attribution,c.licence,c.size_bytes AS "sizeBytes",c.fetched_at AS "fetchedAt",COALESCE(d.candidates,'[]'::jsonb) AS candidates,d.last_result AS "discoveryStatus",COALESCE(d.diagnostics,'[]'::jsonb) AS diagnostics FROM local_places p LEFT JOIN restaurant_image_cache c USING(place_id) LEFT JOIN restaurant_image_discovery d ON d.place_id=p.place_id ORDER BY p.city,p.score DESC,p.name LIMIT 1000`);
+ const r=await query(`SELECT p.place_id AS "placeId",p.name,p.city,p.area,c.source_url AS "sourceUrl",c.permission_url AS "permissionUrl",c.attribution,c.licence,c.size_bytes AS "sizeBytes",c.fetched_at AS "fetchedAt",COALESCE(d.candidates,'[]'::jsonb) AS candidates,d.last_result AS "discoveryStatus",COALESCE(d.diagnostics,'[]'::jsonb) AS diagnostics,s.result AS "httpResult",s.detail AS "httpDetail",s.last_attempt_at AS "httpAttemptAt" FROM local_places p LEFT JOIN restaurant_image_cache c USING(place_id) LEFT JOIN restaurant_image_discovery d ON d.place_id=p.place_id LEFT JOIN restaurant_image_http_state s ON s.place_id=p.place_id ORDER BY p.city,p.score DESC,p.name LIMIT 1000`);
  res.json({data:r.rows});
 }));
 restaurantImageAdminRoutes.post('/discover',handler(async(req,res)=>{

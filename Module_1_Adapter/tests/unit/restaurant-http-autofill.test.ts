@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { authorizedWebsitePhotos } from '../../src/modules/local/image-authority.js';
+const base='https://example.com/branch';
+const address='123 Long Market Road, Lahore, Pakistan';
+const restaurant={ '@type':'Restaurant',name:'Example Bistro',address:{streetAddress:'123 Long Market Road',addressLocality:'Lahore',addressCountry:'Pakistan'},image:{'@type':'ImageObject',contentUrl:'/exterior.jpg',license:'https://creativecommons.org/licenses/by/4.0/',creator:{name:'Example Photographer'}}};
+const html=(value:unknown)=>`<script type="application/ld+json">${JSON.stringify(value)}</script>`;
+test('exact branch and image-specific commercial reuse licence qualify',()=>{const r=authorizedWebsitePhotos(html(restaurant),base,'Example Bistro',address);assert.equal(r.length,1);assert.equal(r[0].sourceUrl,'https://example.com/exterior.jpg');assert.equal(r[0].autoAuthorized,true);assert.equal(r[0].attribution,'Example Photographer');});
+test('ordinary public web photo is not permission',()=>{assert.deepEqual(authorizedWebsitePhotos('<meta property="og:image" content="/photo.jpg">',base,'Example Bistro',address),[]);});
+test('different branches, wrong name and missing address fail closed',()=>{for(const a of ['125 Long Market Road, Lahore, Pakistan',null])assert.equal(authorizedWebsitePhotos(html(restaurant),base,'Example Bistro',a).length,0);assert.equal(authorizedWebsitePhotos(html(restaurant),base,'Another Restaurant',address).length,0);});
+test('noncommercial, missing creator, third party host and logo excluded',()=>{for(const image of [{...restaurant.image,license:'https://creativecommons.org/licenses/by-nc/4.0/'},{...restaurant.image,creator:{}},{...restaurant.image,contentUrl:'https://elsewhere.example/exterior.jpg'},{...restaurant.image,contentUrl:'/logo.png'}])assert.equal(authorizedWebsitePhotos(html({...restaurant,image}),base,'Example Bistro',address).length,0);});
