@@ -4,6 +4,7 @@ import {YoutubeClient,chunks,countOrNull,dateOrNull,thumbUrl} from '../youtube/c
 import type {ObservationPoint} from './engine.js';
 import {videoMilestones,velocityPerHour,breakoutFactor} from './engine.js';
 import {recordObservation} from '../ingest/store.js';
+import {safeChannelBanner} from '../creators-bucket/profile-analytics.mjs';
 
 const MAX_CHANNELS=150;
 const VIDEOS_PER_CHANNEL=50;
@@ -39,6 +40,10 @@ export async function collectCreatorVideoSnapshots():Promise<{channels:number;vi
         if(rawCount!==null&&Number.isSafeInteger(Number(rawCount))&&Number(rawCount)>=0){
           try{await recordObservation({sourceId:'youtube.api',sourceRunRef:'channel-video-count:'+observedAt,accountId:account.id,entityKind:'account',entityId:'youtube:'+account.external_id,metric:'video_count',valueNumeric:Number(rawCount),valueText:null,accuracy:'exact',observedAt,metadata:{origin:'youtube-channel-statistics'}});}
           catch(err){logger.warn({err,accountId:account.id},'Creators Bucket channel video count unavailable');}
+        }
+        if(channel&&/^UC[A-Za-z0-9_-]{22}$/.test(account.external_id)){
+          try{await recordObservation({sourceId:'youtube.api',sourceRunRef:'video-worker-banner:'+observedAt,accountId:account.id,entityKind:'account',entityId:'youtube:'+account.external_id,metric:'channel_banner_url',valueNumeric:null,valueText:safeChannelBanner(channel.brandingSettings?.image?.bannerExternalUrl)??'unavailable',accuracy:'exact',observedAt,metadata:{origin:'youtube-branding-settings'}});}
+          catch{logger.warn({accountId:account.id},'Creators Bucket channel banner unavailable');}
         }
         const uploads=channel?.contentDetails?.relatedPlaylists?.uploads;
         if(!uploads){failed++;continue;}

@@ -1,6 +1,7 @@
 import {query} from '../../lib/db.js';
 import {missingPublicCounts} from './public-count.js';
 import {fixedVideoCohort} from './cohort.mjs';
+import {profileAnalytics,safeChannelBanner} from './profile-analytics.mjs';
 import {videoMilestones,velocityPerHour,breakoutFactor} from '../creator-analytics/engine.js';
 import {series,daily,gain,average,engagement,likeRate,periodRates,DAY,type Point} from './logic.mjs';
 
@@ -30,6 +31,9 @@ export async function creatorsBucket(personId:string,now=new Date()){
  const official=await missingPublicCounts(missing);
  for(const a of snapshots){const reading=official.get(a.id);if(reading)a.totalVideos.push(reading);}
  const primary=snapshots[0];
+ // Official cover belongs to the primary YouTube account; no live request on a profile read.
+ const banner=(await query<{value_text:string|null}>(`SELECT value_text FROM ingest_latest WHERE entity_kind='account' AND entity_id=$1 AND metric='channel_banner_url' AND source_id='youtube.api' AND accuracy='exact' AND observed_at BETWEEN $2::timestamptz-interval '7 days' AND $2::timestamptz`,['youtube:'+primary.external_id,stamp])).rows[0];
+ const bannerUrl=safeChannelBanner(banner?.value_text);
  const views=daily(primary.views,n),subscribers=daily(primary.subscribers,n);
  const accountStats=snapshots.map(a=>({handle:a.handle,subscribers:fresh(a.subscribers.at(-1),n),views:fresh(a.views.at(-1),n),posts30d:fresh(a.posts.at(-1),n),totalVideos:fresh(a.totalVideos.at(-1),n)}));
  const growth=(p:Point[],decrease=false)=>({'24h':gain(p,1,n,decrease),'7d':gain(p,7,n,decrease),'30d':gain(p,30,n,decrease)});
@@ -58,7 +62,9 @@ export async function creatorsBucket(personId:string,now=new Date()){
  for(const v of videos){if(v.publishedAt&&v.views24h!==null)v.breakoutFactor=breakoutFactor(v.views24h,videos.filter(p=>p.publishedAt&&p.publishedAt<v.publishedAt!&&p.views24h!==null).map(p=>p.views24h!));}
  const known=videos.filter(v=>v.currentViews!==null),topVideos=[...known].sort((a,b)=>b.currentViews!-a.currentViews!).slice(0,10).map(v=>({videoId:v.videoId,title:v.title,views:v.currentViews!,publishedAt:v.publishedAt}));
  const posts30d=sumMetric('posts');
- return {source:'PCI Hub / Creators Bucket',asOf:stamp,primaryHandle:primary.handle,accountStats,historyAccountCount:accounts.length,history:{views,subscribers,ranks},growth:{views:growth(primary.views),subscribers:growth(primary.subscribers,true)},weeklyViews:periodRates(views,7,n),monthlyViews:periodRates(views,30,n),totals:{subscribers:sumMetric('subscribers'),views:sumMetric('views'),totalVideos:sumMetric('totalVideos'),posts30d,publishingFrequency:posts30d===null?null:posts30d/30},video:{cohort:fixedVideoCohort(readings,content,n),sampledVideos:known.length,averageViews:average(videos.map(v=>v.currentViews)),averageLikes:average(videos.map(v=>v.likes)),averageComments:average(videos.map(v=>v.comments)),averageEngagement:average(videos.map(v=>v.engagementRate)),averageLikeRate:average(videos.map(v=>v.likeRate)),likesCoverage:videos.filter(v=>v.likes!==null).length,commentsCoverage:videos.filter(v=>v.comments!==null).length,engagementCoverage:videos.filter(v=>v.engagementRate!==null).length,topVideos,videos}};
+ const cohort=fixedVideoCohort(readings,content,n);
+ const profile=profileAnalytics(videos,cohort,subscribers);
+ return {source:'PCI Hub / Creators Bucket',asOf:stamp,primaryHandle:primary.handle,bannerUrl,accountStats,historyAccountCount:accounts.length,history:{views,subscribers,ranks},growth:{views:growth(primary.views),subscribers:growth(primary.subscribers,true)},weeklyViews:periodRates(views,7,n),monthlyViews:periodRates(views,30,n),totals:{subscribers:sumMetric('subscribers'),views:sumMetric('views'),totalVideos:sumMetric('totalVideos'),posts30d,publishingFrequency:posts30d===null?null:posts30d/30},profile,video:{cohort,sampledVideos:known.length,averageViews:average(videos.map(v=>v.currentViews)),averageLikes:average(videos.map(v=>v.likes)),averageComments:average(videos.map(v=>v.comments)),averageEngagement:average(videos.map(v=>v.engagementRate)),averageLikeRate:average(videos.map(v=>v.likeRate)),likesCoverage:videos.filter(v=>v.likes!==null).length,commentsCoverage:videos.filter(v=>v.comments!==null).length,engagementCoverage:videos.filter(v=>v.engagementRate!==null).length,topVideos,videos}};
 }
 
 /** Admin-only inventory of this sub-bucket. Counts are coverage, not creator metrics. */

@@ -7,6 +7,7 @@ export type YoutubeChannel={
  id:string; snippet?:{title?:string,description?:string,customUrl?:string,publishedAt?:string,thumbnails?:Record<string,{url:string}>};
  statistics?:{subscriberCount?:string,hiddenSubscriberCount?:boolean,viewCount?:string,videoCount?:string};
  contentDetails?:{relatedPlaylists?:{uploads?:string}};
+ brandingSettings?:{image?:{bannerExternalUrl?:string}};
 };
 export type YoutubeVideo={
  id:string; snippet?:{channelId?:string,title?:string,description?:string,publishedAt?:string,thumbnails?:Record<string,{url:string}>};
@@ -39,7 +40,7 @@ export class YoutubeClient {
   }
   async channels(ids:string[]):Promise<YoutubeChannel[]>{
     if(ids.length>50)throw new Error('channels batch exceeds 50');
-    const d=await this.get<{items?:YoutubeChannel[]}>('channels',{part:'snippet,statistics,contentDetails',id:ids.join(','),maxResults:'50'});
+    const d=await this.get<{items?:YoutubeChannel[]}>('channels',{part:'snippet,statistics,contentDetails,brandingSettings',id:ids.join(','),maxResults:'50'});
     return d.items??[];
   }
   // PCI_ZIP_1: resolve an @handle to a channel (1 quota unit). Returns null when no channel exists.

@@ -1,6 +1,7 @@
 import { query } from '../../lib/db.js';
 import {monthlyEstimates,instagramSponsorScenarios,personAnalytics} from '../creator-analytics/data.js';
 import {creatorsBucket} from '../creators-bucket/data.js';
+import {profileAudience} from '../creators-bucket/profile-analytics.mjs';
 import {logger} from '../../lib/errors.js';
 import { FRESHNESS_DAYS_DEFAULT } from '../../engine/index.js';
 import { safeAvatarUrl } from '../../providers/avatar.js';
@@ -132,7 +133,7 @@ export async function personDetail(slug: string) {
     FROM person_categories mine JOIN person_categories shared ON shared.category_id=mine.category_id
     JOIN people p2 ON p2.id=shared.person_id WHERE mine.person_id=$1 AND p2.id<>$1
     ORDER BY p2.display_name,p2.slug LIMIT 4`,[id]);
-  return { slug, displayName: base.displayName, avatarUrl: base.avatarUrl, categories: base.categories, accounts, positions, analytics, creatorsBucket:bucket, similarCreators:similar.rows };
+  return { slug, displayName: base.displayName, avatarUrl: base.avatarUrl, categories: base.categories, accounts, positions, analytics, creatorAudience:profileAudience(accounts), creatorsBucket:bucket, similarCreators:similar.rows };
 }
 
 /** Hall of fame: the last published ranking of each week or month, top N holders, newest period first. */

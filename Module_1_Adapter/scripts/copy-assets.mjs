@@ -18,6 +18,7 @@ import { dirname, extname, resolve } from 'node:path';
 const runtimeModules=[
   'modules/creators-bucket/logic.mjs',
   'modules/creators-bucket/cohort.mjs',
+  'modules/creators-bucket/profile-analytics.mjs',
   'modules/events/classifier.mjs',
   'modules/youtube/normalizers.mjs',
   'modules/ranking/rank.mjs',

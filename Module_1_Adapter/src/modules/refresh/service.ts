@@ -2,6 +2,7 @@ import { query, transaction } from '../../lib/db.js';
 import { logger } from '../../lib/errors.js';
 import { defaultProviders, type ProviderMap } from '../../providers/index.js';
 import { mirrorApiRefresh, recordObservation } from '../ingest/store.js';
+import { safeChannelBanner } from '../creators-bucket/profile-analytics.mjs';
 import { INSTAGRAM_ACCOUNT_SELECTION_SQL, instagramAvatarPrioritySlots } from './avatar-selection.js';
 import type { AccountRef, FetchResult, Outcome, Platform } from '../../providers/types.js';
 import { MAX_ATTEMPTS, backoffMs, isRetryable, normalizeResults, summarizeRun } from './normalize.js';
@@ -88,6 +89,18 @@ async function persist(runId: string, result: FetchResult, attempts: number, obs
         await c.query('ROLLBACK TO SAVEPOINT public_video_count');
         await c.query('RELEASE SAVEPOINT public_video_count');
         logger.warn({err,accountId:result.accountId},'YouTube public video count unavailable');
+      }
+    }
+    // Reuse the normal channel refresh and canonical Hub text observation storage.
+    if (result.outcome === 'ok' && account.platform === 'youtube' && /^UC[A-Za-z0-9_-]{22}$/.test(String(account.external_id)) && result.bannerUrl !== undefined) {
+      await c.query('SAVEPOINT channel_banner');
+      try {
+        await recordObservation({sourceId:'youtube.api',sourceRunRef:'channel-banner:'+runId,accountId:result.accountId,entityKind:'account',entityId:'youtube:'+account.external_id,metric:'channel_banner_url',valueNumeric:null,valueText:safeChannelBanner(result.bannerUrl)??'unavailable',accuracy:'exact',observedAt:observedAt.toISOString(),metadata:{origin:'youtube-branding-settings'}},c);
+        await c.query('RELEASE SAVEPOINT channel_banner');
+      } catch (err) {
+        await c.query('ROLLBACK TO SAVEPOINT channel_banner');
+        await c.query('RELEASE SAVEPOINT channel_banner');
+        logger.warn({accountId:result.accountId},'YouTube channel banner unavailable');
       }
     }
     let avatarWrite: AvatarWrite = null;

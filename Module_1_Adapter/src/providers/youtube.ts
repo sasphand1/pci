@@ -1,5 +1,6 @@
 import type { YoutubeChannel, YoutubeClient } from '../modules/youtube/client.js';
 import { pickAvatar } from './avatar.js';
+import { safeChannelBanner } from '../modules/creators-bucket/profile-analytics.mjs';
 import { classifyProviderError, mapYoutubeStatistics, windowCount, toCount } from './map.js';
 import type { AccountRef, FetchResult, Provider } from './types.js';
 
@@ -41,6 +42,7 @@ export function makeYoutubeProvider(client: Client, now: () => Date = () => new 
             // Reuse the existing channels.list response; no new requests or ranking metrics.
             const publicVideoCount = toCount(ch.statistics?.videoCount);
             if (publicVideoCount !== null) result.publicVideoCount = publicVideoCount;
+            result.bannerUrl = safeChannelBanner(ch.brandingSettings?.image?.bannerExternalUrl);
             const avatar = pickAvatar(ch.snippet?.thumbnails); if (avatar) result.avatarUrl = avatar;
             // Channel statistics are already safe in `result`; a failure here only loses posts_30d.
             try { const p = await postsLast30Days(client, ch, now().getTime()); result.metrics.push({ metric: 'posts_30d', value: p.value, accuracy: 'exact', ...(p.capped ? { capped: true } : {}) }); if (p.capped) result.detail = [result.detail, 'posts_capped'].filter(Boolean).join(','); }
