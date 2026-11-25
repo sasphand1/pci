@@ -17,7 +17,7 @@ function upstreamError(status:number,stage:string):GooglePhotoError {
  return new GooglePhotoError(502,'GOOGLE_PHOTO_UPSTREAM',`Google ${stage} returned HTTP ${status}.`);
 }
 // No content persistence. Fetch photo metadata immediately before one media request.
-export async function fetchGooglePhoto(placeId:string,key:string,reserve:(stage:'details'|'media')=>Promise<void>,fetcher:typeof fetch=fetch):Promise<GooglePhotoPreview>{
+export async function fetchGooglePhoto(placeId:string,key:string,reserve:(stage:'details'|'media')=>Promise<void>,fetcher:typeof fetch=fetch,width=640):Promise<GooglePhotoPreview>{
  if(!/^[A-Za-z0-9_-]{10,200}$/.test(placeId))throw new GooglePhotoError(400,'INVALID_PLACE_ID','Invalid place ID.');
  const root='https://places.googleapis.com/v1/places/';
  const request=async(url:string,headers:Record<string,string>,stage:string)=>{
@@ -34,7 +34,7 @@ export async function fetchGooglePhoto(placeId:string,key:string,reserve:(stage:
  const authorAttributions=(Array.isArray(photo.authorAttributions)?photo.authorAttributions:[]).map(record).map(a=>({displayName:typeof a.displayName==='string'?a.displayName:'',uri:trustedUrl(a.uri,'maps'),photoUri:trustedUrl(a.photoUri,'photo')}));
  if(authorAttributions.some(a=>!a.displayName))throw new GooglePhotoError(502,'GOOGLE_PHOTO_ATTRIBUTION','Photo attribution is incomplete.');
  await reserve('media');
- const media=await request(`https://places.googleapis.com/v1/${photo.name}/media?maxWidthPx=640&skipHttpRedirect=true`,{},'photo media');
+ const media=await request(`https://places.googleapis.com/v1/${photo.name}/media?maxWidthPx=${Number.isSafeInteger(width)&&width>=100&&width<=1600?width:640}&skipHttpRedirect=true`,{},'photo media');
  const photoUri=trustedUrl(media.photoUri,'photo');
  if(!photoUri)throw new GooglePhotoError(502,'GOOGLE_PHOTO_RESPONSE','Google returned an unrecognized photo URL.');
  return {photoUri,googleMapsUri:trustedUrl(photo.googleMapsUri,'maps'),authorAttributions};

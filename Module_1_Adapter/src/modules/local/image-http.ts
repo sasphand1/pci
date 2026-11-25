@@ -1,7 +1,7 @@
 import { lookup } from 'node:dns/promises';
 import { request } from 'node:https';
 import { sniffImage } from '../ingest/avatar-cache-rules.js';
-import { MAX_IMAGE_BYTES, publicIPv4, safeSource, commonsQuery, allowedCommonsLicense, extractWebsiteImages, knownWebsite, osmWebsiteQuery, osmWebsiteCandidates, commonsPhotoTitle, identityWords } from './image-rules.mjs';
+import { MAX_IMAGE_BYTES, publicIPv4, safeSource, commonsQuery, allowedCommonsLicense, extractWebsiteImages, commonsPhotoTitle, identityWords } from './image-rules.mjs';
 
 // DNS is resolved once and the validated IPv4 address is pinned for the actual TLS connection.
 // No redirects, cookies, credentials, proxies, or anti-bot bypasses.
@@ -61,15 +61,12 @@ export type ImageDiscovery={candidates:ImageCandidate[];diagnostics:string[];sta
 // The result is only a review queue. Website images have no assumed licence or attribution.
 export async function discoverRestaurantImages(name:string,city:string,area?:string|null,manualWebsite?:string):Promise<ImageDiscovery>{
  const diagnostics:string[]=[];let successful=0;
- const website=manualWebsite||knownWebsite(name,city);
+ const website=manualWebsite;
  const commonsTask=(async()=>{try{let c=await discoverCommons(name,city,area);successful++;if(!c.length&&identityWords(name).length)c=await discoverCommons(name,city,area,true);diagnostics.push(`Commons: ${c.length} photo candidates`);return c.map(x=>({...x,origin:'Wikimedia Commons'}));}catch(e){diagnostics.push(`Commons: ${errorCode(e)}`);return [];}})();
  const siteTask=(async()=>{
-  let sites=website?[website]:[];
-  if(!sites.length){const q=osmWebsiteQuery(name,city);if(q)try{const u=new URL('https://overpass-api.de/api/interpreter');u.searchParams.set('data',q);const r=await boundedHttps(u.href,100000,'application/json');if(r.type!=='application/json')throw new Error('INVALID_OSM_RESPONSE');const data=JSON.parse(r.body.toString('utf8'));if(!Array.isArray(data.elements)||data.remark)throw new Error('OSM_INCOMPLETE');sites=osmWebsiteCandidates(data,name,area);successful++;diagnostics.push(`OpenStreetMap: ${sites.length} website hints (© OpenStreetMap contributors)`);}catch(e){diagnostics.push(`OpenStreetMap: ${errorCode(e)}`);}}
-  // At most one website per discovery, for predictable request volume and timeout.
-  if(!sites.length)return [];
-  const url=sites[0];try{const r=await boundedHttps(url,500000,'text/html');if(r.type!=='text/html')throw new Error('NOT_HTML');const c=extractWebsiteImages(r.body.toString('utf8'),url,name);successful++;diagnostics.push(`Website: ${c.length} non-logo image candidates`);
-   return c.map(x=>({title:x.label||`${name} — ${x.kind} image candidate`,sourceUrl:x.url,permissionUrl:'',attribution:'',licence:'',licenceUrl:null,sourcePage:url,origin:website?'Website supplied or identified; rights unverified':'Website hint from OpenStreetMap; identity and rights unverified'}));
+  if(!website){diagnostics.push('Website: no supplied or discovered URL');return [];}
+  const url=website;try{const r=await boundedHttps(url,500000,'text/html');if(r.type!=='text/html')throw new Error('NOT_HTML');const c=extractWebsiteImages(r.body.toString('utf8'),url,name);successful++;diagnostics.push(`Website: ${c.length} non-logo image candidates`);
+   return c.map(x=>({title:x.label||`${name} — ${x.kind} image candidate`,sourceUrl:x.url,permissionUrl:'',attribution:'',licence:'',licenceUrl:null,sourcePage:url,origin:'Website supplied or identified; identity and rights unverified'}));
   }catch(e){diagnostics.push(`Website: ${errorCode(e)}`);return [];}
  })();
  const [site,commons]=await Promise.all([siteTask,commonsTask]);const unique=new Map<string,ImageCandidate>();for(const c of [...site,...commons])if(!unique.has(c.sourceUrl))unique.set(c.sourceUrl,c);

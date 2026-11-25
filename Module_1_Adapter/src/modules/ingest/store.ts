@@ -21,7 +21,7 @@ const kindRe=/^[a-z][a-z0-9_]{1,31}$/;
 
 
 /** One canonical writer for API and HTTP fields. Fail-closed input validation. */
-export async function recordObservation(input:MetricObservation):Promise<'stored'|'duplicate'|'invalid'> {
+export async function recordObservation(input:MetricObservation,client?:pg.PoolClient):Promise<'stored'|'duplicate'|'invalid'> {
   const scale=input.valueScale??0;
   if(!sourceRe.test(input.sourceId)||!kindRe.test(input.entityKind)||!Number.isInteger(scale)||scale<0||scale>6||
     !metricRe.test(input.metric)||!input.entityId||input.entityId.length>300||
@@ -32,7 +32,7 @@ export async function recordObservation(input:MetricObservation):Promise<'stored
     !Number.isFinite(Date.parse(input.observedAt))||
     Date.parse(input.observedAt)>Date.now()+5*60_000||
     JSON.stringify(input.metadata??{}).length>4000)return 'invalid';
-  return transaction(async tx=>{
+  const write=async(tx:pg.PoolClient):Promise<'stored'|'duplicate'|'invalid'>=>{
     const r=await tx.query(`INSERT INTO ingest_observations
       (source_id,source_run_ref,account_id,entity_kind,entity_id,metric,value_numeric,value_scale,value_text,accuracy,observed_at,raw_metadata)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)
@@ -42,7 +42,8 @@ export async function recordObservation(input:MetricObservation):Promise<'stored
     if(!r.rowCount)return 'duplicate';
     await updateLatest(tx,input);
     return 'stored';
-  });
+  };
+  return client?write(client):transaction(write);
 }
 
 async function updateLatest(tx:pg.PoolClient, v:MetricObservation){

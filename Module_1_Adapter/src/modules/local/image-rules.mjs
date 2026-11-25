@@ -8,7 +8,7 @@ export function publicIPv4(ip){
  const [a,b,c]=ip.split('.').map(Number);
  return !(a===0||a===10||a===127||a>=224||a===169&&b===254||a===172&&b>=16&&b<=31||a===192&&(b===168||b===0||b===88&&c===99)||a===100&&b>=64&&b<=127||a===198&&(b===18||b===19||b===51&&c===100)||a===203&&b===0&&c===113);
 }
-const forbidden=['google.com','googleapis.com','googleusercontent.com','gstatic.com','goo.gl','google.co.uk','google.com.pk','facebook.com','fbcdn.net','instagram.com','cdninstagram.com','tiktok.com','youtube.com','ytimg.com'];
+const forbidden=['google.com','googleapis.com','googleusercontent.com','ggpht.com','gstatic.com','goo.gl','google.co.uk','google.com.pk','facebook.com','fbcdn.net','instagram.com','cdninstagram.com','tiktok.com','youtube.com','ytimg.com'];
 export function safeSource(raw){
  try{const u=new URL(raw);const h=u.hostname.toLowerCase();
  if(u.protocol!=='https:'||u.username||u.password||u.port||u.hash||!h.includes('.')||h.endsWith('.')||isIP(h)||h.includes(':')||h.endsWith('.local')||h.endsWith('.internal')||forbidden.some(d=>h===d||h.endsWith('.'+d))||/(^|\.)google\.[a-z.]+$/.test(h))return null;
@@ -56,25 +56,5 @@ export function extractWebsiteImages(html,base,name){
  for(const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)){if((attrs(m[1]).type??'').toLowerCase()==='application/ld+json')try{walk(JSON.parse(m[2]));}catch{}}
  return [...out.values()].sort((a,b)=>b.score-a.score||a.url.localeCompare(b.url)).slice(0,12);
 }
-// A small independently identified starting directory, not a fabricated global domain search.
-export function knownWebsite(name,city){const n=normalizedName(name),c=normalizedName(city);
- if(c==='islamabad'&&n==='howdy centaurus')return 'https://thecentaurusmall.com/team/howdy/';
- if(c==='lahore'&&n.startsWith('devour johar town'))return 'https://www.devour.com.pk/';
- if(c==='karachi'&&n.startsWith('real spice')&&n.includes('tariq road'))return 'https://realspice.com.pk/';
- return null;
-}
-const boxes={karachi:'24.70,66.80,25.16,67.45',lahore:'31.25,74.05,31.75,74.65',islamabad:'33.45,72.75,33.85,73.40'};
-export function osmWebsiteQuery(name,city){const box=boxes[city],words=identityWords(name);if(!box||!words.length)return null;
- // Use only normalized Unicode letters/digits, not arbitrary Overpass QL input.
- const term=words[0];return `[out:json][timeout:6];(nwr["amenity"~"^(restaurant|cafe|fast_food)$"]["name"~"${term}",i]["website"](${box});nwr["amenity"~"^(restaurant|cafe|fast_food)$"]["name"~"${term}",i]["contact:website"](${box}););out tags 20;`;
-}
-export function osmWebsiteCandidates(data,name,area){const words=identityWords(name),areaWords=normalizedName(area).split(' ').filter(x=>x.length>2);if(!words.length)return [];
- const out=new Map();for(const el of (Array.isArray(data?.elements)?data.elements:[]).slice(0,30)){const t=el.tags??{},n=normalizedName(t.name),tokens=n.split(' ');if(!words.every(w=>tokens.includes(w)))continue;
-  const u=safeSource(t.website??t['contact:website']??'');if(!u)continue;
-  const location=normalizedName([t.name,t['addr:street'],t['addr:suburb'],t['addr:place'],t['addr:district']].filter(Boolean).join(' '));
-  const score=areaWords.filter(w=>location.split(' ').includes(w)).length;
-  const old=out.get(u.href);if(!old||old.score<score)out.set(u.href,{url:u.href,score});
- }
- return [...out.values()].sort((a,b)=>b.score-a.score||a.url.localeCompare(b.url)).slice(0,2).map(x=>x.url);
-}
+// Website discovery is data-driven; no restaurant or city directory here.
 export function commonsPhotoTitle(title,name){const words=identityWords(name),t=normalizedName(title).split(' ');return /\.(?:jpe?g|png|webp)$/i.test(String(title))&&words.length>0&&words.every(w=>t.includes(w));}

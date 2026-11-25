@@ -36,7 +36,7 @@ export default function LocalRestaurantsPage(){
  return <RoleGate roles={['owner','editor']}><AdminPage title="Restaurants" description="The website's Top 20 per city is collected automatically from Google ratings. Here you can add Our picks, hide places that should not appear, and run a collection."
   action={<><button className="btn btn-secondary" onClick={()=>status.reload()}>Reload</button><button className="btn btn-primary" disabled={busy||!s?.keyConfigured} onClick={()=>void collect()}>{busy?'Working…':'Collect now'}</button></>}>
   <Status error={error} ok={ok}/>
-  <RestaurantImages csrf={csrf}/>
+  <RestaurantImages csrf={csrf} canPurge={identity?.role==='owner'}/>
   <DataBlock loading={status.loading} error={status.error} empty={!s}>{s&&<>
    {!s.keyConfigured&&<Card><p role="alert">GOOGLE_PLACES_API_KEY is not set on Module 1, so nothing can be collected or looked up yet.</p></Card>}
    <div className="admin-panel-grid">

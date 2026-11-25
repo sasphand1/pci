@@ -51,7 +51,7 @@ export const platformName=(p:string)=>p==='youtube'?'YouTube':p==='instagram'?'I
 export async function pubCreatorIndex(path:string){return adapterGet<{data:PubCreatorRow[];pagination:{page:number;limit:number;total:number;pages:number};totals:PubCreatorTotals}>(`/api/v1/public/creator-index${path}`);}
 export async function pubCreatorSlugs(slugs:string[],detail=true){const r=await adapterGet<{data:PubCreatorRow[]}>(`/api/v1/public/creator-index?slugs=${encodeURIComponent(slugs.join(','))}&detail=${detail?1:0}`);return r?.data??[];}
 
-export type PubPlace={rank:number|null;placeId:string;name:string;area:string|null;address:string|null;rating:number|null;reviewCount:number|null;mapsUrl:string|null;asOf:string|null;note:string|null;image?:{version:string;attribution:string;licence:string;permissionUrl:string}|null};
+export type PubPlace={rank:number|null;placeId:string;name:string;area:string|null;address:string|null;rating:number|null;reviewCount:number|null;mapsUrl:string|null;asOf:string|null;note:string|null;livePhoto?:boolean;image?:{version:string;attribution:string;licence:string;permissionUrl:string}|null};
 export type PubLocalCity={slug:string;label:string;places:PubPlace[];picks:PubPlace[]};
 export type PubLocal={data:PubLocalCity[];attribution:string;method:string};
 export async function pubLocal(){return adapterGet<PubLocal>('/api/v1/public/local');}

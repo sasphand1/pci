@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { query } from '../../lib/db.js';
 import { handler } from '../../lib/errors.js';
+import { publicGooglePhotosEnabled } from './photo-policy.js';
 import { CITIES, CITY_SLUGS, MAX_AGE_DAYS, MIN_REVIEWS, TOP_N, parseCity } from './rules.mjs';
 
 /** Public, read-only Top 20 restaurants per city. Entries older than the allowed age are hidden, never shown with an invented figure. */
 export const publicLocalRoutes = Router();
-publicLocalRoutes.use((_req, res, next) => { res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600'); next(); });
+publicLocalRoutes.use((_req, res, next) => { res.setHeader('Cache-Control', 'no-store, max-age=0'); next(); });
 
 type Row = { place_id: string; name: string; address: string | null; area: string | null; rating: string; review_count: number; maps_url: string | null; observed_at: Date; note?: string | null };
 const shape = (x: Row, rank: number | null) => ({ rank, placeId: x.place_id, name: x.name, area: x.area, address: x.address, rating: Number(x.rating), reviewCount: x.review_count,
@@ -33,7 +34,7 @@ publicLocalRoutes.get('/', handler(async (req, res) => {
   const ids=cities.flatMap(c=>[...c.places,...c.picks].map(p=>p.placeId));
   const images=ids.length?await query<Photo>('SELECT place_id,sha256,attribution,licence,permission_url FROM restaurant_image_cache WHERE place_id=ANY($1::text[])',[ids]).then(r=>r.rows).catch(()=>[] as Photo[]):[];
   const byId=new Map(images.map(p=>[p.place_id,p]));
-  const withImage=<T extends {placeId:string}>(p:T)=>{const photo=byId.get(p.placeId);return {...p,image:photo?{version:photo.sha256,attribution:photo.attribution,licence:photo.licence,permissionUrl:photo.permission_url}:null};};
+  const withImage=<T extends {placeId:string}>(p:T)=>{const photo=byId.get(p.placeId);return {...p,livePhoto:!photo&&publicGooglePhotosEnabled(),image:photo?{version:photo.sha256,attribution:photo.attribution,licence:photo.licence,permissionUrl:photo.permission_url}:null};};
   const enriched=cities.map(c=>({...c,places:c.places.map(withImage),picks:c.picks.map(withImage)}));
   res.json({ data: enriched, attribution: 'Ratings and review counts from Google Maps', method: 'Bayesian average of rating and review count, minimum 50 reviews' });
 }));

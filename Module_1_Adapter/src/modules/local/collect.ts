@@ -1,4 +1,5 @@
-import { query } from '../../lib/db.js';
+import { query, transaction } from '../../lib/db.js';
+import { lockPlace, isDeleted } from './place-lifecycle.js';
 import { logger } from '../../lib/errors.js';
 import { CITIES, CITY_SLUGS, TOP_N, placeScore, searchPlan, topPlaces } from './rules.mjs';
 import { googleSearcher, placeDetails, toPlace, type Place, type Searcher } from './google.js';
@@ -35,8 +36,7 @@ export async function collectLocalPlaces(opts: { maxRequests?: number; searcher?
     }
     for (const [city, list] of byCity) {
       for (const p of topPlaces(list, 60)) { // keep a deeper pool than 20 so ranks stay stable between weeks
-        await saveLocalPlace(city, p, hubRun);
-        kept++;
+        if(await saveLocalPlace(city, p, hubRun))kept++;
       }
     }
     // Hand-picked restaurants are refreshed by id (their rating can be below the automatic list's minimum on purpose).
@@ -46,7 +46,7 @@ export async function collectLocalPlaces(opts: { maxRequests?: number; searcher?
         requests++;
         try {
           const p = toPlace(await placeDetails(key, pk.place_id), '');
-          if (p && Number.isFinite(p.rating) && Number.isFinite(p.reviews)) { await saveLocalPlace(pk.city, p, hubRun); kept++; }
+          if (p && Number.isFinite(p.rating) && Number.isFinite(p.reviews)) { if(await saveLocalPlace(pk.city, p, hubRun))kept++; }
         } catch (err) { failed++; logger.warn({ err, placeId: pk.place_id }, 'Pick refresh failed'); if (String((err as Error).message).match(/_(401|403|429)$/)) break; }
       }
     }
@@ -65,21 +65,27 @@ export async function collectLocalPlaces(opts: { maxRequests?: number; searcher?
 /** Stores one place with its score and the time it was seen. Existing rows are updated, never duplicated.
  * Every reading also goes into the hub (rating, reviews, score), so restaurants share one store with creators;
  * local_places is the ranked list built from those readings. */
-export async function saveLocalPlace(city: string, p: Place, hubRun = `places:manual:${Date.now()}`): Promise<void> {
+export async function saveLocalPlace(city: string, p: Place, hubRun = `places:manual:${Date.now()}`): Promise<boolean> {
   const score = placeScore(p.rating, p.reviews);
-  if (score === null) return;
+  if (score === null) return false;
+  return transaction(async tx=>{
+  await lockPlace(tx,p.id);
+  if(await isDeleted(tx,p.id))return false;
   const observedAt = new Date().toISOString(), entityId = `google_places:${p.id}`;
   const meta = { city, name: p.name.slice(0, 200), area: p.area || null };
   for (const [metric, value, scale] of [['rating', Math.round(p.rating * 10), 1], ['reviews', p.reviews, 0], ['score', Math.round(score * 1000), 3]] as const) {
     if (!Number.isSafeInteger(value) || value < 0) continue;
-    await recordObservation({ sourceId: 'google_places.api', sourceRunRef: hubRun, accountId: null, entityKind: 'place', entityId, metric,
-      valueNumeric: value, valueScale: scale, valueText: null, accuracy: 'exact', observedAt, metadata: meta })
-      .catch(err => logger.warn({ err, placeId: p.id }, 'Hub place reading not stored'));
+    await tx.query('SAVEPOINT place_observation');
+    try{await recordObservation({ sourceId: 'google_places.api', sourceRunRef: hubRun, accountId: null, entityKind: 'place', entityId, metric,
+      valueNumeric: value, valueScale: scale, valueText: null, accuracy: 'exact', observedAt, metadata: meta },tx);await tx.query('RELEASE SAVEPOINT place_observation');}
+    catch(err){await tx.query('ROLLBACK TO SAVEPOINT place_observation');await tx.query('RELEASE SAVEPOINT place_observation');logger.warn({err,placeId:p.id},'Hub place reading not stored');}
   }
-  await query(`INSERT INTO local_places (place_id,city,name,address,area,rating,review_count,score,maps_url,business_status,observed_at)
+  await tx.query(`INSERT INTO local_places (place_id,city,name,address,area,rating,review_count,score,maps_url,business_status,observed_at)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now())
     ON CONFLICT (place_id) DO UPDATE SET city=EXCLUDED.city,name=EXCLUDED.name,address=EXCLUDED.address,area=COALESCE(NULLIF(EXCLUDED.area,''),local_places.area),rating=EXCLUDED.rating,
       review_count=EXCLUDED.review_count,score=EXCLUDED.score,maps_url=EXCLUDED.maps_url,business_status=EXCLUDED.business_status,observed_at=now()`,
     [p.id, city, p.name, p.address, p.area || null, p.rating, p.reviews, score, p.mapsUrl, p.status ?? null]);
+  return true;
+  });
 }
 export { CITIES, TOP_N };

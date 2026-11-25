@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { query } from '../../lib/db.js';
+import { query, transaction } from '../../lib/db.js';
+import { isDeleted, lockPlace, purgePlace } from './place-lifecycle.js';
 import { handler, HttpError } from '../../lib/errors.js';
 import { boundedLimit } from '../../lib/redis.js';
 import { requireAdmin, roles, type AdminIdentity } from '../auth/auth.js';
@@ -63,10 +64,18 @@ localAdminRoutes.post('/places', handler(async (req, res) => {
   const p = toPlace(raw, '');
   if (!p) throw new HttpError(404, 'LOCAL_NOT_FOUND', 'Google has no place with that id.');
   if (Number.isFinite(p.rating) && Number.isFinite(p.reviews)) await saveLocalPlace(b.city, p);
-  await query(`INSERT INTO local_place_overrides (place_id,city,mode,note,name,added_by) VALUES ($1,$2,$3,$4,$5,$6)
+  await transaction(async tx=>{await lockPlace(tx,b.placeId);
+  if(await isDeleted(tx,b.placeId))throw new HttpError(409,'LOCAL_DELETED','This restaurant was permanently deleted.');
+  await tx.query(`INSERT INTO local_place_overrides (place_id,city,mode,note,name,added_by) VALUES ($1,$2,$3,$4,$5,$6)
     ON CONFLICT (place_id) DO UPDATE SET city=EXCLUDED.city,mode=EXCLUDED.mode,note=EXCLUDED.note,name=EXCLUDED.name`,
-    [b.placeId, b.city, b.mode, b.note || null, p.name, actor(res)]);
+    [b.placeId, b.city, b.mode, b.note || null, p.name, actor(res)]);});
   res.status(201).json({ data: { placeId: b.placeId, name: p.name, mode: b.mode, hasRating: Number.isFinite(p.rating) } });
+}));
+
+localAdminRoutes.delete('/purge/:placeId', roles('owner'),handler(async(req,res)=>{
+  const id=String(req.params.placeId);if(!isPlaceId(id))throw new HttpError(400,'LOCAL_BAD_ID','Invalid place id');
+  z.object({confirmation:z.literal('DELETE')}).strict().parse(req.body??{});
+  await purgePlace(id);res.json({data:{deleted:true}});
 }));
 
 localAdminRoutes.delete('/places/:placeId', handler(async (req, res) => {

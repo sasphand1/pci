@@ -128,7 +128,7 @@ export function Thumb({ src, alt, fallback: Fallback, className }: { src?: strin
 }
 
 /* ---------- head to head ---------- */
-export type Entity = { key: string; name: string; image?: string | null; sub?: string; fallback?: IconType };
+export type Entity = { key: string; name: string; image?: string | null; sub?: string; fallback?: IconType; photo?: ReactNode };
 export function HeadToHeadCard({ items, pool, onPick, onRemove, onClear, onCompare, subtitle, slotExtra }: {
   items: Entity[]; pool: Entity[]; onPick: (key: string) => void; onRemove: (key: string) => void; onClear: () => void; onCompare: () => void; subtitle: string; slotExtra?: (e: Entity) => ReactNode;
 }) {
@@ -150,7 +150,7 @@ export function HeadToHeadCard({ items, pool, onPick, onRemove, onClear, onCompa
           return (
             <div key={c.key} className="rounded-xl border border-border/70 bg-background/60 p-2.5">
               <div className="flex items-center gap-2">
-                <span className="h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-muted"><Thumb src={c.image} alt={c.name} fallback={c.fallback} /></span>
+                {c.photo??<span className="h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-muted"><Thumb src={c.image} alt={c.name} fallback={c.fallback} /></span>}
                 <span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-foreground">{c.name}</span><span className="block text-[10px] text-muted-foreground">{c.sub ?? `Choice ${i === 0 ? "A" : "B"}`}</span></span>
                 <button type="button" onClick={() => onRemove(c.key)} aria-label={`Remove ${c.name}`} className="text-muted-foreground hover:text-primary"><X className="h-3.5 w-3.5" /></button>
               </div>
@@ -166,13 +166,13 @@ export function HeadToHeadCard({ items, pool, onPick, onRemove, onClear, onCompa
 }
 
 /* ---------- versus dialog ---------- */
-export type VsSide = { name: string; image?: string | null; fallback?: IconType; href?: string; sub?: string; extra?: ReactNode };
+export type VsSide = { name: string; image?: string | null; fallback?: IconType; href?: string; sub?: string; extra?: ReactNode; photo?: ReactNode };
 export type VsRow = { label: string; hint?: string; a: number | null; b: number | null; format: (n: number) => string; /** Bars measure against this maximum; default is the higher of the two. */ max?: number };
 
 function VsSideHead({ side }: { side: VsSide }) {
   return (
     <div className="flex min-w-0 flex-col items-center text-center">
-      <span className="h-16 w-16 overflow-hidden rounded-2xl bg-muted ring-2 ring-white/60"><Thumb src={side.image} alt={side.name} fallback={side.fallback} /></span>
+      {side.photo?<div className="w-full max-w-48">{side.photo}</div>:<span className="h-16 w-16 overflow-hidden rounded-2xl bg-muted ring-2 ring-white/60"><Thumb src={side.image} alt={side.name} fallback={side.fallback} /></span>}
       {side.href ? <a href={side.href} className="mt-2 block max-w-full truncate text-sm font-bold text-primary hover:underline">{side.name}</a> : <span className="mt-2 block max-w-full truncate text-sm font-bold text-primary">{side.name}</span>}
       {side.sub && <span className="text-[10px] text-muted-foreground">{side.sub}</span>}
       {side.extra && <div className="mt-2">{side.extra}</div>}
