@@ -104,6 +104,23 @@
         }
       }
     },
+    "/ingest/creators-bucket": {
+      "get": {
+        "summary": "YouTube Creators Bucket coverage and recorded Hub data freshness",
+        "description": "Roles: any admin.",
+        "tags": [
+          "Data Hub"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        }
+      }
+    },
     "/ingest/coverage": {
       "get": {
         "summary": "Accounts per platform by audience tier and category, with freshness",

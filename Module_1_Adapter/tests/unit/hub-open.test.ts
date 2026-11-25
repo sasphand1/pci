@@ -26,7 +26,7 @@ test('web sources are lower priority than API and admin-entry sources', () => {
 test('hub schema opens every category and keeps ranking history', () => {
   const ddl = readFileSync(new URL('../../src/lib/hub-schema.ts', import.meta.url), 'utf8');
   const mig = readFileSync(new URL('../../database/migrations/111_hub_open_and_history.sql', import.meta.url), 'utf8');
-  assert.ok(ddl.includes(mig.trim()), 'startup DDL equals the migration');
+  assert.ok(ddl.replace(/\r\n/g, '\n').includes(mig.replace(/\r\n/g, '\n').trim()), 'startup DDL equals the migration');
   for (const x of ['ingest_sources_platform_fmt', 'ingest_observations_entity_kind_fmt', 'value_scale', "'google_places.api'",
     'CREATE TABLE IF NOT EXISTS rank_history', 'CREATE TRIGGER hub_rank_history', 'CREATE OR REPLACE VIEW hall_of_fame'])
     assert.ok(mig.includes(x), x);

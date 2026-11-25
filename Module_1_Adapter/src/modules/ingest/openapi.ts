@@ -11,6 +11,7 @@ export const HUB_OPERATIONS: Op[] = [
   { method: 'get', path: '/ingest/alerts', summary: 'Hub alerts (open or all)', roles: 'any admin', params: [{ name: 'state', in: 'query', schema: { type: 'string', enum: ['open', 'all'], default: 'open' } }] },
   { method: 'get', path: '/ingest/discrepancies', summary: 'Last 100 API vs web disagreements over 5%', roles: 'any admin' },
   { method: 'post', path: '/ingest/check', summary: 'Run the hub check now (also runs every 15 minutes)', roles: 'owner, editor' },
+  { method: 'get', path: '/ingest/creators-bucket', summary: 'YouTube Creators Bucket coverage and recorded Hub data freshness', roles: 'any admin' },
   { method: 'get', path: '/ingest/coverage', summary: 'Accounts per platform by audience tier and category, with freshness', roles: 'any admin' },
   { method: 'get', path: '/ingest/account/{id}', summary: 'Everything the hub holds for one account', roles: 'any admin', params: [pathId('id')] },
   { method: 'get', path: '/ingest/compare', summary: 'Two or three accounts side by side', roles: 'any admin', params: [{ name: 'ids', in: 'query', required: true, description: '2 or 3 account ids, comma separated', schema: { type: 'string' } }] },
