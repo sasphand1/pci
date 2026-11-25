@@ -53,7 +53,7 @@ async function ingestFirms(){
  if(failures.length)throw Error(`FIRMS incomplete (${FIRMS_SENSORS.length-failures.length}/${FIRMS_SENSORS.length} sensors): ${failures.join('; ')}`);
  return inserted;
 }
-async function ingestPower(){let inserted=0;let successfulCities=0;const failures:string[]=[];const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10).replace(/-/g,'');const start=new Date(Date.now()-12*86400000).toISOString().slice(0,10).replace(/-/g,'');
+async function ingestPower(){let inserted=0;let successfulCities=0;const failures:string[]=[];const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10).replace(/-/g,'');const start=new Date(Date.now()-40*86400000).toISOString().slice(0,10).replace(/-/g,'');
  for(const [location,coords] of Object.entries(CITIES)){
   const [longitude,latitude]=coords;
   const url=new URL('https://power.larc.nasa.gov/api/temporal/daily/point');url.searchParams.set('parameters','PRECTOTCORR,ALLSKY_SFC_SW_DWN');url.searchParams.set('community','RE');url.searchParams.set('longitude',String(longitude));url.searchParams.set('latitude',String(latitude));url.searchParams.set('start',start);url.searchParams.set('end',yesterday);url.searchParams.set('format','JSON');
