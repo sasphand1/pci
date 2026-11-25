@@ -31,6 +31,7 @@ const runtimeModules=[
   'modules/satellite/feeds.mjs',
   'modules/satellite/policy.mjs',
   'modules/local/rules.mjs',
+  'modules/local/image-rules.mjs',
 ];
 
 for(const modulePath of runtimeModules){

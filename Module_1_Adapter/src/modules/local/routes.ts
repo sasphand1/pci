@@ -28,5 +28,12 @@ publicLocalRoutes.get('/', handler(async (req, res) => {
   const one = parseCity(req.query.city);
   const slugs = one ? [one] : CITY_SLUGS;
   const cities = await Promise.all(slugs.map(async s => ({ slug: s, label: CITIES[s].label, places: await top(s), picks: await picks(s) })));
-  res.json({ data: cities, attribution: 'Ratings and review counts from Google Maps', method: 'Bayesian average of rating and review count, minimum 50 reviews' });
+  // Optional photo enrichment: if the new table is unavailable during a rolling deploy, rankings still work.
+  type Photo = {place_id:string;sha256:string;attribution:string;licence:string;permission_url:string};
+  const ids=cities.flatMap(c=>[...c.places,...c.picks].map(p=>p.placeId));
+  const images=ids.length?await query<Photo>('SELECT place_id,sha256,attribution,licence,permission_url FROM restaurant_image_cache WHERE place_id=ANY($1::text[])',[ids]).then(r=>r.rows).catch(()=>[] as Photo[]):[];
+  const byId=new Map(images.map(p=>[p.place_id,p]));
+  const withImage=<T extends {placeId:string}>(p:T)=>{const photo=byId.get(p.placeId);return {...p,image:photo?{version:photo.sha256,attribution:photo.attribution,licence:photo.licence,permissionUrl:photo.permission_url}:null};};
+  const enriched=cities.map(c=>({...c,places:c.places.map(withImage),picks:c.picks.map(withImage)}));
+  res.json({ data: enriched, attribution: 'Ratings and review counts from Google Maps', method: 'Bayesian average of rating and review count, minimum 50 reviews' });
 }));

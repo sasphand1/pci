@@ -5,6 +5,7 @@ import { MapPin, Star, Store, ThumbsUp, Utensils } from "lucide-react";
 
 import { CompareToggle, HeadToHeadCard, KpiTile, PANEL, PanelHeader, PillSelect, SearchBox, UnderlineTabs, ViewToggle, VsDialog, type Entity, type VsRow } from "@/fifi/components/explorer-kit";
 import { EmptyState } from "@/fifi/components/page-elements";
+import { RestaurantPhoto, RestaurantCredit, restaurantPhotoUrl } from "@/fifi/components/restaurant-photo";
 import { cn } from "@/fifi/lib/utils";
 import { formatCount } from "@/lib/format.mjs";
 import { LOCAL_SORTS, MAX_LOCAL_COMPARE, asOfShort, filterPlaces, flattenPlaces, placeKey, splitPicks, type LocalPlace } from "@/lib/local.mjs";
@@ -12,7 +13,7 @@ import type { PubLocal } from "@/lib/public";
 
 const reviews = (n: number | null) => (n === null ? "Not available" : formatCount(String(n), true));
 const stars = (n: number) => n.toFixed(1);
-const toEntity = (p: LocalPlace): Entity => ({ key: placeKey(p), name: p.name, sub: `${p.cityLabel}${p.area ? ` · ${p.area}` : ""}`, fallback: Utensils });
+const toEntity = (p: LocalPlace): Entity => ({ key: placeKey(p), name: p.name, image: restaurantPhotoUrl(p), sub: `${p.cityLabel}${p.area ? ` · ${p.area}` : ""}`, fallback: Utensils });
 
 function RatingChip({ p }: { p: LocalPlace }) {
   return <span className="inline-flex items-center gap-1 rounded-md bg-gold-soft px-2 py-1 text-xs font-bold text-gold-foreground"><Star className="h-3 w-3 fill-gold text-gold" />{p.rating === null ? "—" : stars(p.rating)}</span>;
@@ -62,12 +63,13 @@ export function LocalPage({ local }: { local: PubLocal | null }) {
     { label: "Google rating", hint: "Out of 5", a: a.rating, b: b.rating, format: stars, max: 5 },
     { label: "Google reviews", hint: "More reviews make the rating more reliable", a: a.reviewCount, b: b.reviewCount, format: (n) => formatCount(String(n), true) },
   ];
-  const side = (p: LocalPlace) => ({ name: p.name, href: p.mapsUrl ?? undefined, fallback: Utensils, sub: `${p.pick ? "Our pick" : `#${p.rank} in ${p.cityLabel}`}${p.area ? ` · ${p.area}` : ""}` });
+  const side = (p: LocalPlace) => ({ name: p.name, image: restaurantPhotoUrl(p), extra: <RestaurantCredit p={p} />, href: p.mapsUrl ?? undefined, fallback: Utensils, sub: `${p.pick ? "Our pick" : `#${p.rank} in ${p.cityLabel}`}${p.area ? ` · ${p.area}` : ""}` });
 
   const card = (p: LocalPlace) => {
     const k = placeKey(p);
     return grid ? (
       <li key={k} className={cn("rounded-xl border border-border/70 bg-background/50 p-3", selected.includes(k) && "ring-2 ring-primary")}>
+        <RestaurantPhoto p={p} />
         <div className="flex items-start justify-between gap-2"><Badge p={p} /><RatingChip p={p} /></div>
         <h3 className="mt-2 truncate text-xs font-bold text-foreground">{p.name}</h3><Meta p={p} />
         <div className="mt-2"><Reviews p={p} /></div>
@@ -76,7 +78,7 @@ export function LocalPage({ local }: { local: PubLocal | null }) {
       </li>
     ) : (
       <li key={k} className={cn("grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 bg-background/50 px-3 py-2.5 md:grid-cols-[minmax(0,2.4fr)_4rem_minmax(0,1.2fr)_auto] md:gap-4 md:px-4", selected.includes(k) && "bg-secondary/60")}>
-        <div className="min-w-0"><div className="flex items-center gap-2"><span className="truncate text-xs font-bold text-foreground">{p.name}</span><Badge p={p} /></div><Meta p={p} />{p.note && <p className="mt-0.5 truncate text-[10px] text-secondary-foreground">{p.note}</p>}</div>
+        <div className="flex min-w-0 items-center gap-2"><RestaurantPhoto p={p} compact /><div className="min-w-0"><div className="flex items-center gap-2"><span className="truncate text-xs font-bold text-foreground">{p.name}</span><Badge p={p} /></div><Meta p={p} />{p.note && <p className="mt-0.5 truncate text-[10px] text-secondary-foreground">{p.note}</p>}<RestaurantCredit p={p} /></div></div>
         <span className="hidden md:block"><RatingChip p={p} /></span>
         <span className="hidden md:block"><Reviews p={p} /></span>
         <div className="flex items-center gap-2"><MapLink p={p} /><CompareToggle name={p.name} limit={MAX_LOCAL_COMPARE} selected={selected.includes(k)} full={full} onToggle={() => toggle(k)} /></div>

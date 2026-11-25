@@ -30,6 +30,8 @@ import {publicAvatarRoutes} from './modules/public/avatar-routes.js';
 import {creatorIndexRoutes} from './modules/public/creator-index.js';
 import {publicLocalRoutes} from './modules/local/routes.js';
 import {localAdminRoutes} from './modules/local/admin-routes.js';
+import {restaurantImageAdminRoutes,restaurantImagePublicRoutes} from './modules/local/image-routes.js';
+import {ensureRestaurantImageSchema} from './modules/local/image-schema.js';
 import {docsRoutes} from './modules/public/docs.js';
 import {shadowAdminRoutes} from './modules/public/shadow-routes.js';
 import {legacyGate} from './modules/public/legacy-gate.js';
@@ -123,6 +125,7 @@ export function makeApp() {
   app.use(docsRoutes);
   app.use('/api/v1/public/avatars',publicAvatarRoutes);
   app.use('/api/v1/public/creator-index',creatorIndexRoutes);
+  app.use('/api/v1/public/local/images',restaurantImagePublicRoutes);
   app.use('/api/v1/public/local',publicLocalRoutes);
   app.use('/api/v1/public',publicRankingRoutes);
   app.use('/api/v1/public',publicEventsRoutes);
@@ -139,6 +142,7 @@ export function makeApp() {
   app.use('/api/v1/admin/events',adminEventsRoutes);
   app.use('/api/v1/admin',bucketAdminRoutes);
   app.use('/api/v1/admin',refreshAdminRoutes);
+  app.use('/api/v1/admin/local/images',restaurantImageAdminRoutes);
   app.use('/api/v1/admin/local',localAdminRoutes);
   app.use('/api/v1/admin',ingestAdminRoutes);
   app.use('/api/v1/admin',publishAdminRoutes);
@@ -210,7 +214,8 @@ async function main(){
         catch(err){logger.error({err},'Creator video analytics schema unavailable; video analytics will show no data');}
         try {await ensureIngestSchema();logger.info('PCI Ingest schema verified');}
         catch(err){logger.error({err},'PCI Ingest schema unavailable; legacy collection remains active');}
-        try {await ensureHubSchema();logger.info('PCI Hub schema verified');}
+        try {await ensureHubSchema();logger.info('PCI Hub schema verified');
+          await ensureRestaurantImageSchema().then(()=>logger.info('PCI restaurant image schema verified')).catch(err=>logger.warn({err},'PCI restaurant image schema unavailable'));}
         catch(err){logger.error({err},'PCI Hub schema unavailable; hub monitoring disabled until it is applied');}
         await ensureRedis();
         try{await ensureEventsSchema();logger.info('Events schema verified');}

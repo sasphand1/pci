@@ -6,6 +6,7 @@ import { ArrowRight, BadgeCheck, BarChart3, Building2, CalendarDays, Flame, MapP
 
 import { FifiAssistant } from "@/fifi/components/fifi-assistant";
 import { Pic } from "@/fifi/components/page-elements";
+import { RestaurantPhoto } from "@/fifi/components/restaurant-photo";
 import { PulseSlideshow } from "@/fifi/components/pulse-slideshow";
 import { type EventItem } from "@/fifi/lib/fifi-data";
 import { filterPlaces, flattenPlaces } from "@/lib/local.mjs";
@@ -197,6 +198,7 @@ export function HomePage({ creators, events, categoryRows, reach, eventsCount, l
                 <div className="mt-3 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
                   {topPlaces.map((p) => (
                     <article key={`${p.city}:${p.placeId}`} className="rounded-xl border border-border/70 bg-background/50 p-3">
+                      <RestaurantPhoto p={p} />
                       <div className="flex items-center justify-between gap-2">
                         <span className="rounded-full bg-background px-2 py-0.5 text-[10px] font-bold text-primary ring-1 ring-border/70">{p.pick ? "Our pick" : `#${p.rank} in ${p.cityLabel}`}</span>
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gold-foreground"><Star className="h-2.5 w-2.5 fill-gold text-gold" />{p.rating === null ? "—" : p.rating.toFixed(1)}</span>
