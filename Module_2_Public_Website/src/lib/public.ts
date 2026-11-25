@@ -13,7 +13,7 @@ export type PubCreatorAccount={platform:'youtube'|'instagram'|'tiktok';handle:st
 export type PubCreatorRow={slug:string;displayName:string;avatarUrl:string|null;categories:{slug:string;label:string}[];rank:number|null;totalFollowers:number|null;asOf:string|null;stale:boolean;accounts:PubCreatorAccount[];earningsUsd:number|null;earningsStatus:PubEarningsStatus;earningsBasis:'observed_view_gain'|'recent_uploads_floor'|null;instagramSponsorScenarioUsd:number|null;growth?:{subscribers:Record<'24h'|'7d'|'30d',number|null>;views:Record<'24h'|'7d'|'30d',number|null>};positions?:{scope:string;label:string;unit:string;rank:number;value:number}[]};
 export type PubCreatorTotals={creators:number;youtube:number;instagram:number};
 export type PubStatus={publishedAt:string|null;stale:boolean;people:number};
-export type PubFigures={platform:string;handle:string;url:string|null;followers:number|null;views:number|null;posts30d:number|null;observedAt:string|null};
+export type PubFigures={platform:string;handle:string;url:string|null;followers:number|null;views:number|null;posts30d:number|null;observedAt:string|null;avatarUrl?:string|null};
 export type PubPosition={scope:string;label:string;unit:string;slot:number;rank:number;value:number};
 export type PubVideoAnalytics={
   sampledVideos:number;averageViews:number|null;

@@ -1,11 +1,11 @@
 const DAY=86400000;
-export const VIEW_BANDS=['<50K','50–100K','100–250K','250K–1M','1M+'];
+export const VIEW_BANDS=['<10K','10–25K','25–50K','50–100K','100–250K','250K–1M','1M+'];
 export function observedPortfolio(videos){
  const seen=new Set();
  const known=videos.filter(v=>{if(seen.has(v.videoId)||!Number.isFinite(v.currentViews)||v.currentViews<0)return false;seen.add(v.videoId);return true;}).sort((a,b)=>b.currentViews-a.currentViews||a.videoId.localeCompare(b.videoId));
  const n=known.length,total=n?known.reduce((s,v)=>s+v.currentViews,0):null;
  const bands=VIEW_BANDS.map(label=>({label,value:0})),age=[];
- for(const v of known){const views=v.currentViews;bands[views<50000?0:views<100000?1:views<250000?2:views<1000000?3:4].value++;
+ for(const v of known){const views=v.currentViews;bands[views<10000?0:views<25000?1:views<50000?2:views<100000?3:views<250000?4:views<1000000?5:6].value++;
   const days=(Date.parse(v.observedAt)-Date.parse(v.publishedAt))/DAY;
   if(v.observedAt&&v.publishedAt&&Number.isFinite(days)&&days>=0)age.push({videoId:v.videoId,title:v.title,days,value:views});
  }
@@ -26,3 +26,11 @@ export function groupedDaily(peers){
  const days=[...new Set(maps.flatMap(m=>[...m.keys()]))].sort().slice(-14);
  return days.map(day=>({day,values:maps.map(m=>{const p=m.get(day);return p&&p.hours>0?p.gain*24/p.hours:null;})}));
 }
+
+/** Keep at least the three lower ranges; trim only unused upper ranges on the individual chart. */
+export function localBands(rows){let last=rows.findLastIndex(r=>r.value>0);return rows.slice(0,Math.max(3,last+1));}
+const utcDay=t=>Math.floor(t/DAY)*DAY;
+/** One latest real observation per UTC day, no interpolated observations. */
+export function dailyTotals(points){const m=new Map();for(const p of [...points].sort((a,b)=>a.time-b.time))m.set(utcDay(p.time),{time:utcDay(p.time),value:p.value});return [...m.values()];}
+/** Same weighted daily rate as grouped comparison, using interval-ending UTC dates. */
+export function dailyRates(rates){const m=new Map();for(const r of rates){const t=utcDay(r.time),p=m.get(t)??{gain:0,hours:0};p.gain+=r.gain;p.hours+=r.hours;m.set(t,p);}return [...m].sort((a,b)=>a[0]-b[0]).filter(([,p])=>p.hours>0).map(([time,p])=>({time,value:24*p.gain/p.hours}));}

@@ -115,7 +115,7 @@ export async function personDetail(slug: string) {
       FROM hub_account_metrics o JOIN accounts a ON a.id=o.account_id
       WHERE a.person_id=$1 AND o.observed_at > now() - make_interval(days => $2) ORDER BY o.account_id, o.metric, o.observed_at DESC`, [id, FRESHNESS_DAYS_DEFAULT]),
     query(`SELECT pp.scope, s.slot, s.rank, s.value::text AS value FROM published_pointers pp JOIN rank_slots s ON s.run_id=pp.run_id WHERE s.person_id=$1 ORDER BY pp.scope`, [id]),
-    query('SELECT id,platform,handle,external_id FROM accounts WHERE person_id=$1 ORDER BY platform', [id])
+    query('SELECT a.id,a.platform,a.handle,a.external_id,a.avatar_url,c.fetched_at AS cached_at FROM accounts a LEFT JOIN avatar_cache c ON c.account_id=a.id AND c.source_url=a.avatar_url WHERE a.person_id=$1 ORDER BY a.platform', [id])
   ]);
   const cats = await categoryLabels();
   const fig = new Map<string, { followers: number | null; views: number | null; posts30d: number | null; observedAt: string | null }>();
@@ -125,7 +125,7 @@ export async function personDetail(slug: string) {
     const t = new Date(o.observedAt).toISOString(); if (!f.observedAt || t > f.observedAt) f.observedAt = t;
     fig.set(o.accountId, f);
   }
-  const accounts = acc.rows.map((a: any) => ({ platform: a.platform, handle: a.handle, url: accountUrl(a.platform, a.external_id, a.handle), ...(fig.get(a.id) ?? { followers: null, views: null, posts30d: null, observedAt: null }) }));
+  const accounts = acc.rows.map((a: any) => ({ platform: a.platform, handle: a.handle, url: accountUrl(a.platform, a.external_id, a.handle), ...(a.platform==='youtube'?{avatarUrl:(a.cached_at?cachedAvatarUrl(process.env.PCI_PUBLIC_API_URL,a.id,a.cached_at):null)??safeAvatarUrl(a.avatar_url)}:{}), ...(fig.get(a.id) ?? { followers: null, views: null, posts30d: null, observedAt: null }) }));
   const positions = pos.rows.map((x: any) => { const i = scopeInfo(x.scope, cats.get(x.scope.slice(9))?.label); return i ? { scope: x.scope, label: i.label, unit: i.unit, slot: x.slot, rank: x.rank, value: Number(x.value) } : null; }).filter(Boolean);
   const [analytics,bucket]=await Promise.all([personAnalytics(id),creatorsBucket(id).catch(err=>{logger.warn({err},'Creators Bucket read unavailable');return null;})]);
   const similar=await query<{slug:string;displayName:string}>(`SELECT DISTINCT p2.slug,p2.display_name AS "displayName"

@@ -76,3 +76,27 @@ body:has(.pci-yt-reference)>.fifi.contents>header,body:has(.pci-yt-reference)>.f
 .pci-yt-reference .yr-methodology{scroll-margin-top:100px;padding:18px 5px;color:var(--yr-muted);font-size:12px;line-height:1.65}.fifi .pci-yt-reference .yr-methodology h3{font-size:20px;margin-bottom:6px}
 .pci-yt-reference .yr-notice a{color:var(--yr-green);text-decoration:underline}
 @media(max-width:760px){.pci-yt-reference .yr-legend-controls button{font-size:11px;padding:7px 9px}.pci-yt-reference .yr-mini-shares a{font-size:10px}.fifi .pci-yt-reference .yr-mini-shares a>strong{font-size:10px}}
+
+/* Creator Intelligence V4: clean KPI presentation and daily observations. */
+.pci-yt-reference .yr-avatar{overflow:hidden}
+.pci-yt-reference .yr-avatar img{display:block;width:100%;height:100%;object-fit:cover}
+.fifi .pci-yt-reference .yr-rank-inline{font:600 clamp(20px,2vw,32px)/1 'Newsreader',Georgia,serif;color:#729587;letter-spacing:-.025em;align-self:center;white-space:nowrap}
+.pci-yt-reference .yr-secondary-kpis{margin-top:16px}
+.fifi .pci-yt-reference .yr-secondary-kpis .yr-metric{min-height:0;justify-content:space-between}
+.pci-yt-reference .yr-daily-scroll{width:100%;min-width:0;overflow-x:auto}
+.pci-yt-reference .yr-daily-scroll .yr-line-plot{display:block;min-width:100%;max-width:none;height:auto;max-height:none}
+.pci-yt-reference .yr-daily-scroll .yr-line-plot text{fill:var(--yr-muted);font-family:DM Sans,Arial,sans-serif;font-size:11px}
+.pci-yt-reference .yr-daily-readout{font-size:12px;min-height:24px;color:var(--yr-muted);margin-top:6px}
+.pci-yt-reference .yr-provenance-v4{grid-template-columns:repeat(2,minmax(0,1fr))}
+.pci-yt-reference .yr-methodology p{margin:6px 0;scroll-margin-top:105px}
+.pci-yt-reference .yr-methodology b{color:var(--yr-ink)}
+.pci-yt-reference .yr-sample-mark{text-decoration:none;font-weight:700;padding:0 2px}
+.pci-yt-reference .yr-comparison .yr-color-0{fill:#14684e}.pci-yt-reference .yr-comparison .yr-color-1{fill:#547b91}.pci-yt-reference .yr-comparison .yr-color-2{fill:#a38b63}.pci-yt-reference .yr-comparison .yr-color-3{fill:#817b9b}.pci-yt-reference .yr-comparison .yr-color-4{fill:#78a392}.pci-yt-reference .yr-comparison .yr-color-5{fill:#ae8b89}
+.pci-yt-reference .yr-grouped g[role=button]:hover .yr-bar-hit,.pci-yt-reference .yr-grouped g[role=button]:focus-visible .yr-bar-hit,.pci-yt-reference .yr-grouped g[aria-pressed=true] .yr-bar-hit{fill:transparent;stroke:none}
+.pci-yt-reference .yr-grouped g[role=button]:focus-visible>rect:not(.yr-bar-hit),.pci-yt-reference .yr-grouped g[role=button]:focus-visible>circle{stroke:#173b32;stroke-width:1.5}
+@media(max-width:590px){.pci-yt-reference .yr-provenance-v4{grid-template-columns:1fr}.pci-yt-reference .yr-daily-scroll .yr-line-plot{min-width:440px}}
+.pci-yt-reference .yr-live-link{color:var(--yr-muted);font-size:12px;font-weight:600;text-decoration:none}
+/* Give both rows the same card weight. */
+.pci-yt-reference .yr-secondary-kpis .yr-metric{box-shadow:0 11px 32px #244d3010;padding:24px}
+.fifi .pci-yt-reference .yr-secondary-kpis .yr-metric>strong{font-size:clamp(28px,3.5vw,49px)}
+@media(max-width:760px){.pci-yt-reference .yr-secondary-kpis .yr-metric{padding:18px}.fifi .pci-yt-reference .yr-secondary-kpis .yr-metric>strong{font-size:clamp(25px,3.5vw,34px)}}

@@ -29,7 +29,7 @@ export default async function CreatorPage({params,searchParams}:{params:Promise<
  const best=p.positions.length?[...p.positions].sort((a,b)=>a.rank-b.rank)[0]:null;
  const creator:RealCreator={id:best?.rank??0,slug:p.slug,name:p.displayName,handle:p.accounts[0]?.handle??'',category:p.categories[0]?.label??'Creator',city:'Pakistan',followers:audience===null?'Not available':formatCompact(audience),growth:formatPercent(growthPercent(audience,gain30)),image:p.avatarUrl??'',bio:''};
  const accounts=p.accounts.map(a=>({platform:platformLabel(a.platform),handle:a.handle,url:a.url,followers:a.followers===null?'Not available':formatCount(a.followers),views:a.platform==='youtube'?(a.views===null?'Not available':formatCount(a.views)):'—',posts30d:a.posts30d===null?'Not available':formatCount(a.posts30d),asOf:a.observedAt?displayDate(a.observedAt):'—'}));
- const ytAccounts=p.accounts.filter(a=>a.platform==='youtube').map(a=>({handle:a.handle,url:a.url,followers:a.followers,views:a.views,posts30d:a.posts30d,asOf:a.observedAt}));
+ const ytAccounts=p.accounts.filter(a=>a.platform==='youtube').map(a=>({handle:a.handle,url:a.url,followers:a.followers,views:a.views,posts30d:a.posts30d,asOf:a.observedAt,avatarUrl:a.avatarUrl??(p.accounts.every(x=>x.platform==='youtube')?p.avatarUrl:null)}));
  // Comparable creators: the published YouTube-subscriber ranking (top five); this creator is added if outside it.
  const top=(ytRanking?.entries??[]).slice(0,5).map(e=>({slug:e.person.slug,name:e.person.displayName,value:e.value,self:e.person.slug===p.slug}));
  const ytPosition=p.positions.find(x=>x.scope==='youtube.subscribed');

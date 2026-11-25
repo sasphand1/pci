@@ -14,7 +14,7 @@ import {PeriodComparisonChart,EngagementScatter,pointLabel,exact,timestamp} from
 export type ProfilePlatform='youtube'|'instagram'|'tiktok';
 export type CreatorProfileProps={creator:RealCreator;rank:string;rankLabel:string;
  accounts:{platform:string;handle:string;url:string|null;followers:string;views:string;posts30d:string;asOf:string}[];
- ytAccounts:{handle:string;url:string|null;followers:number|null;views:number|null;posts30d:number|null;asOf:string|null}[];
+ ytAccounts:{handle:string;url:string|null;followers:number|null;views:number|null;posts30d:number|null;asOf:string|null;avatarUrl?:string|null}[];
  analytics:Pick<PubCreatorAnalytics,'history'|'growth'|'video'|'historyAccountCount'>|null;
  creatorsBucket?:PubCreatorsBucket|null;ytRank?:string;
  comparison:{slug:string;name:string;value:number;self:boolean}[];comparisonPeers?:Peer[];rankingDate:string|null;

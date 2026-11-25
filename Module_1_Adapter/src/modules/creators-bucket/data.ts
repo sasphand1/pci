@@ -1,19 +1,20 @@
 import {query} from '../../lib/db.js';
+import {missingPublicCounts} from './public-count.js';
 import {fixedVideoCohort} from './cohort.mjs';
 import {videoMilestones,velocityPerHour,breakoutFactor} from '../creator-analytics/engine.js';
 import {series,daily,gain,average,engagement,likeRate,periodRates,DAY,type Point} from './logic.mjs';
 
-type Account={id:string;handle:string};
+type Account={id:string;handle:string;external_id:string};
 type Observation={accountId:string;metric:string;value:string;at:string|Date};
 type Content={videoId:string;title:string|null;publishedAt:Date|string|null;thumbnailUrl:string|null;observedAt:Date|string};
 type VideoObservation={videoId:string;metric:string;value:string;at:string|Date};
 const iso=(v:Date|string)=>new Date(v).toISOString();
 const fresh=(p:Point|undefined,now:number,days=7)=>p&&now-Date.parse(p.at)<=days*DAY?p:null;
 /** Creators Bucket: a read-only, YouTube-only analytical projection of PCI Hub data.
- * Does not fetch providers, change rankings, extend retention, or invent observations. */
+ * Does not change rankings, extend retention, or invent observations. Missing official video counts may use the quota-limited provider fallback. */
 export async function creatorsBucket(personId:string,now=new Date()){
  const n=now.getTime(),stamp=now.toISOString();
- const accounts=(await query<Account>(`SELECT id,handle FROM accounts WHERE person_id=$1 AND platform='youtube' ORDER BY id`,[personId])).rows;
+ const accounts=(await query<Account>(`SELECT id,handle,external_id FROM accounts WHERE person_id=$1 AND platform='youtube' ORDER BY id`,[personId])).rows;
  if(!accounts.length)return null;
  const ids=accounts.map(a=>a.id);
  // Up to two 90-day periods, only if retained by the Hub's existing policy.
@@ -24,6 +25,10 @@ export async function creatorsBucket(personId:string,now=new Date()){
  WHERE a.id=ANY($1::uuid[]) AND s.video_count IS NOT NULL AND s.fetched_at BETWEEN $2::timestamptz-interval '7 days' AND $2::timestamptz ORDER BY at`,[ids,stamp])).rows;
  const points=(id:string,metric:string)=>series(channel.filter(r=>r.accountId===id&&r.metric===metric).map(r=>({at:iso(r.at),value:r.value})),n);
  const snapshots=accounts.map(a=>({...a,subscribers:points(a.id,'followers'),views:points(a.id,'views'),posts:points(a.id,'posts_30d'),totalVideos:points(a.id,'video_count')}));
+ // Only genuinely missing or stale official counts qualify for the bounded fallback.
+ const missing=accounts.filter((a,i)=>!fresh(snapshots[i].totalVideos.at(-1),n));
+ const official=await missingPublicCounts(missing);
+ for(const a of snapshots){const reading=official.get(a.id);if(reading)a.totalVideos.push(reading);}
  const primary=snapshots[0];
  const views=daily(primary.views,n),subscribers=daily(primary.subscribers,n);
  const accountStats=snapshots.map(a=>({handle:a.handle,subscribers:fresh(a.subscribers.at(-1),n),views:fresh(a.views.at(-1),n),posts30d:fresh(a.posts.at(-1),n),totalVideos:fresh(a.totalVideos.at(-1),n)}));

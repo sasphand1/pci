@@ -9,3 +9,7 @@ export const VIEW_BANDS:string[];
 export function observedPortfolio(videos:BucketVideo[]):{known:BucketVideo[];total:number|null;median:number|null;topShare:number|null;topFiveShare:number|null;age:AgePoint[];bands:Band[];dated:number};
 export function cohortSeries(cohort:Cohort|null|undefined):{points:Point[];medians:Point[];cumulative:Point[];rates:Rate[];pace:number|null;delta:number|null;change:number|null};
 export function groupedDaily(peers:Peer[]):{day:string;values:(number|null)[]}[];
+
+export function localBands(rows:Band[]):Band[];
+export function dailyTotals(points:Point[]):Point[];
+export function dailyRates(rates:Rate[]):Point[];
