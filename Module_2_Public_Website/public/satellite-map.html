@@ -33,7 +33,7 @@ html,body,#map{height:100%;width:100%;margin:0;background:#020a14;font-family:sy
 <button id="gpm-toggle" class="btn" type="button" disabled aria-pressed="false">IMERG rain: unavailable</button>
 
 <div id="map-controls" aria-label="Earth controls"><button id="zoom-in" type="button" title="Zoom in">+</button><button id="zoom-out" type="button" title="Zoom out">−</button><button id="recenter" type="button" title="Centre Pakistan">◎</button></div>
-<div id="map-layers"><strong>Layers</strong><label><input type="checkbox" data-layer="nasa-imagery" id="layer-nasa"> Satellite imagery</label><label><input type="checkbox" data-layer="gpm-imagery" id="layer-rain"> Rain / precipitation</label><label><input type="checkbox" data-layer="hotspots" checked> Thermal hotspots</label><label><input type="checkbox" data-layer="quakes" checked> Earthquakes</label><label><input type="checkbox" data-layer="alerts" checked> Disaster alerts</label><label><input type="checkbox" data-layer="river-points" checked> Rivers &amp; water</label><label><input type="checkbox" data-layer="satellites" checked> Satellite tracks</label></div>
+<div id="map-layers"><strong>Layers</strong><label><input type="checkbox" data-layer="nasa-imagery" id="layer-nasa"> Satellite imagery (Pakistan view)</label><label><input type="checkbox" data-layer="gpm-imagery" id="layer-rain"> Rain / precipitation (Pakistan view)</label><label><input type="checkbox" data-layer="hotspots" checked> Thermal hotspots</label><label><input type="checkbox" data-layer="quakes" checked> Earthquakes</label><label><input type="checkbox" data-layer="alerts" checked> Disaster alerts</label><label><input type="checkbox" data-layer="river-points" checked> Rivers &amp; water</label><label><input type="checkbox" data-layer="satellites" checked> Satellite tracks</label></div>
 <div id="map-time"><button id="spin-toggle" type="button" aria-pressed="true" title="Pause rotation">Ⅱ</button><button data-window="24" type="button" aria-pressed="false">24h</button><button data-window="48" type="button" aria-pressed="false">48h</button><button data-window="168" type="button" aria-pressed="true">7d</button><span id="map-range">Recorded markers</span><button id="fullscreen" type="button" title="Fullscreen map">⛶</button></div>
 <div id="marker-detail" role="status" aria-live="polite" hidden></div>
 
@@ -54,7 +54,7 @@ html,body,#map{height:100%;width:100%;margin:0;background:#020a14;font-family:sy
   const REDUCED=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   // Pakistan is the fixed geographic focal point of the detail view. Visitors cannot pan or zoom the map.
   const PAKISTAN_VIEW=[[60.6,23.3],[77.7,37.3]];
-  const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/dark',center:[69.3,25],zoom:1.3,
+  const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/dark',center:[69.3,30.3],zoom:1.3,
    attributionControl:true,interactive:false,scrollZoom:false,boxZoom:false,dragRotate:false,dragPan:false,
    keyboard:false,doubleClickZoom:false,touchZoomRotate:false,pitchWithRotate:false});
   function fitPakistan(){map.fitBounds(PAKISTAN_VIEW,{padding:{top:30,bottom:30,left:30,right:30},animate:false});}
@@ -91,16 +91,17 @@ html,body,#map{height:100%;width:100%;margin:0;background:#020a14;font-family:sy
    solar:{hotspots:false,events:false,imagery:true,gpm:false},
    city:{hotspots:false,events:false,imagery:true,gpm:false}
   };
-  const GLOBE={hotspots:true,events:true,imagery:true,gpm:false};
+  const GLOBE={hotspots:true,events:true,imagery:false,gpm:false};
+  // Mercator NASA raster tiles can split at globe seams; show them only in flat Pakistan mode.
   const vis=(id,on)=>{if(map.getLayer(id))map.setLayoutProperty(id,'visibility',on?'visible':'none');};
   const related={'hotspots':['hotspots-halo'],'satellites':['satellite-labels','iss-track']};
-  function syncLayerControls(){for(const input of document.querySelectorAll('[data-layer]')){const id=input.dataset.layer;input.disabled=!map.getLayer(id);if(!input.disabled){if(overrides.has(id)){vis(id,overrides.get(id));for(const companion of related[id]||[])vis(companion,overrides.get(id));}input.checked=map.getLayoutProperty(id,'visibility')!=='none';}}}
+  function syncLayerControls(){for(const input of document.querySelectorAll('[data-layer]')){const id=input.dataset.layer;input.disabled=!map.getLayer(id)||(mode==='globe'&&['nasa-imagery','gpm-imagery'].includes(id));if(input.disabled){input.checked=false;vis(id,false);}else{if(overrides.has(id)){vis(id,overrides.get(id));for(const companion of related[id]||[])vis(companion,overrides.get(id));}input.checked=map.getLayoutProperty(id,'visibility')!=='none';}}}
   function rangeLabel(){document.getElementById('map-range').textContent=(windowHours===168?'7 days':windowHours+' hours')+' · recorded markers';}
   function markerStatus(){return points.filter(inWindow).length+' heat · '+quakes.filter(inWindow).length+' quakes · '+alerts.filter(inWindow).length+' alerts · '+riverPoints.filter(inWindow).length+' rivers';}
 
-  function showExtra(index){activeExtra=index;
+  function showExtra(index){activeExtra=index; if(mode==='globe')index=-1;
    extraLayers.forEach((l,i)=>vis('extra-'+l.id,i===index));
-   layerToggle.disabled=extraLayers.length===0;
+   layerToggle.disabled=extraLayers.length===0||mode==='globe';
    layerToggle.textContent=extraLayers.length===0?'Layer: none':'Layer: '+(index<0?'Off':extraLayers[index].label);
   }
   function updateLayers(){if(!loaded)return;
@@ -129,7 +130,7 @@ html,body,#map{height:100%;width:100%;margin:0;background:#020a14;font-family:sy
   // Slow eastward rotation while in globe view; satellites move every second.
   function frame(t){
    if(mode!=='globe'||REDUCED||paused){spin=null;return;}
-   if(!document.hidden&&lastFrame){const c=map.getCenter();map.jumpTo({center:[((c.lng+Math.min(t-lastFrame,100)*0.0015+540)%360)-180,c.lat]});}
+   if(!document.hidden&&lastFrame){const c=map.getCenter();map.jumpTo({center:[((c.lng+Math.min(t-lastFrame,100)*0.0005+540)%360)-180,c.lat]});}
    lastFrame=t;spin=requestAnimationFrame(frame);
   }
   function startSpin(){if(!spin&&!REDUCED&&!paused){lastFrame=0;spin=requestAnimationFrame(frame);}}
@@ -137,14 +138,18 @@ html,body,#map{height:100%;width:100%;margin:0;background:#020a14;font-family:sy
   setInterval(()=>{if(loaded&&mode==='globe'){const s=map.getSource('iss-track');if(s)s.setData(trackData());}},60000);
   function setMode(next){
    mode=next;document.body.classList.toggle('pak',mode==='pakistan');
+   try{map.setProjection({type:mode==='pakistan'?'mercator':'globe'});}catch{}
+   showExtra(activeExtra);
    if(mode==='pakistan'){if(spin){cancelAnimationFrame(spin);spin=null;}viewToggle.textContent='Back to globe';
     map.flyTo({center:[69.3,30.3],zoom:4.6,duration:REDUCED?0:2600,essential:true});map.once('moveend',()=>{if(mode==='pakistan')fitPakistan();});}
-   else{viewToggle.textContent='Zoom to Pakistan';map.flyTo({center:[69.3,25],zoom:globeZoom(),duration:REDUCED?0:2000,essential:true});map.once('moveend',startSpin);}
+   else{viewToggle.textContent='Zoom to Pakistan';map.flyTo({center:[69.3,30.3],zoom:globeZoom(),duration:REDUCED?0:2000,essential:true});map.once('moveend',startSpin);}
    updateLayers();
   }
   map.on('load',()=>{loaded=true;
    try{map.setProjection({type:'globe'});}catch{/* older renderer: flat map still works */}
    map.jumpTo({zoom:globeZoom()});
+   // Keep a coherent vector Earth in globe view; thematic rasters are available in Pakistan view.
+   for(const l of map.getStyle().layers||[]){if(l.type==='background')map.setPaintProperty(l.id,'background-color','#214a35');else if(l.type==='fill'&&/^water$/.test(l.id))map.setPaintProperty(l.id,'fill-color','#0b3550');}
    map.addSource('iss-track',{type:'geojson',data:fc([])});map.addLayer({id:'iss-track',type:'line',source:'iss-track',paint:{'line-color':'#9fe8ff','line-width':1.2,'line-opacity':.55,'line-dasharray':[2,2]}});
    map.addSource('hotspots',{type:'geojson',data:data()});
    map.addLayer({id:'hotspots-halo',type:'circle',source:'hotspots',paint:{'circle-radius':9,'circle-color':'#ff6347','circle-opacity':.2,'circle-stroke-width':0}});
@@ -188,7 +193,7 @@ html,body,#map{height:100%;width:100%;margin:0;background:#020a14;font-family:sy
   spinButton.addEventListener('click',()=>spinState(!paused));
   document.getElementById('zoom-in').addEventListener('click',()=>{if(!loaded)return;spinState(true);map.zoomTo(Math.min(8,map.getZoom()+0.65),{duration:REDUCED?0:300});});
   document.getElementById('zoom-out').addEventListener('click',()=>{if(!loaded)return;spinState(true);map.zoomTo(Math.max(0.3,map.getZoom()-0.65),{duration:REDUCED?0:300});});
-  document.getElementById('recenter').addEventListener('click',()=>{if(!loaded)return;spinState(true);if(mode==='pakistan')fitPakistan();else map.jumpTo({center:[69.3,25],zoom:globeZoom()});});
+  document.getElementById('recenter').addEventListener('click',()=>{if(!loaded)return;spinState(true);if(mode==='pakistan')fitPakistan();else map.jumpTo({center:[69.3,30.3],zoom:globeZoom()});});
   document.getElementById('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{status.textContent='Fullscreen not available in this browser.';}});
   for(const b of document.querySelectorAll('[data-window]'))b.addEventListener('click',()=>{windowHours=Number(b.dataset.window);for(const other of document.querySelectorAll('[data-window]'))other.setAttribute('aria-pressed',String(other===b));render();rangeLabel();});
   for(const input of document.querySelectorAll('[data-layer]'))input.addEventListener('change',()=>{if(!loaded)return;overrides.set(input.dataset.layer,input.checked);syncLayerControls();});

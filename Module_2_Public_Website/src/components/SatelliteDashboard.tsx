@@ -44,13 +44,15 @@ function MiniPlot({data,field='value',kind='line',unit=''}:{data:Datum[];field?:
  {kind==='line'?<><polygon points={`8,59 ${coords} 152,59`} className="pci-sat-mini-area"/><polyline points={coords} className="pci-sat-mini-line"/>{p.map(([t,v])=><circle key={t} cx={x(t)} cy={y(v)} r="2" className="pci-sat-mini-dot"><title>{date(new Date(t).toISOString())}: {shown(v)} {unit}</title></circle>)}</>:p.map(([t,v],i)=>{const bw=Math.min(11,132/p.length);return <rect key={t} x={8+i*144/p.length} y={y(v)} width={bw} height={59-y(v)} rx="1" className="pci-sat-mini-bar"><title>{date(new Date(t).toISOString())}: {shown(v)} {unit}</title></rect>;})}
  </svg>;
 }
-function ScoreGauge({score}:{score:number|null}){const v=score===null?null:Math.min(100,Math.max(0,score));return <div className="pci-sat-gauge"><svg viewBox="0 0 120 76" aria-hidden="true"><path d="M12 65 A48 48 0 0 1 108 65" pathLength="100" className="pci-sat-gauge-base"/>{v!==null&&<path d="M12 65 A48 48 0 0 1 108 65" pathLength="100" strokeDasharray={`${v} 100`} className="pci-sat-gauge-value"/>}</svg><div><strong>{v===null?'—':v}</strong><small>/100</small></div></div>;}
+function ScoreGauge({score}:{score:number|null}){const v=score===null?null:Math.min(100,Math.max(0,score));return <div className="pci-sat-gauge" data-score-band={v===null?"unknown":v>=75?"good":v>=55?"fair":v>=35?"limit":"avoid"}><svg viewBox="0 0 120 76" aria-hidden="true"><path d="M12 65 A48 48 0 0 1 108 65" pathLength="100" className="pci-sat-gauge-base"/>{v!==null&&<path d="M12 65 A48 48 0 0 1 108 65" pathLength="100" strokeDasharray={`${v} 100`} className="pci-sat-gauge-value"/>}</svg><div><strong>{v===null?'—':v}</strong><small>/100</small></div></div>;}
 function CitySnapshot({data,city,onCity}:{data:Datum[];city:string;onCity:(c:string)=>void}){const by=new Map(data.filter(r=>typeof r.city==='string').map(r=>[String(r.city),num(r.value)]));return <div className="pci-sat-city-bars">{cityNames.map(c=>{const n=by.get(c)??null;const v=n!==null&&n>=0&&n<=100?n:null;return <button key={c} type="button" onClick={()=>onCity(c)} aria-pressed={city===c} title={`${c}: ${v===null?'Not available':v+'/100'}`}><b>{v===null?'—':v}</b><svg viewBox="0 0 22 44" aria-hidden="true"><rect x="2" y="2" width="18" height="40" rx="2" className="pci-sat-city-base"/>{v!==null&&<rect x="2" y={42-v*.4} width="18" height={v*.4} rx="2" className="pci-sat-city-value"/>}</svg><small>{c[0].toUpperCase()+c.slice(1)}</small></button>;})}</div>;}
 
 export function SatelliteDashboard({sources,fires,rain,solar}:{sources:unknown[];fires:unknown[];rain:unknown[];solar:unknown[]}){
  const [city,setCity]=useState('lahore'),[rainData,setRainData]=useState(rows(rain)),[solarData,setSolarData]=useState(rows(solar));
  const [error,setError]=useState('');
  const [category,setCategory]=useState<ScienceCategory>('farm');
+ const [detailOpen,setDetailOpen]=useState(false);
+ const detailRef=useRef<HTMLDetailsElement>(null);
  const [navChoice,setNavChoice]=useState<string>('weather'),[access,setAccess]=useState<'workspaces'|'quick'>('workspaces');
  const [rainHistory,setRainHistory]=useState<Datum[]>([]),[solarHistory,setSolarHistory]=useState<Datum[]>([]);
  const [historyStatus,setHistoryStatus]=useState<'loading'|'ready'|'unavailable'>('loading');
@@ -127,7 +129,10 @@ export function SatelliteDashboard({sources,fires,rain,solar}:{sources:unknown[]
  const score=num(goOut.score),scoreInputs=rec(goOut.inputs),scorePartial=goOut.partial===true||['usAqi','feelsLikeMaxC','uvIndexMax','rainChancePct'].some(k=>num(scoreInputs[k])===null);
  const cityRank=rankingRows.find(r=>r.id==='best_go_out'),cityScores=Array.isArray(cityRank?.list)?cityRank.list.map(rec):[];
  const chooseCity=(next:string)=>{if(!cityNames.includes(next)||next===city)return;setAir([]);setWeather([]);setInsight({});setRainData([]);setSolarData([]);setRainHistory([]);setSolarHistory([]);setCity(next);};
- const goTo=(id:string)=>document.getElementById(id)?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
+ const goTo=(id:string)=>{
+  if(id!=='pci-sat-earth'){setDetailOpen(true);if(detailRef.current)detailRef.current.open=true;}
+  requestAnimationFrame(()=>document.getElementById(id)?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'}));
+ };
  const openWorkspace=(next:ScienceCategory)=>{setCategory(next);setNavChoice(next==='farm'?'farm':next);goTo('pci-sat-workspace');};
  const riverPast=Array.isArray(topRiver?.past7)?topRiver.past7.map(rec):[];
  const forecastRain=num(days[0]?.rainChancePct);
@@ -137,7 +142,7 @@ export function SatelliteDashboard({sources,fires,rain,solar}:{sources:unknown[]
  const quickLinks=[{label:'Satellite Explorer',Icon:Satellite,action:()=>goTo('pci-sat-earth')},{label:'City Health',Icon:Building2,action:()=>openWorkspace('city')},{label:'Safety Watch',Icon:ShieldCheck,action:()=>openWorkspace('safety')},{label:'Environmental Watch',Icon:Leaf,action:()=>openWorkspace('water')},{label:'Farm Doctor',Icon:Sprout,action:()=>openWorkspace('farm')}];
 
  const card=(c:typeof second,primaryCard=false)=><article className={`${styles.metricCard} ${primaryCard?styles.metricPrimary:''}`}><small>{c.label}</small><strong>{c.value}</strong><span>{c.unit}</span><p>{c.note}</p><small>Observed: {date(c.at)}</small></article>;
- return <div className={`${styles.root} pci-sat-redesign`}>
+ return <div className={`${styles.root} pci-sat-redesign`} data-satellite-revision="reference-v3">
   {providers.length===0&&<p role="status" className={styles.alert}>Satellite provider information is currently unavailable. Historical observations may be incomplete.</p>}
   {power?.enabled===false&&<p role="status" className={styles.alert}>NASA POWER ingestion is disabled. Enable it in PCI Management → Satellite APIs.</p>}
 
@@ -156,7 +161,7 @@ export function SatelliteDashboard({sources,fires,rain,solar}:{sources:unknown[]
    <button className="pci-sat-event river" type="button" onClick={()=>openWorkspace('water')}><Waves/><span><b>River flow outlook</b><small>{riverRatio===null?riverName:riverName+' · '+shown(riverRatio)+'× peak vs today'}</small></span><ChevronRight/></button>
    <p className="pci-sat-live-status">{providers.length?providers.filter(p=>p.available===true).length+' / '+providers.length+' sources recently refreshed':'Source status unavailable'}</p></aside>
 
-   <div className={`${styles.globeFrame} pci-sat-earth-frame`}><iframe ref={mapFrame} className={styles.globeMap} title="Rotating Earth with live satellites and Pakistan observation map" src="/satellite-map.html" allowFullScreen loading="eager" onLoad={postMap}/></div>
+   <div className={`${styles.globeFrame} pci-sat-earth-frame`}><iframe ref={mapFrame} className={styles.globeMap} title="Rotating Earth with live satellites and Pakistan observation map" src="/satellite-map.html?v=reference-v3" allowFullScreen loading="eager" onLoad={postMap}/></div>
 
    <div className="pci-sat-city-stack"><aside className="pci-sat-city-panel" aria-live="polite">
     <div className="pci-sat-card-head"><h2 id="globe-title" aria-label="City Health · GO-OUT SCORE"><Building2 size={19}/> City Health &amp; Go-Out Score</h2><select aria-label="City" value={city} onChange={e=>chooseCity(e.target.value)}>{cityNames.map(c=><option key={c} value={c}>{c[0].toUpperCase()+c.slice(1)}</option>)}</select></div>
@@ -176,6 +181,9 @@ export function SatelliteDashboard({sources,fires,rain,solar}:{sources:unknown[]
    <article className="pci-sat-preview"><div className="pci-sat-card-art industry"/><button className="pci-sat-preview-head" type="button" onClick={()=>goTo('pci-sat-industry')}><Factory/><span><b>Industry Intelligence</b><small>Planning for key sectors</small></span><ChevronRight/></button><div className="pci-sat-industry-mini">{[{label:'Solar',Icon:Sun},{label:'Insurance',Icon:ShieldCheck},{label:'Banking',Icon:Landmark},{label:'Logistics',Icon:Truck},{label:'Power',Icon:Zap},{label:'Telecom',Icon:Radio},{label:'GPS / Drones',Icon:Satellite},{label:'Healthcare',Icon:HeartPulse}].map(({label,Icon})=><button key={label} type="button" onClick={()=>goTo('pci-sat-industry')}><Icon size={19}/><small>{label}</small></button>)}</div><div className="pci-sat-preview-foot">Planning indicators, not guarantees</div></article>
   </section>
 
+  <details ref={detailRef} className="pci-sat-expanded" open={detailOpen} onToggle={e=>setDetailOpen(e.currentTarget.open)}>
+   <summary>Detailed workspace, evidence and source transparency <span>Open analysis</span></summary>
+   <div className="pci-sat-expanded-content">
   <section className={styles.forYou} aria-label="For you today">
    <article><p className={styles.eyebrow}>IS MY AREA SAFE TODAY</p><h3 data-level={txt(safety.level,'none')}>{txt(safety.label,'Not available')}</h3><ul>{safetyItems.map(i=><li key={i}>{i}</li>)}</ul><small>{txt(safety.note,'')}</small></article>
    <article><p className={styles.eyebrow}>SMOG AND HEATWAVE WATCH</p><h3>{typeof watch.smogDaysPast7==='number'?`${watch.smogDaysPast7} smog day(s), ${shown(watch.heatDaysNext7)} hot day(s)`:'Not available'}</h3><p>{txt(watch.summary,'Appears after the first air and weather refresh.')}</p><small>Next 24 h peak AQI: {shown(watch.next24hMaxAqi)}</small></article>
@@ -219,6 +227,8 @@ export function SatelliteDashboard({sources,fires,rain,solar}:{sources:unknown[]
   </section>
   <details id="pci-sat-sources" className={styles.sourceDisclosure}><summary><span><strong>Data source transparency</strong><small>Provider status and original observation dates</small></span><span>View sources</span></summary>
    <div className={styles.sourceBody}><p>Air quality and river flow are model outputs, not flood extent or station measurements. GDACS and NASA EONET are not NDMA or PMD instructions and not an emergency alert.</p><div className={styles.sourceGrid}>{providers.map(p=><article key={String(p.id)}><strong>{String(p.label)}</strong><span>{p.available?'Recently refreshed':!p.implemented?'Not implemented':!p.enabled?'Ingestion disabled':p.refreshQueued?'Refresh queued':'Awaiting first successful ingestion'}</span><small>Last success: {date(p.lastSuccessAt)}</small></article>)}</div><p>NASA GIBS imagery: {imagery.length?'Available':'Unavailable'} · GPM imagery: {gpmImagery.length?'Available':'Unavailable'} · Extra map layers: {layers.length}. Images are not quantitative measurements.</p></div>
+  </details>
+   </div>
   </details>
   <p className={styles.disclaimer}>Satellite and modeled regional observations can be incomplete or delayed. No output is an emergency alert, field diagnosis, property guarantee or financial forecast. For emergencies, follow NDMA, PMD and local Pakistani authorities.</p>
  </div>;
