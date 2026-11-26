@@ -9,8 +9,7 @@ export default async function Satify(){
   adapterGet<{data:SatifyPack[];meta:SatifyMeta}>('/api/v1/satify/packs'),
   adapterGet<{data:SatifyValue[];meta:{scopeName:string;badges:Record<string,string>}}>('/api/v1/satify/now?city=lahore'),
  ]);
- return <FifiPage><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@500;600;700&family=Commissioner:wght@400;500;600&family=Spline+Sans+Mono:wght@500;600&display=swap" precedence="default"/><main className="page-main pb-10 pt-5">
+ return <FifiPage><main className="page-main pb-10 pt-5">
   <SatifyPage packs={packs?.data??[]} meta={packs?.meta??null} initialCity="lahore" initialValues={now?.data??[]} badges={now?.meta?.badges??null}/>
-
  </main></FifiPage>;
 }
