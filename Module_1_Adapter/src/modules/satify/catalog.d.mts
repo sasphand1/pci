@@ -1,0 +1,10 @@
+export type Badge='measured'|'official'|'forecast'|'estimate';
+export type SignalDef={label:string;unit:string;scope:'city'|'pk'|'route';badge:Badge;source:string;optional?:boolean;manual?:boolean;fallback?:string};
+export declare const SATIFY_CITIES:Readonly<Record<string,string>>;
+export declare const AIRPORTS:Readonly<Record<string,string>>;
+export declare const ROUTES:Readonly<Record<string,{label:string;cities:string[]}>>;
+export declare const BADGES:Readonly<Record<Badge,string>>;
+export declare const SIGNALS:Readonly<Record<string,SignalDef>>;
+export declare function isSignal(id:string):boolean;
+export declare function scopeLabel(scope:string):string;
+export declare function scopesFor(scopeType:string):string[];

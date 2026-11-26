@@ -37,3 +37,4 @@ build-log.txt
 PCI_UPDATE_*/
 *.zip
 .DS_Store
+.hostinger/

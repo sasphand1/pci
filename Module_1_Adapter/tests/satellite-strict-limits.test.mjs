@@ -11,7 +11,9 @@ test('FIRMS limits all requests to 8 slots per 24 hours under default policy',()
 });
 test('all other provider policies use conservative minimums',()=>{
  for(const id of ['power','gibs','flood'])assert.equal(minimumIntervalMinutes(id),1440);
- for(const id of ['airquality','weather','gdacs','openaq','usgs'])assert.equal(minimumIntervalMinutes(id),60);
+ for(const id of ['airquality','gdacs','openaq','usgs'])assert.equal(minimumIntervalMinutes(id),60);
+ // MET Norway asks for at least 3 hours of caching outside the Nordics.
+ assert.equal(minimumIntervalMinutes('weather'),180);
  for(const id of ['sentinel1','landsat'])assert.throws(()=>minimumIntervalMinutes(id));
  for(const id of ['eonet','gpm'])assert.equal(minimumIntervalMinutes(id),360);
  assert.equal(effectiveIntervalMinutes('firms',360),360);

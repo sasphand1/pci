@@ -2,6 +2,7 @@ import {syncApprovedEventSources} from '../events/service.js';
 import {classifyPendingEvents} from '../events/intelligence.js';
 import cron from 'node-cron';
 import {satelliteTick} from '../satellite/service.js';
+import {satifyTick} from '../satify/engine.js';
 import os from 'node:os';
 import {syncInstagramProfiles} from '../instagram/service.js';
 import {bustPublicCache} from '../../lib/redis.js';
@@ -102,6 +103,8 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
  // Satellite jobs are claimed in PostgreSQL; frequent polling reduces queue latency.
  tasks.push(cron.schedule('* * * * *',()=>void satelliteTick()));
  void satelliteTick();
+ // Satify Hub: collect free sources, then send due daily briefs and urgent alerts (one process holds the lock).
+ tasks.push(cron.schedule('* * * * *',()=>void satifyTick()));
  tasks.push(cron.schedule('30 7 * * *',()=>{
    void syncApprovedEventSources().catch(err=>
      logger.error({err},'Daily event sync failed')

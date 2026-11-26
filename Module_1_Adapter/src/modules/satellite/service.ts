@@ -2,6 +2,7 @@ import {buildObservationBatch,SATELLITE_BATCH_SIZE,type SatelliteBatchObservatio
 import {writeHub,reportHub} from './hub.js';
 import {publishInsights} from './insights-service.js';
 import {airQualityUrl,parseAirQuality,weatherUrl,parseWeather,RIVER_POINTS,floodUrl,parseFlood,gdacsUrl,parseGdacs,SWPC_KP_URL,parseKp,CELESTRAK_STATIONS_URL,parseCelestrak,OPENAQ_LOCATIONS_URL,openaqLatestUrl,parseOpenaqLocations,parseOpenaqLatest,GIBS_EXTRA_LAYERS,gibsLayerProbeUrl} from './open-data.mjs';
+import {metnoUrl,metnoUserAgent,parseMetno} from './metno.mjs';
 import {minimumIntervalMinutes,effectiveIntervalMinutes} from './policy.mjs';
 import {readLimitedText} from './guard.mjs';
 import {query} from '../../lib/db.js';
@@ -142,7 +143,12 @@ async function perItem<T extends string>(provider:SatelliteProviderId,items:read
 }
 const cityIds=()=>Object.keys(CITIES);
 async function ingestAirQuality(){return perItem('airquality',cityIds(),async c=>parseAirQuality(await fetchJson(airQualityUrl(c)),c) as SatelliteBatchObservation[]);}
-async function ingestWeather(){return perItem('weather',cityIds(),async c=>parseWeather(await fetchJson(weatherUrl(c)),c) as SatelliteBatchObservation[]);}
+/** Weather: MET Norway first (free incl. commercial use); Open-Meteo only as a flagged backup for that city. */
+async function ingestWeather(){return perItem('weather',cityIds(),async c=>{
+ try{return parseMetno(await fetchJson(metnoUrl(c),{'User-Agent':metnoUserAgent()}),c) as SatelliteBatchObservation[];}
+ catch(err){logger.warn({err,city:c},'MET Norway weather failed; using Open-Meteo backup (non-commercial terms)');
+  return parseWeather(await fetchJson(weatherUrl(c)),c).map(o=>({...o,payload:{...o.payload,source:'Open-Meteo forecast (backup)'}})) as SatelliteBatchObservation[];}
+});}
 async function ingestFlood(){return perItem('flood',Object.keys(RIVER_POINTS),async id=>parseFlood(await fetchJson(floodUrl(id)),id) as SatelliteBatchObservation[]);}
 async function ingestGdacs(){const rows=parseGdacs(await fetchJson(gdacsUrl())) as SatelliteBatchObservation[];return rows.length?storeBatch('gdacs',rows):0;}
 async function ingestSwpc(){return storeBatch('swpc',parseKp(await fetchJson(SWPC_KP_URL)) as SatelliteBatchObservation[]);}

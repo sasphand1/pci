@@ -1,4 +1,0 @@
-import type {Metadata} from 'next';
-import {PageHeading} from '@pci/ui';
-export const metadata:Metadata={title:'About'};
-export default function About(){return <div className="container"><PageHeading eyebrow="Independent project" title="About Pakistan Creator Index"/><article className="card readable"><p>Pakistan Creator Index is an independent, curated discovery and statistics website for Pakistani YouTube creators. It presents publicly available channel and video data through a transparent, sortable directory.</p><p>The community live wall is a separate on-site conversation space, not YouTube Live Chat and not YouTube comments.</p><p>We are not affiliated with or endorsed by YouTube, Google, or the creators listed. Listings are informational and do not indicate endorsement.</p></article></div>}

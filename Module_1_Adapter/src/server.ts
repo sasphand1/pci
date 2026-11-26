@@ -1,4 +1,6 @@
 import {ensureSatelliteSchema} from './lib/satellite-schema.js';
+import {ensureSatifySchema} from './lib/satify-schema.js';
+import {satifyPublicRoutes,satifyAdminRoutes,satifyWebhookRoutes} from './modules/satify/routes.js';
 import {ensureIngestSchema} from './lib/ingest-schema.js';
 import {ensureHubSchema} from './lib/hub-schema.js';
 import {ensureEventsSchema} from './lib/events-schema.js';
@@ -65,7 +67,7 @@ export function makeApp() {
   app.use(cors((req,callback)=>{
     // Public satellite reads may be consumed by external Pakistan-focused applications.
     // Never permit cross-origin credentialed writes or admin management access.
-    if(req.path.startsWith('/api/v1/satellite/') && (req.method==='GET'||req.method==='OPTIONS'))
+    if((req.path.startsWith('/api/v1/satellite/')||(req.path.startsWith('/api/v1/satify/')&&!req.path.startsWith('/api/v1/satify/whatsapp'))) && (req.method==='GET'||req.method==='OPTIONS'))
       return callback(null,{origin:'*',credentials:false,methods:['GET','OPTIONS'],allowedHeaders:['Accept','Content-Type']});
     return callback(null,{origin(origin,cb){if(!origin || origins.has(origin))cb(null,true);else cb(new HttpError(403,'ORIGIN_DENIED','Origin not allowed'));},credentials:true,allowedHeaders:['Content-Type','Authorization','X-CSRF-Token','X-Pci-Background'],methods:['GET','POST','PATCH','PUT','DELETE','OPTIONS']});
   }));
@@ -79,6 +81,8 @@ export function makeApp() {
     }
     next();
   });
+  // Satify WhatsApp webhook needs the raw body for Meta's signature check; express.json then skips it.
+  app.use('/api/v1/satify/whatsapp/webhook',express.raw({type:'*/*',limit:'256kb'}));
   app.use(express.json({limit:'32kb',strict:true}));
   app.use(cookieParser());
   // Avoid requests racing with database/Redis initialization.
@@ -133,6 +137,9 @@ export function makeApp() {
   app.use('/api/v1',unifiedPublicRoutes);
   app.use('/api/v1',instagramPublicRoutes);
   app.use('/api/v1',crossPublicRoutes);
+  app.use('/api/v1/satify/whatsapp/webhook',satifyWebhookRoutes);
+  app.use('/api/v1/satify',satifyPublicRoutes);
+  app.use('/api/v1/admin/satify',satifyAdminRoutes);
   app.use('/api/v1/satellite',satellitePublicRoutes);
   app.use('/api/v1/admin/satellite',satelliteAdminRoutes);
   app.use('/api/v1/wall/auth',wallAuthRoutes);
@@ -222,6 +229,8 @@ async function main(){
         catch(err){logger.error({err},'Events schema unavailable; event endpoints may fail until the migration is applied');}
         try{await ensureSatelliteSchema();logger.info('Satellite schema verified');}
         catch(err){logger.error({err},'Satellite schema unavailable; satellite endpoints may fail until migration is applied');}
+        try{await ensureSatifySchema();logger.info('Satify Hub schema verified');}
+        catch(err){logger.error({err},'Satify Hub schema unavailable; Satify endpoints may fail until it is applied');}
         pciStartupReady=true;
         logger.info('API server ready');
         if(config.RUN_WORKER_IN_API==='true'){

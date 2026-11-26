@@ -1,0 +1,13 @@
+import type {Badge} from './catalog.mjs';
+export type SatifyReading={signal:string;scope:string;value:number|null;text:string|null;badge:Badge;source:string;observedAt:string};
+export declare const TROY_OZ_G:number;
+export declare const TOLA_G:number;
+export declare function metarUrl():string;
+export declare function metarVisibilityKm(raw:unknown,visib:unknown):number|null;
+export declare function parseMetar(body:unknown):SatifyReading[];
+export declare const FX_SBP_URL:string;
+export declare const FX_ERAPI_URL:string;
+export declare function parseFrankfurter(body:unknown,now?:number):SatifyReading[];
+export declare function parseErApi(body:unknown,now?:number):SatifyReading[];
+export declare const GOLD_XAUS_URL:string;
+export declare function parseXaus(body:unknown,now?:number):SatifyReading[];

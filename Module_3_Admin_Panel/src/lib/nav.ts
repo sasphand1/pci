@@ -14,9 +14,14 @@ export const NAV_GROUPS:NavGroup[]=[
   {title:'Event sources',href:'/events/sources',icon:'settings',roles:['owner','editor']},
   {title:'Events Intelligence',href:'/events/intelligence',icon:'settings',roles:['owner','editor']},
   {title:'Live wall',href:'/wall',icon:'chat',roles:['owner','moderator']}]},
+ {label:'Satify',items:[
+  {title:'Satify overview',href:'/satify',icon:'pulse',roles:['owner','editor']},
+  {title:'Packs',href:'/satify/packs',icon:'edit',roles:['owner','editor']},
+  {title:'Official entries',href:'/satify/manual',icon:'tag',roles:['owner','editor']},
+  {title:'Messages & people',href:'/satify/people',icon:'chat',roles:['owner','editor']},
+  {title:'Satify sources',href:'/satellite',icon:'settings',roles:['owner']}]},
  {label:'Administration',items:[
   {title:'Data Hub',href:'/hub',icon:'pulse',roles:['owner','editor']},
-  {title:'Satellite APIs',href:'/satellite',icon:'settings',roles:['owner']},
   {title:'System health',href:'/system',icon:'pulse',roles:['owner']},
   {title:'Audit log',href:'/audit',icon:'clock',roles:['owner']},
   {title:'Team',href:'/admins',icon:'team',roles:['owner']},

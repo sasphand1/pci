@@ -34,6 +34,10 @@ const runtimeModules=[
   'modules/satellite/bulk.mjs',
   'modules/satellite/feeds.mjs',
   'modules/satellite/policy.mjs',
+  'modules/satellite/metno.mjs',
+  'modules/satify/catalog.mjs',
+  'modules/satify/sources.mjs',
+  'modules/satify/derive.mjs',
   'modules/local/rules.mjs',
   'modules/local/image-rules.mjs',
 ];

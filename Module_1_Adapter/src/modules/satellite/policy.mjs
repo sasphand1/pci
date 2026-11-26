@@ -1,7 +1,7 @@
 /** Provider-side minimum request spacing. The UI cannot override these floors. */
 export const SATELLITE_MIN_INTERVAL_MINUTES = Object.freeze({
   firms:180,power:1440,eonet:360,usgs:60,gibs:1440,gpm:360,
-  airquality:60,weather:60,flood:1440,gdacs:60,swpc:180,celestrak:360,openaq:60
+  airquality:60,weather:180,flood:1440,gdacs:60,swpc:180,celestrak:360,openaq:60
 });
 export function minimumIntervalMinutes(id){
   const value=SATELLITE_MIN_INTERVAL_MINUTES[id];

@@ -27,14 +27,14 @@ test('scheduled sync retains Satellite and verified Event feeds',()=>{
  const s=src('Module_1_Adapter/src/modules/sync/scheduler.ts');
  assert.match(s,/satelliteTick\(\)/);assert.match(s,/syncApprovedEventSources\(\)/);
 });
-test('one shared public header across Home, Events and Satellite',()=>{
+test('one shared public header across Home, Events and Satify',()=>{
  const layout=src('Module_2_Public_Website/src/app/layout.tsx');
  const header=src('Module_2_Public_Website/src/components/SiteHeader.tsx');
  const events=src('Module_2_Public_Website/src/app/events/page.tsx');
  const radar=src('Module_2_Public_Website/public/events-radar.html');
- const sat=src('Module_2_Public_Website/src/app/satellite/page.tsx');
+ const sat=src('Module_2_Public_Website/src/app/satify/page.tsx');
  assert.match(layout,/<SiteHeader\s*\/>/);
- for(const p of ["href:'/events'","href:'/satellite'"])assert.ok(header.includes(p));
+ for(const p of ["href:'/events'","href:'/satify'"])assert.ok(header.includes(p));
  assert.match(header,/pathname\.startsWith/);
  assert.match(events,/pci-events-frame/);assert.match(sat,/SatelliteDashboard/);
  assert.doesNotMatch(radar,/<header\b/i,'radar frame must not have its own independent global header');

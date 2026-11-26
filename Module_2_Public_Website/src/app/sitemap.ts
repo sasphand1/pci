@@ -4,7 +4,7 @@ import {canonicalPath} from '@/lib/seo';
 
 /** Live, curated discovery only: never publish made-up profile URLs. */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const pages = ['', 'creators', 'rankings', 'categories', 'compare', 'satellite',
+  const pages = ['', 'creators', 'rankings', 'categories', 'compare', 'satify',
     'methodology', 'about', 'privacy', 'terms', 'contact', 'license', 'legal-notice', 'events'];
   const entries: MetadataRoute.Sitemap = pages.map(path => ({
     url: canonicalPath(path),

@@ -61,7 +61,7 @@ test('navigation is grouped, role-filtered, has no empty group, and no dead entr
  assert.ok(titles('editor').includes('People')&&titles('editor').includes('Pipeline')&&!titles('editor').includes('Audit log')&&!titles('editor').includes('Team'));
  assert.equal(titles('owner').length,nav.NAV.length);
  for(const r of ['owner','editor','moderator'])for(const g of nav.visibleGroups(r))assert.ok(g.items.length>0);
- assert.deepEqual(nav.NAV_GROUPS.map(g=>g.label),[null,'Rankings','Website','Administration']);
+ assert.deepEqual(nav.NAV_GROUPS.map(g=>g.label),[null,'Rankings','Website','Satify','Administration']);
  const hrefs=nav.NAV.map(i=>i.href);assert.equal(new Set(hrefs).size,hrefs.length);
  assert.ok(!hrefs.includes('/videos'));
  for(const h of hrefs)assert.ok(existsSync(join(root,'src/app',h==='/'?'':h,'page.tsx')),`no page for ${h}`);

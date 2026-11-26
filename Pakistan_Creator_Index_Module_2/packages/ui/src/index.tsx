@@ -1,9 +1,0 @@
-import type { ReactNode } from 'react';
-export function Badge({children,variant='normal'}:{children:ReactNode;variant?:'normal'|'muted'|'danger'}){return <span className={`badge${variant==='normal'?'':` badge-${variant}`}`}>{children}</span>}
-export function Card({children,className=''}:{children:ReactNode;className?:string}){return <div className={`card ${className}`.trim()}>{children}</div>}
-export function MetricCard({label,value,note}:{label:string;value:string;note?:string}){return <div className="card"><div className="metric-value number">{value}</div><div className="metric-label">{label}</div>{note&&<p className="metric-sub">{note}</p>}</div>}
-export function Notice({children,tone='normal'}:{children:ReactNode;tone?:'normal'|'warning'|'danger'}){return <div className={`notice${tone==='normal'?'':` notice-${tone}`}`} role={tone==='danger'?'alert':'status'}>{children}</div>}
-export function EmptyState({title,message,children}:{title:string;message:string;children?:ReactNode}){return <div className="empty"><h3>{title}</h3><p>{message}</p>{children}</div>}
-export function SectionHeading({title,description,action}:{title:string;description?:string;action?:ReactNode}){return <div className="section-head"><div><h2>{title}</h2>{description&&<p>{description}</p>}</div>{action}</div>}
-export function PageHeading({eyebrow,title,description,action}:{eyebrow?:string;title:string;description?:string;action?:ReactNode}){return <div className="page-head"><div>{eyebrow&&<div className="eyebrow">{eyebrow}</div>}<h1>{title}</h1>{description&&<p>{description}</p>}</div>{action}</div>}
-export function Avatar({name,src,large=false}:{name:string;src?:string|null;large?:boolean}){const initials=name.split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0]?.toUpperCase()).join('')||'?';return <span className={`avatar${large?' avatar-lg':''}`}>{src?<img src={src} alt="" loading="lazy" referrerPolicy="no-referrer"/>:initials}</span>}

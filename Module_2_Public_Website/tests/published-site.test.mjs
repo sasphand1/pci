@@ -15,7 +15,7 @@ test('no page or component calls an old ranking endpoint',()=>{
  for(const [p,s] of sources)assert.doesNotMatch(s,/api\/v1\/(unified|creators|rankings|overview|instagram|cross-platform)/,p);
 });
 test('every data call goes to the public API, the site settings or the wall',()=>{
- for(const [p,s] of sources){for(const m of s.matchAll(/\/api\/v1\/([a-z-]+)/g))assert.ok(['public','site-config','satellite'].includes(m[1]),`${p}: ${m[0]}`);}
+ for(const [p,s] of sources){for(const m of s.matchAll(/\/api\/v1\/([a-z-]+)/g))assert.ok(['public','site-config','satellite','satify'].includes(m[1]),`${p}: ${m[0]}`);}
 });
 test('pages read published data through the public helpers',()=>{
  for(const f of ['src/app/rankings/page.tsx','src/app/categories/page.tsx','src/app/categories/[slug]/page.tsx','src/app/creators/page.tsx','src/app/creators/[slug]/page.tsx'])assert.match(read(f),/pubGet|pubList|pubCreatorIndex/,f);

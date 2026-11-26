@@ -7,7 +7,7 @@ export const PROVIDERS = Object.freeze({
  gibs:{label:'NASA GIBS map layers (true colour, night lights, dust, snow)',kind:'imagery',implemented:true,auth:null,minMinutes:1440},
  gpm:{label:'NASA GPM IMERG rain map (imagery only)',kind:'rainfall imagery',implemented:true,auth:null,minMinutes:360},
  airquality:{label:'Copernicus CAMS air quality (PM2.5, PM10, NO2, ozone, dust, UV)',kind:'air_quality',implemented:true,auth:null,minMinutes:60},
- weather:{label:'Open-Meteo weather and 7-day forecast',kind:'weather',implemented:true,auth:null,minMinutes:60},
+ weather:{label:'MET Norway weather and 7-day forecast (Open-Meteo backup)',kind:'weather',implemented:true,auth:null,minMinutes:180},
  flood:{label:'GloFAS river flow forecast (Indus, Jhelum, Chenab, Ravi, Sutlej, Kabul, Swat)',kind:'river_flow',implemented:true,auth:null,minMinutes:1440},
  gdacs:{label:'GDACS disaster alerts (UN / EC)',kind:'disaster_alert',implemented:true,auth:null,minMinutes:60},
  swpc:{label:'NOAA SWPC space weather (Kp index)',kind:'space_weather',implemented:true,auth:null,minMinutes:180},
