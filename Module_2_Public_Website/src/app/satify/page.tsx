@@ -1,21 +1,16 @@
 import type {Metadata} from 'next';
 import {FifiPage} from '@/fifi/FifiPage';
 import {adapterGet} from '@/lib/api';
-import {SatelliteDashboard} from '@/components/SatelliteDashboard';
 import {SatifyPage,type SatifyPack,type SatifyMeta,type SatifyValue} from '@/components/SatifyPage';
-export const metadata:Metadata={title:'Satify: Satisfy yourself',description:'Pakistan’s air, weather, fog, prices and alerts from free scientific and official sources. Every number shows its source and time. Join packs on WhatsApp.'};
+export const metadata:Metadata={title:'Pulsr Signals',description:'Pakistan’s air, weather, fog, prices and alerts from free scientific and official sources. Every number shows its source and time. Join packs on WhatsApp.'};
 export const dynamic='force-dynamic';
 export default async function Satify(){
- const [packs,now,sources,fires,rain,solar]=await Promise.all([
+ const [packs,now]=await Promise.all([
   adapterGet<{data:SatifyPack[];meta:SatifyMeta}>('/api/v1/satify/packs'),
   adapterGet<{data:SatifyValue[];meta:{scopeName:string;badges:Record<string,string>}}>('/api/v1/satify/now?city=lahore'),
-  adapterGet<{data:unknown[]}>('/api/v1/satellite/sources'),
-  adapterGet<{data:unknown[]}>('/api/v1/satellite/fires/latest?limit=100'),
-  adapterGet<{data:unknown[]}>('/api/v1/satellite/rainfall/latest?city=lahore'),
-  adapterGet<{data:unknown[]}>('/api/v1/satellite/solar/latest?city=lahore')
  ]);
- return <FifiPage><main className="page-main pb-10 pt-5">
-  <SatifyPage packs={packs?.data??[]} meta={packs?.meta??null} initialCity="lahore" initialValues={now?.data??[]} badges={now?.meta?.badges??null} satellite={<SatelliteDashboard sources={sources?.data??[]} fires={fires?.data??[]} rain={rain?.data??[]} solar={solar?.data??[]}/>}/>
+ return <FifiPage><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@500;600;700&family=Commissioner:wght@400;500;600&family=Spline+Sans+Mono:wght@500;600&display=swap" precedence="default"/><main className="page-main pb-10 pt-5">
+  <SatifyPage packs={packs?.data??[]} meta={packs?.meta??null} initialCity="lahore" initialValues={now?.data??[]} badges={now?.meta?.badges??null}/>
 
  </main></FifiPage>;
 }

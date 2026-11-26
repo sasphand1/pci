@@ -15,7 +15,7 @@ export const NAV = Object.freeze([
   {label: 'Dramas', href: '/dramas'},
   {label: 'Events', href: '/events'},
   {label: 'Local', href: '/local'},
-  {label: 'Satellite', href: '/satellite'},
+  {label: 'Signals', href: '/satify'},
   {label: 'Insights', href: '/insights'},
   {label: 'About', href: '/about'},
 ]);

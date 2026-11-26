@@ -66,7 +66,7 @@ test('freshness',()=>{
 test('nav and active state',()=>{
  assert.ok(NAV.every(n=>n.href.startsWith('/')));
  assert.ok(!NAV.some(n=>/admin/.test(n.href)));
- assert.deepEqual(NAV.map(n=>n.label),['Home','Creators','Dramas','Events','Local','Satellite','Insights','About']);
+ assert.deepEqual(NAV.map(n=>n.label),['Home','Creators','Dramas','Events','Local','Signals','Insights','About']);
  assert.equal(isActivePath('/','/'),true);assert.equal(isActivePath('/creators/x','/'),false);
  assert.equal(isActivePath('/creators/x','/creators'),true);assert.equal(isActivePath('/creatorsx','/creators'),false);
  assert.ok(BRAND.wordmark&&BRAND.product);

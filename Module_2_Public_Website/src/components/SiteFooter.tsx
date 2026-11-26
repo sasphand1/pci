@@ -42,7 +42,7 @@ export function SiteFooter() {
               <Link href="/videos">Recent videos</Link>
               <Link href="/events">Events</Link>
               <Link href="/wall">Community wall</Link>
-              <Link href="/satify">Satify</Link>
+              <Link href="/satify">Signals</Link>
             </div>
           </nav>
           <nav className="pci-footer-panel" aria-label="Information">

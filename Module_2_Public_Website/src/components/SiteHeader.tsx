@@ -7,7 +7,7 @@ import {usePathname} from 'next/navigation';
 const primaryLinks = [
   {href:'/',label:'Home'},
   {href:'/events',label:'Events'},
-  {href:'/satify',label:'Satify'},
+  {href:'/satify',label:'Signals'},
   {href:'/methodology',label:'Insights'},
   {href:'/about',label:'About'}
 ] as const;

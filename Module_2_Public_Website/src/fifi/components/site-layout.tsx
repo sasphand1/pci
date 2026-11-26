@@ -17,7 +17,7 @@ const navigation = [
   { label: "Dramas", to: "/dramas" },
   { label: "Events", to: "/events" },
   { label: "Local", to: "/local" },
-  { label: "Satify", to: "/satify" },
+  { label: "Signals", to: "/satify" },
   { label: "Insights", to: "/insights" },
   { label: "About", to: "/about" },
 ] as const;
@@ -165,7 +165,7 @@ export function SiteFooter() {
           <p className="mt-1 max-w-xs text-xs leading-5 text-primary-foreground/60">Independent, useful and made for curious Pakistanis everywhere.</p>
         </div>
         <FooterLinks title="Explore" links={[{ label: "Creators", to: "/creators" }, { label: "Top Dramas", to: "/dramas" }, { label: "Events", to: "/events" }, { label: "Local guide", to: "/local" }]} />
-        <FooterLinks title="Intelligence" links={[{ label: "Satify", to: "/satify" }, { label: "Insights", to: "/insights" }, { label: "Methodology", to: "/methodology" }, { label: "About", to: "/about" }]} />
+        <FooterLinks title="Intelligence" links={[{ label: "Signals", to: "/satify" }, { label: "Insights", to: "/insights" }, { label: "Methodology", to: "/methodology" }, { label: "About", to: "/about" }]} />
         <div>
           <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-gold-soft">Follow</h3>
           <button type="button" onClick={openFifi} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-gold-soft hover:text-primary-foreground">Ask Fifi <ArrowRight className="h-4 w-4" /></button>
