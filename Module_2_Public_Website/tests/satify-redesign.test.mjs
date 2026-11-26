@@ -1,0 +1,13 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {stripTypeScriptTypes} from 'node:module';
+const qrSource=readFileSync(new URL('../src/lib/qr.ts',import.meta.url),'utf8');
+const {qrMatrix,qrSvgPath}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(qrSource)).toString('base64'));
+const ui=readFileSync(new URL('../src/components/SatifyPage.tsx',import.meta.url),'utf8');
+const page=readFileSync(new URL('../src/app/satify/page.tsx',import.meta.url),'utf8');
+const css=readFileSync(new URL('../packages/ui/src/styles/satify.css',import.meta.url),'utf8');
+test('satellite explorer belongs inside the intelligence workspace',()=>{assert.match(page,/satellite=\{<SatelliteDashboard/);assert.match(ui,/domain==='space'\?/);assert.doesNotMatch(page,/id="satify-satellite"/);});
+test('alert discovery opens a native modal and uses existing endpoints',()=>{assert.match(ui,/<dialog ref=\{dialog\}/);assert.match(ui,/\.showModal\(\)/);assert.match(ui,/what=interest/);assert.match(ui,/what=schools/);assert.match(ui,/https:\/\/wa\.me\//);assert.match(css,/\.satify-modal::backdrop/);});
+test('city changes clear stale values and cancel the earlier request',()=>{assert.match(ui,/request\.current\?\.abort\(\)/);assert.match(ui,/setCity\(c\);setValues\(\[\]\)/);assert.match(ui,/if\(!controller\.signal\.aborted\)setValues/);});
+test('QR encoder produces distinct square codes for different join links',()=>{const a='https://wa.me/923001234567?text=JOIN%20PARENTS%20LAHORE',b=a.replace('LAHORE','KARACHI');const m=qrMatrix(a);assert.ok(m.length>=21);assert.ok(m.every(r=>r.length===m.length));assert.notDeepEqual(m,qrMatrix(b));assert.ok(qrSvgPath(a).path.length>0);});

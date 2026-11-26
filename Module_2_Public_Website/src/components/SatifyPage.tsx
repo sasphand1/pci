@@ -1,5 +1,6 @@
 'use client';
-import {useMemo,useState} from 'react';
+import {useMemo,useState,useRef,useEffect} from 'react';
+import {Wind,Car,School,Coins,Satellite,ArrowUpRight,Bell,Radio,ChevronLeft,ChevronRight,Leaf,Globe2,X} from 'lucide-react';
 import {qrSvgPath} from '@/lib/qr';
 
 export type SatifyValue={id:string;label:string;unit:string;value:number|null;text:string|null;badge:'measured'|'official'|'forecast'|'estimate';source:string;observedAt:string;sourceUrl:string|null};
@@ -26,7 +27,7 @@ const prefix=(v:SatifyValue)=>v.value!==null&&v.unit==='Rs'?'Rs ':'';
 
 function Badge({b}:{b:SatifyValue['badge']}){return <span className={`satify-badge satify-badge-${b}`}>{BADGE_TEXT[b]}</span>;}
 function Value({v,label,big}:{v:SatifyValue|undefined;label:string;big?:boolean}){
- if(!v)return <div className={`satify-tile satify-tile-empty${big?' satify-tile-big':''}`}><span className="satify-tile-label">{label}</span><span className="satify-tile-value">PH</span><span className="satify-tile-meta">No data yet</span></div>;
+ if(!v)return <div className={`satify-tile satify-tile-empty${big?' satify-tile-big':''}`}><span className="satify-tile-label">{label}</span><span className="satify-tile-value">—</span><span className="satify-tile-meta">No data yet</span></div>;
  return <div className={`satify-tile${big?' satify-tile-big':''}`}><span className="satify-tile-label">{v.label}</span>
   <span className="satify-tile-value">{prefix(v)}{show(v)}{unitOf(v)}</span>
   <span className="satify-tile-meta"><Badge b={v.badge}/> {v.sourceUrl?<a href={v.sourceUrl} target="_blank" rel="noreferrer">{v.source}</a>:v.source} · {time(v.observedAt)}</span></div>;
@@ -36,9 +37,9 @@ function Qr({text}:{text:string}){
  return <svg className="satify-qr" viewBox={`0 0 ${q.size} ${q.size}`} role="img" aria-label="QR code to join on WhatsApp" shapeRendering="crispEdges"><rect width={q.size} height={q.size} fill="#fff"/><path d={q.path} fill="#111"/></svg>;
 }
 
-function JoinCard({pack,meta}:{pack:SatifyPack;meta:SatifyMeta|null}){
+function JoinCard({pack,meta,city}:{pack:SatifyPack;meta:SatifyMeta|null;city:string}){
  const places=pack.scope_type==='route'?Object.entries(meta?.routes??{}):pack.scope_type==='city'?Object.entries(meta?.cities??{}):[];
- const [place,setPlace]=useState(places[0]?.[0]??'');
+ const [place,setPlace]=useState(places.some(([k])=>k===city)?city:places[0]?.[0]??'');
  const text=`JOIN ${pack.code}${place?` ${place.toUpperCase()}`:''}`;
  const link=meta?.whatsappNumber?`https://wa.me/${meta.whatsappNumber}?text=${encodeURIComponent(text)}`:null;
  return <article className={`satify-pack${pack.featured?' satify-pack-featured':''}`}>
@@ -84,30 +85,55 @@ function SchoolsCard({pack,meta}:{pack:SatifyPack;meta:SatifyMeta|null}){
  </article>;
 }
 
-export function SatifyPage({packs,meta,initialCity,initialValues,badges}:{packs:SatifyPack[];meta:SatifyMeta|null;initialCity:string;initialValues:SatifyValue[];badges:Record<string,string>|null}){
- const [city,setCity]=useState(initialCity),[values,setValues]=useState(initialValues),[loading,setLoading]=useState(false);
+const DOMAINS=[
+ {id:'air',title:'City & atmosphere',description:'Air quality, temperature and the conditions shaping your day.',icon:Wind,ids:SECTIONS[0].ids,related:['my-pulse','parents','health','events']},
+ {id:'travel',title:'Mobility & travel',description:'Visibility, fog and travel planning.',icon:Car,ids:SECTIONS[1].ids,related:['motorway','school-van','north','flight','transport']},
+ {id:'schools',title:'Community & education',description:'Official notices and forecast-based school planning.',icon:School,ids:[...SECTIONS[2].ids,'section144'],related:['parents','students','school-van','schools']},
+ {id:'money',title:'Markets & economy',description:'Currency, gold and everyday fuel prices.',icon:Coins,ids:SECTIONS[3].ids,related:['my-pulse','overseas','rates','transport']},
+ {id:'space',title:'Earth & satellite',description:'Rainfall, river flow, solar energy, hazards and city health.',icon:Satellite,ids:[],related:['farmers','solar','overseas','health']},
+ {id:'pulse',title:'Daily pulse',description:'A concise view of the day’s signals.',icon:Radio,ids:['top_trend','temp_now','aqi','rain_chance'],related:['my-pulse','overseas']}
+];
+export function SatifyPage({packs,meta,initialCity,initialValues,badges,satellite}:{packs:SatifyPack[];meta:SatifyMeta|null;initialCity:string;initialValues:SatifyValue[];badges:Record<string,string>|null;satellite?:React.ReactNode}){
+ const [city,setCity]=useState(initialCity),[values,setValues]=useState(initialValues),[loading,setLoading]=useState(false),[error,setError]=useState(false);
+ const [domain,setDomain]=useState('air'),[group,setGroup]=useState('all'),[selected,setSelected]=useState<SatifyPack|null>(null),[relatedOnly,setRelatedOnly]=useState(false);
+ const request=useRef<AbortController|null>(null),dialog=useRef<HTMLDialogElement>(null),rail=useRef<HTMLDivElement>(null),trigger=useRef<HTMLElement|null>(null);
  const byId=useMemo(()=>Object.fromEntries(values.map(v=>[v.id,v])),[values]);
- async function pick(c:string){setCity(c);setLoading(true);
-  try{const r=await fetch(`/api/satify?what=now&city=${encodeURIComponent(c)}`);const j=await r.json();if(r.ok&&Array.isArray(j?.data))setValues(j.data);}catch{/* keep the last values */}finally{setLoading(false);}}
- const cities=Object.entries(meta?.cities??{lahore:'Lahore'});
- const groups=(meta?.groups??[]).map(g=>({...g,packs:packs.filter(p=>p.group_id===g.id)})).filter(g=>g.packs.length);
- return <div className="satify">
-  <section className="satify-hero">
-   <p className="satify-eyebrow">Satify</p>
-   <h1>Satisfy yourself.</h1>
-   <p className="satify-lead">Pakistan’s air, weather, fog, prices and alerts from satellites, sensors and official notices. Every number shows where it comes from and when, so you can check it yourself.</p>
-   <div className="satify-legend">{(Object.keys(BADGE_TEXT) as SatifyValue['badge'][]).map(b=><span key={b}><Badge b={b}/> {badges?.[b]?.replace(/^[^(]*\(/,'').replace(/\)$/,'')??''}</span>)}</div>
+ const current=DOMAINS.find(d=>d.id===domain)??DOMAINS[0];
+ const cities=Object.entries(meta?.cities??{lahore:'Lahore'}),cityLabel=cities.find(([k])=>k===city)?.[1]??city;
+ const groups=(meta?.groups??[]).filter(g=>packs.some(p=>p.group_id===g.id));
+ const related=packs.filter(p=>current.related.includes(p.slug)||(domain==='schools'&&p.card_type==='business')||(domain==='money'&&p.group_id==='money'));
+ const visible=(relatedOnly?related:packs).filter(p=>group==='all'||p.group_id===group);
+ useEffect(()=>()=>request.current?.abort(),[]);
+ useEffect(()=>{const el=dialog.current;if(selected&&el&&!el.open)el.showModal();},[selected]);
+ useEffect(()=>{rail.current?.scrollTo({left:0});},[group,relatedOnly,domain]);
+ async function pick(c:string){request.current?.abort();const controller=new AbortController();request.current=controller;setCity(c);setValues([]);setError(false);setLoading(true);
+  try{const r=await fetch(`/api/satify?what=now&city=${encodeURIComponent(c)}`,{signal:controller.signal});const j=await r.json();if(!r.ok||!Array.isArray(j?.data))throw Error('Unavailable');if(!controller.signal.aborted)setValues(j.data);}catch{if(!controller.signal.aborted)setError(true);}finally{if(!controller.signal.aborted)setLoading(false);}}
+ function openPack(p:SatifyPack){trigger.current=document.activeElement as HTMLElement;setSelected(p);}
+ function closePack(){dialog.current?.close();}
+ function alerts(){setRelatedOnly(true);setGroup('all');document.getElementById('satify-packs')?.scrollIntoView({behavior:'smooth',block:'start'});}
+ function brief(id:string,fallback:string){const v=byId[id];return v?`${prefix(v)}${show(v)}${unitOf(v)}`:fallback;}
+ return <div className="satify satify-v2">
+  <section aria-labelledby="satify-title" className="satify-intelligence">
+   <header className="satify-hero"><div className="satify-hero-copy"><p className="satify-eyebrow">FIFI / SATIFY INTELLIGENCE</p><h1 id="satify-title">Understand your world.</h1><p className="satify-lead">From your neighbourhood to outer space. Scientific observations, forecasts and official notices — connected to the decisions you make every day.</p><span className="satify-hero-tag"><Radio size={15}/> Public intelligence · Pakistan</span></div><div className="satify-orbit" aria-hidden="true"><Globe2 size={160} strokeWidth={.55}/><span/><span/><Satellite size={32}/></div>
+   <div className="satify-citybar"><label>Explore your city <select value={city} onChange={e=>void pick(e.target.value)}>{cities.map(([k,l])=><option key={k} value={k}>{l}</option>)}</select></label><span role="status">{loading?'Updating…':error?'Data unavailable':`${values.length} available signals`}</span></div></header>
+   {error&&<p role="alert" className="satify-err">Could not load {cityLabel}. <button onClick={()=>void pick(city)}>Retry</button></p>}
+   <div className={`satify-strip${loading?' satify-loading':''}`} aria-label={`${cityLabel} snapshot`} aria-busy={loading}>{STRIP.map(id=><Value key={id} v={byId[id]} label={LABELS[id]??id} big/>)}</div>
+   <div className="satify-brief"><div><p className="satify-kicker">YOUR DAILY BRIEF</p><h2>What matters in {cityLabel}</h2><p>Explore the signals behind your daily decisions.</p></div><div className="satify-brief-items">{[{id:'air',Icon:Wind,title:'Air quality',value:brief('aqi_label',brief('aqi','Not available'))},{id:'travel',Icon:Car,title:'Airport visibility',value:brief('visibility_km','Not available')},{id:'money',Icon:Coins,title:'Dollar (SBP)',value:brief('usd_pkr','Not available')}].map(b=><button key={b.id} onClick={()=>{setDomain(b.id);document.getElementById('satify-workspace')?.scrollIntoView({behavior:'smooth',block:'start'});}}><b.Icon size={23}/><span><small>{b.title}</small><strong>{b.value}</strong></span><ArrowUpRight size={17}/></button>)}</div></div>
+   <div className="satify-heading"><div><p className="satify-kicker">01 / EXPLORE</p><h2>Intelligence in focus</h2><p>Choose a domain to reveal its data and connected alerts.</p></div></div>
+   <div className="satify-domain-rail" aria-label="Intelligence domains">{DOMAINS.map(d=><button type="button" key={d.id} className={`satify-domain satify-domain-${d.id}`} aria-pressed={domain===d.id} onClick={()=>setDomain(d.id)}><d.icon size={32} strokeWidth={1.3}/><span><strong>{d.title}</strong><small>{d.description}</small></span><ArrowUpRight size={17}/></button>)}</div>
+   <div className="satify-workspace" id="satify-workspace"><div className="satify-heading"><div><p className="satify-kicker">SELECTED INTELLIGENCE</p><h2>{current.title}</h2><p>{current.description}</p></div>{related.length>0&&<button className="satify-btn" onClick={alerts}><Bell size={16}/> Get related alerts</button>}</div>
+   {domain==='space'?<div className="pci-sat-shell">{satellite??<p>Satellite intelligence unavailable.</p>}</div>:<div className="satify-grid">{current.ids.map(id=><Value key={id} v={byId[id]} label={LABELS[id]??(id==='section144'?'Section 144 / restrictions':id)}/>)}</div>}
+   {domain==='schools'&&<p className="satify-muted">Closure chance is a Satify estimate. Only an official notice decides.</p>}{domain==='travel'&&<p className="satify-muted">Airport visibility is not a road closure report. Check the Motorway pack for current availability.</p>}
+   {related.length>0&&<div className="satify-related"><span><Bell size={16}/> Take this intelligence with you</span>{related.map(p=><button key={p.slug} onClick={()=>openPack(p)}>{p.name} <ArrowUpRight size={13}/></button>)}</div>}</div>
+   <details className="satify-provenance"><summary>Data sources & how to read our intelligence</summary><div className="satify-legend">{(Object.keys(BADGE_TEXT) as SatifyValue['badge'][]).map(b=><span key={b}><Badge b={b}/> {badges?.[b]??''}</span>)}</div><p>Every available reading includes its source and observation time. Forecasts and estimates are not official warnings. Missing readings are never replaced with invented data.</p></details>
   </section>
-  <div className="satify-cities" role="tablist" aria-label="Choose a city">{cities.map(([k,l])=><button key={k} type="button" role="tab" aria-selected={city===k} className={`satify-pill${city===k?' satify-pill-on':''}`} onClick={()=>void pick(k)}>{l}</button>)}</div>
-  <section className={`satify-strip${loading?' satify-loading':''}`} aria-label="Right now">{STRIP.map(id=><Value key={id} v={byId[id]} label={LABELS[id]??id} big/>)}</section>
-  <div className="satify-sections">{SECTIONS.map(s=><section key={s.title} className="satify-card"><h2 className="satify-h2">{s.title}</h2>
-   <div className="satify-grid">{s.ids.map(id=><Value key={id} v={byId[id]} label={LABELS[id]??id}/>)}</div>{s.note&&<p className="satify-muted">{s.note}</p>}</section>)}</div>
-  <section className="satify-section" aria-labelledby="satify-packs"><h2 id="satify-packs" className="satify-h2">Join a pack on WhatsApp</h2>
-   <p className="satify-muted">Useful alerts only: at most a couple of messages a day. Send STOP any time to leave.</p>
-   {groups.map(g=><div key={g.id} className="satify-group"><h3 className="satify-h3">{g.name}</h3><div className="satify-packs">
-    {g.packs.map(p=>p.card_type==='business'?<SchoolsCard key={p.slug} pack={p} meta={meta}/>:p.status==='live'?<JoinCard key={p.slug} pack={p} meta={meta}/>:<SoonCard key={p.slug} pack={p}/>)}
-   </div></div>)}
-   {!groups.length&&<p className="satify-muted">Packs will appear here shortly.</p>}
+  <section className="satify-connect" aria-labelledby="satify-packs"><div className="satify-connect-banner"><div><p className="satify-eyebrow">02 / SATIFY CONNECT</p><h2 id="satify-packs">Stay informed. Stay ahead.</h2><p>The same intelligence, delivered to your phone. Choose your interests and activate a WhatsApp pack or register for upcoming services.</p></div><Bell size={65} strokeWidth={.8}/></div>
+   <div className="satify-filter"><button className="satify-pill" aria-pressed={!relatedOnly&&group==='all'} onClick={()=>{setRelatedOnly(false);setGroup('all');}}>All intelligence</button><button className="satify-pill" aria-pressed={relatedOnly} onClick={()=>{setRelatedOnly(true);setGroup('all');}}>Related to {current.title}</button>{!relatedOnly&&groups.map(g=><button key={g.id} className="satify-pill" aria-pressed={group===g.id} onClick={()=>setGroup(group===g.id?'all':g.id)}>{g.name}</button>)}</div>
+   <div className="satify-rail-header"><span>{visible.length} packs · Explore at your own pace</span><div><button aria-label="Previous packs" onClick={()=>rail.current?.scrollBy({left:-320,behavior:'smooth'})}><ChevronLeft/></button><button aria-label="Next packs" onClick={()=>rail.current?.scrollBy({left:320,behavior:'smooth'})}><ChevronRight/></button></div></div>
+   <div className="satify-pack-rail" ref={rail}>{visible.map(p=><article key={p.slug} className={`satify-discovery-card satify-discovery-${p.group_id}`}><div className="satify-discovery-art"><span aria-hidden>{p.icon}</span><small>{p.card_type==='business'?'For organisations':p.status==='live'?'Available':'Coming soon'}</small></div><div className="satify-discovery-body"><h3>{p.name}</h3><p>{p.tagline}</p><ul>{p.bullets.slice(0,3).map(b=><li key={b}>{b}</li>)}</ul><button className="satify-btn" onClick={()=>openPack(p)}>{p.card_type==='business'?'Explore for schools':p.status==='live'?'Explore & join':'Notify me'} <ArrowUpRight size={15}/></button></div></article>)}</div>
+   {!visible.length&&<p className="satify-muted">No packs available for this selection yet.</p>}
+   <div className="satify-flow">{[{Icon:Satellite,label:'Observe'},{Icon:Radio,label:'Collect'},{Icon:Leaf,label:'Analyse'},{Icon:Bell,label:'Deliver'}].map(({Icon,label})=><span key={label}><Icon size={20}/>{label}</span>)}</div><p className="satify-muted">Opt in on WhatsApp. Send STOP any time to leave.</p>
   </section>
+  <dialog ref={dialog} className="satify-modal" aria-label={selected?`${selected.name} subscription`:'Satify subscription'} onClose={()=>{setSelected(null);trigger.current?.focus();}} onClick={e=>{if(e.target===e.currentTarget)closePack();}}>{selected&&<div className="satify-modal-inner"><div className="satify-modal-top"><p className="satify-kicker">SATIFY CONNECT</p><button type="button" aria-label="Close dialog" onClick={closePack}><X size={22}/></button></div>{selected.card_type==='business'?<SchoolsCard key={selected.slug} pack={selected} meta={meta}/>:selected.status==='live'?<JoinCard key={selected.slug} pack={selected} meta={meta} city={city}/>:<SoonCard key={selected.slug} pack={selected}/>}</div>}</dialog>
  </div>;
 }
