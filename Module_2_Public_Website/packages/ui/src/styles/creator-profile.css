@@ -80,3 +80,48 @@
  .cp-profile .cp-breadcrumb nav>a,.cp-profile .cp-breadcrumb nav>svg{flex:none}
  .cp-profile .cp-platform-row{gap:5px}
 }
+
+/* Creator analytics carousel: compact Fifi layout v1 */
+.cp-profile .cp-pulse-hero{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.cp-profile .cp-pulse-identity,.cp-profile .cp-pulse-metrics{min-width:0;display:grid;gap:12px}
+.cp-profile .cp-pulse-identity .cp-hero-body{padding:0;min-height:0;align-items:center}
+.cp-profile .cp-pulse-identity .cp-avatar{margin-top:0;width:92px;height:92px;flex-basis:92px}
+.cp-profile .cp-pulse-identity .cp-identity{padding-top:0}
+.cp-profile .cp-pulse-identity .cp-hero-actions{margin:8px 0 0;padding:0}
+.cp-profile .cp-pulse-cover summary{cursor:pointer;color:var(--primary);font-size:11px}
+.cp-profile .cp-pulse-metrics .cp-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.cp-profile .cp-overview-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;min-width:0}
+.cp-profile .cp-overview-grid:empty{display:none}
+.cp-profile .cp-graph-carousel{min-width:0;max-width:100%;display:grid;gap:12px;overflow:hidden;background:var(--card)}
+.cp-profile .cp-graph-heading,.cp-profile .cp-graph-bottom{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.cp-profile .cp-graph-controls{flex:none}
+.cp-profile .cp-graph-nav{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
+.cp-profile .cp-graph-nav button{min-height:28px}
+.cp-profile .cp-graph-viewport{width:100%;min-width:0;overflow:hidden;border-radius:12px}
+.cp-profile .cp-graph-track{display:flex;width:100%;min-width:0;align-items:stretch;gap:0}
+.cp-profile .cp-graph-panel{flex:0 0 100%;width:100%;min-width:0;max-width:100%;height:350px;overflow:auto;overscroll-behavior:contain;box-sizing:border-box}
+.cp-profile .cp-graph-panel>.cp-card{height:auto;min-height:100%;box-sizing:border-box;gap:8px;padding:14px;border-radius:12px;background:var(--background);box-shadow:none}
+.cp-profile .cp-graph-panel .cp-chart-embed{min-width:0;max-width:100%}
+.cp-profile .cp-graph-panel .cp-line,.cp-profile .cp-graph-panel .yr-plot,.cp-profile .cp-graph-panel .yr-line-plot{display:block;width:100%;height:auto;max-height:220px;margin-inline:auto}
+.cp-profile .cp-graph-panel .yr-grouped{height:auto;max-height:none}
+.cp-profile .cp-graph-panel .yr-scroll-plot{overflow-x:auto;max-width:100%}
+.cp-profile .cp-graph-readout{display:flex;align-items:flex-start;gap:7px;min-height:34px;font-size:11px;color:var(--muted-foreground);overflow-wrap:anywhere}
+.cp-profile .cp-graph-readout svg{flex:none;color:var(--primary);margin-top:2px}
+.cp-profile .cp-graph-dots{display:flex;align-items:center;gap:2px}
+.cp-profile .cp-graph-dots button{display:grid;place-items:center;width:24px;height:24px;border-radius:50%}
+.cp-profile .cp-graph-dots button span{width:7px;height:7px;background:var(--border);border-radius:50%}
+.cp-profile .cp-graph-dots button[aria-pressed=true] span{width:13px;border-radius:999px;background:var(--primary)}
+/* Historical compact peer tiles, retaining all five comparison modes and exact values. */
+.cp-profile .cp-peer-compact .cp-compare-tabs{gap:4px}
+.cp-profile .cp-peer-compact .cp-compare-tabs .cp-tab{min-height:28px;padding:4px 8px;border:0;background:var(--muted);font-size:11px}
+.cp-profile .cp-peer-compact .cp-compare-tabs .cp-tab-active{background:var(--primary);color:var(--primary-foreground)}
+.cp-profile .cp-peer-compact .yr-bars{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;margin:0;padding:0}
+.cp-profile .cp-peer-compact .yr-bar-row{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:'name value' 'bar bar';align-items:center;gap:4px 8px;padding:7px 9px;min-height:0;border:1px solid var(--border);border-radius:10px;background:var(--card);font-size:11px}
+.cp-profile .cp-peer-compact .yr-row-label{grid-area:name;white-space:normal;overflow-wrap:anywhere;line-height:1.3}
+.cp-profile .cp-peer-compact .yr-bar-row strong{grid-area:value;white-space:nowrap;line-height:1.3}
+.cp-profile .cp-peer-compact .yr-bar-row svg{grid-area:bar;width:100%;height:6px;display:block;min-width:0}
+@container profile-main (min-width:520px){.cp-profile .cp-peer-compact .yr-bars{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container profile-main (min-width:720px){.cp-profile .cp-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(min-width:768px){.cp-profile .cp-pulse-metrics .cp-kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:480px){.cp-profile .cp-graph-carousel{padding:12px;gap:8px}.cp-profile .cp-graph-panel{height:390px}.cp-profile .cp-graph-panel>.cp-card{padding:10px}.cp-profile .cp-pulse-identity .cp-avatar{width:72px;height:72px;flex-basis:72px}}
+@media(prefers-reduced-motion:reduce){.cp-profile .cp-graph-track{transition:none!important}}
