@@ -68,3 +68,55 @@
 @media(max-width:1050px){.satify-v2 .satify-strip{grid-template-columns:repeat(4,minmax(0,1fr))}.satify-brief{grid-template-columns:1fr}.satify-domain-rail{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.satify-hero-copy{max-width:100%}.satify-orbit{opacity:.17;right:-35px}.satify-v2 .satify-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.satify-brief-items{grid-template-columns:1fr}.satify-domain-rail{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding:5px}.satify-domain{flex:0 0 82%;scroll-snap-align:start}.satify-connect-banner>svg{display:none}.satify-citybar{align-items:flex-start;flex-direction:column}.satify-discovery-card{flex-basis:82%}.satify-workspace .satify-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.satify-modal .satify-join{align-items:center}.satify-flow{justify-content:flex-start}.satify-v2 .satify-tile{padding:10px}}
 @media(prefers-reduced-motion:reduce){.satify-v2 *{scroll-behavior:auto!important;transition:none!important}}
+
+/* Reference layout: flagship is one continuous dashboard, followed by Connect. */
+.fifi .satify-v2 .satify-intelligence{gap:0;background:#0b392e;border-radius:24px;overflow:hidden;box-shadow:0 12px 32px #123f321a}
+.fifi .satify-v2 .satify-hero{padding:clamp(22px,3.5vw,42px);border-radius:0;box-shadow:none;color:#fff}
+.fifi .satify-v2 .satify-hero h1{font-size:clamp(30px,4vw,48px);color:#fff;font-weight:650}
+.fifi .satify-v2 .satify-lead{color:#e0ede6;font-size:15px;margin:10px 0}
+.fifi .satify-v2 .satify-citybar{margin-top:18px;padding-top:14px}
+.fifi .satify-v2 .satify-hero-dashboard{display:grid;gap:18px;padding:0 clamp(14px,3vw,32px) 26px;color:#fff;min-width:0}
+.fifi .satify-v2 .satify-strip{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.fifi .satify-v2 .satify-strip .satify-tile{background:#174b3d;border:1px solid #ffffff25;border-radius:15px;padding:15px;min-height:125px}
+.fifi .satify-v2 .satify-strip .satify-tile-label,.fifi .satify-v2 .satify-strip .satify-tile-meta{color:#d3e4da}
+.fifi .satify-v2 .satify-strip .satify-tile-value{color:#fff;font-size:clamp(20px,2.4vw,29px)}
+.fifi .satify-v2 .satify-metric-icon{color:#bbd8c4;margin-bottom:4px}
+.fifi .satify-v2 .satify-hero-dashboard>.satify-heading h2{color:white;font-size:24px;font-weight:650}
+.fifi .satify-v2 .satify-hero-dashboard>.satify-heading p{color:#d5e8dc}
+.fifi .satify-v2 .satify-brief{background:#f4f8f2;color:#183a2e;padding:18px;border-radius:15px}
+.fifi .satify-v2 .satify-brief h2{font-size:20px;font-weight:650;color:#183a2e}
+.fifi .satify-v2 .satify-brief-items button{background:#e3eee5;color:#183a2e;border-radius:10px}
+.fifi .satify-v2 .satify-domain-rail{display:flex;flex-wrap:wrap;gap:8px;overflow:visible;padding:0}
+.fifi .satify-v2 button.satify-domain{display:inline-flex;flex:0 0 auto;align-items:center;gap:7px;min-height:40px;padding:9px 13px;border-radius:999px;border:1px solid #ffffff55;background:#174b3d;color:#f1f8f2;font-size:13px;outline:none}
+.fifi .satify-v2 button.satify-domain[aria-pressed=true]{background:#f1f7ed;color:#123f32;border-color:#f1f7ed}
+.fifi .satify-v2 .satify-workspace{background:#fff;color:#173b2e;border-radius:16px;padding:20px;gap:16px}
+.fifi .satify-v2 .satify-workspace h2{font-size:23px;color:#173b2e;font-weight:650}
+.fifi .satify-v2 .satify-workspace .satify-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.fifi .satify-v2 .satify-workspace .satify-tile{background:#f5f7f3;border:1px solid #e1e8df;min-height:96px;padding:12px}
+.fifi .satify-v2 .satify-workspace .satify-tile-label,.fifi .satify-v2 .satify-workspace .satify-tile-meta{color:#53665b}
+.fifi .satify-v2 .satify-workspace .satify-tile-value{color:#173b2e}
+.satify-air-layout{display:grid;grid-template-columns:minmax(180px,1fr) minmax(0,2.5fr);gap:15px;align-items:start}
+.fifi .satify-v2 .satify-gauge{display:grid;gap:9px;text-align:center;border:1px solid #e0e8df;background:#fff;border-radius:14px;padding:17px;align-content:center;min-height:220px;color:#173b2e}
+.fifi .satify-v2 .satify-gauge h3{font-size:16px;font-weight:650;color:#173b2e}.satify-gauge svg{width:100%;max-width:240px;margin:auto}.satify-gauge small{font-size:11px;color:#53665b}
+.fifi .satify-v2 .satify-provenance{color:#e0ede6;border-color:#ffffff35}.fifi .satify-v2 .satify-provenance summary{color:#fff}
+.fifi .satify-v2 .satify-connect-banner{background:#0b392e;padding:24px 28px;color:white}.fifi .satify-v2 .satify-connect-banner h2{color:white;font-size:30px;font-weight:650}
+.fifi .satify-v2 .satify-filter button.satify-pill{background:#fff;color:#264638;border:1px solid #dce5dc;border-radius:999px;padding:8px 14px;font-size:13px}
+.fifi .satify-v2 .satify-filter button.satify-pill[aria-pressed=true]{background:#164c3d;color:white;border-color:#164c3d}
+.fifi .satify-v2 .satify-discovery-card{background:white;border:1px solid #dce5dc;border-radius:18px;flex-basis:clamp(250px,30%,340px);padding:21px;gap:17px}
+.fifi .satify-v2 .satify-discovery-art{background:transparent;height:auto;padding:0;color:#315c48;align-items:center}
+.fifi .satify-v2 .satify-discovery-art>span,.fifi .satify-v2 .satify-pack-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:13px;background:#e0ebe2;color:#205a42;filter:none;flex:none}
+.fifi .satify-v2 .satify-discovery-art small{border:1px solid #dce5dc;color:#53665b;font-size:11px}
+.fifi .satify-v2 .satify-discovery-body{padding:0;gap:12px}.fifi .satify-v2 .satify-discovery-body h3{font-size:21px;font-weight:650;color:#173b2e}
+.fifi .satify-v2 .satify-discovery-body p{font-size:14px;color:#53665b;line-height:1.5;min-height:42px}.fifi .satify-v2 .satify-discovery-body ul{border-top:1px solid #e5ebe3;padding-top:14px;font-size:13px;color:#243d30}
+.fifi .satify-v2 .satify-btn{background:#176044;color:#fff;border:1px solid #176044;border-radius:999px;padding:10px 16px;font-weight:650;min-height:40px;text-decoration:none}
+.fifi .satify-v2 .satify-discovery-body button.satify-btn{background:#fff;color:#174b36;border:1px solid #b8cec0;justify-content:center}
+.fifi .satify-v2 .satify-discovery-body button.satify-btn:hover{background:#174b36;color:white}
+.fifi .satify-v2 .satify-modal{background:linear-gradient(145deg,#315d4eea,#092d24f5);color:#f6fbf5;border:1px solid #cce6d488;border-radius:24px;backdrop-filter:blur(24px);box-shadow:0 24px 80px #041d18aa;width:min(92vw,470px);max-height:90dvh}
+.fifi .satify-v2 .satify-modal::backdrop{background:#092c2499;backdrop-filter:blur(12px)}
+.fifi .satify-v2 .satify-modal-inner{padding:24px}.fifi .satify-v2 .satify-modal .satify-kicker{color:#d3e8da;letter-spacing:.17em}
+.fifi .satify-v2 .satify-modal .satify-pack{background:transparent;color:white;gap:16px;padding:0}.fifi .satify-v2 .satify-modal .satify-pack h3{font-size:25px;color:white;font-weight:650}.fifi .satify-v2 .satify-modal .satify-pack header p,.fifi .satify-v2 .satify-modal .satify-pack-meta{color:#d4e8dc}
+.fifi .satify-v2 .satify-modal .satify-join{flex-direction:column;text-align:center;align-items:center;gap:16px}.fifi .satify-v2 .satify-modal .satify-qr{width:min(220px,100%);height:auto;aspect-ratio:1;padding:10px;background:white;border-radius:16px}
+.fifi .satify-v2 .satify-modal .satify-join>div{width:100%}.fifi .satify-v2 .satify-modal .satify-btn{background:#dbeed7;color:#123e2c;border-color:#dbeed7;width:100%;justify-content:center}.fifi .satify-v2 .satify-modal .satify-ok{color:#dbeed7}.fifi .satify-v2 .satify-modal .satify-err{color:#ffd2cb}
+.fifi .satify-v2 .satify-modal-top button{background:#ffffff18;color:white;border-color:#ffffff55}.fifi .satify-v2 .satify-modal .satify-field select{background:white;color:#17382b;border-radius:10px}
+@media(max-width:850px){.fifi .satify-v2 .satify-strip{grid-template-columns:repeat(3,minmax(0,1fr))}.satify-air-layout{grid-template-columns:1fr}.fifi .satify-v2 .satify-workspace .satify-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:550px){.fifi .satify-v2 .satify-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.fifi .satify-v2 .satify-strip .satify-tile{padding:11px;min-height:112px}.fifi .satify-v2 .satify-domain-rail{flex-wrap:nowrap;overflow-x:auto;padding-bottom:8px}.fifi .satify-v2 .satify-workspace{padding:12px}.fifi .satify-v2 .satify-discovery-card{flex-basis:85%}.fifi .satify-v2 .satify-modal-inner{padding:18px}.fifi .satify-v2 .satify-modal .satify-inline{flex-direction:column}}
