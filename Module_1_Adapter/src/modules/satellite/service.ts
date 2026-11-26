@@ -1,7 +1,7 @@
 import {buildObservationBatch,SATELLITE_BATCH_SIZE,type SatelliteBatchObservation,type SatelliteProviderId} from './bulk.mjs';
 import {writeHub,reportHub} from './hub.js';
 import {publishInsights} from './insights-service.js';
-import {airQualityUrl,parseAirQuality,weatherUrl,parseWeather,RIVER_POINTS,floodUrl,parseFlood,gdacsUrl,parseGdacs,SWPC_KP_URL,parseKp,CELESTRAK_STATIONS_URL,parseCelestrak,OPENAQ_LOCATIONS_URL,openaqLatestUrl,parseOpenaqLocations,parseOpenaqLatest,GIBS_EXTRA_LAYERS,gibsLayerProbeUrl} from './open-data.mjs';
+import {gdacsUrl,parseGdacs,SWPC_KP_URL,parseKp,CELESTRAK_STATIONS_URL,parseCelestrak,OPENAQ_LOCATIONS_URL,openaqLatestUrl,parseOpenaqLocations,parseOpenaqLatest,GIBS_EXTRA_LAYERS,gibsLayerProbeUrl} from './open-data.mjs';
 import {metnoUrl,metnoUserAgent,parseMetno} from './metno.mjs';
 import {minimumIntervalMinutes,effectiveIntervalMinutes} from './policy.mjs';
 import {readLimitedText} from './guard.mjs';
@@ -13,7 +13,7 @@ import {eonetUrl,parseEonet,gibsTileURL,gpmWmsURL,usgsUrl,parseUsgs} from './fee
 const allowed=PROVIDERS as Record<string,{label:string;implemented:boolean;auth:string|null;minMinutes:number;kind:string}>;
 type ProviderRow={id:string;enabled:boolean;refresh_minutes:number;last_attempt_at:string|null;last_success_at:string|null;last_error:string|null;refresh_requested_at:string|null};
 let running=false;
-export function configured(id:string){return id==='firms'?Boolean(process.env.NASA_FIRMS_MAP_KEY):id==='openaq'?/^[A-Za-z0-9_-]{16,200}$/.test(process.env.OPENAQ_API_KEY??''):Boolean(allowed[id]?.implemented);}
+export function configured(id:string){return id==='firms'?Boolean(process.env.NASA_FIRMS_MAP_KEY):id==='airquality'?Boolean(process.env.COPERNICUS_ADS_KEY):id==='flood'?Boolean(process.env.COPERNICUS_EWDS_KEY||process.env.COPERNICUS_ADS_KEY):id==='openaq'?/^[A-Za-z0-9_-]{16,200}$/.test(process.env.OPENAQ_API_KEY??''):Boolean(allowed[id]?.implemented);}
 export async function providers(){const rows=await query<ProviderRow>('SELECT id,enabled,refresh_minutes,last_attempt_at,last_success_at,last_error,refresh_requested_at FROM satellite.providers ORDER BY id');return rows.rows.map(p=>({...p,minRefreshMinutes:minimumIntervalMinutes(p.id),effectiveRefreshMinutes:effectiveIntervalMinutes(p.id,p.refresh_minutes),label:allowed[p.id]?.label,kind:allowed[p.id]?.kind,implemented:Boolean(allowed[p.id]?.implemented),configured:configured(p.id),authLocation:allowed[p.id]?.auth?'server environment':'not required'}));}
 async function fetchText(url:string){const response=await fetch(url,{signal:AbortSignal.timeout(20000),headers:{Accept:'text/csv, application/json'}});return readLimitedText(response);}
 async function fetchJson(url:string,headers:Record<string,string>={}):Promise<unknown>{const response=await fetch(url,{signal:AbortSignal.timeout(20000),headers:{Accept:'application/json','User-Agent':'PCI-EarthIntelligence/4.0 (+https://pulsr.pk)',...headers}});const text=await readLimitedText(response);try{return JSON.parse(text);}catch{throw Error('Malformed JSON from provider');}}
@@ -142,14 +142,8 @@ async function perItem<T extends string>(provider:SatelliteProviderId,items:read
  return inserted;
 }
 const cityIds=()=>Object.keys(CITIES);
-async function ingestAirQuality(){return perItem('airquality',cityIds(),async c=>parseAirQuality(await fetchJson(airQualityUrl(c)),c) as SatelliteBatchObservation[]);}
-/** Weather: MET Norway first (free incl. commercial use); Open-Meteo only as a flagged backup for that city. */
-async function ingestWeather(){return perItem('weather',cityIds(),async c=>{
- try{return parseMetno(await fetchJson(metnoUrl(c),{'User-Agent':metnoUserAgent()}),c) as SatelliteBatchObservation[];}
- catch(err){logger.warn({err,city:c},'MET Norway weather failed; using Open-Meteo backup (non-commercial terms)');
-  return parseWeather(await fetchJson(weatherUrl(c)),c).map(o=>({...o,payload:{...o.payload,source:'Open-Meteo forecast (backup)'}})) as SatelliteBatchObservation[];}
-});}
-async function ingestFlood(){return perItem('flood',Object.keys(RIVER_POINTS),async id=>parseFlood(await fetchJson(floodUrl(id)),id) as SatelliteBatchObservation[]);}
+/** Weather: MET Norway (free, including commercial use, with attribution). */
+async function ingestWeather(){return perItem('weather',cityIds(),async c=>parseMetno(await fetchJson(metnoUrl(c),{'User-Agent':metnoUserAgent()}),c) as SatelliteBatchObservation[]);}
 async function ingestGdacs(){const rows=parseGdacs(await fetchJson(gdacsUrl())) as SatelliteBatchObservation[];return rows.length?storeBatch('gdacs',rows):0;}
 async function ingestSwpc(){return storeBatch('swpc',parseKp(await fetchJson(SWPC_KP_URL)) as SatelliteBatchObservation[]);}
 async function ingestCelestrak(){return storeBatch('celestrak',parseCelestrak(await fetchJson(CELESTRAK_STATIONS_URL)) as SatelliteBatchObservation[]);}
@@ -161,8 +155,20 @@ async function ingestOpenaq(){
  return perItem('openaq',[...byId.keys()],async id=>parseOpenaqLatest(await fetchJson(openaqLatestUrl(Number(id)),headers),byId.get(id)!) as SatelliteBatchObservation[]);
 }
 const CONNECTORS:Record<string,()=>Promise<number>>={firms:ingestFirms,power:ingestPower,eonet:ingestEonet,usgs:ingestUsgs,gibs:ingestGibs,gpm:ingestGpm,
- airquality:ingestAirQuality,weather:ingestWeather,flood:ingestFlood,gdacs:ingestGdacs,swpc:ingestSwpc,celestrak:ingestCelestrak,openaq:ingestOpenaq};
-export async function ingest(id:string){if(!allowed[id]?.implemented||!CONNECTORS[id])throw Error('Provider connector has not been implemented');if(!configured(id))throw Error('Provider server credentials are not configured');
+ weather:ingestWeather,gdacs:ingestGdacs,swpc:ingestSwpc,celestrak:ingestCelestrak,openaq:ingestOpenaq};
+/** Air quality (CAMS) and river flow (GloFAS) are collected by the Satify Hub from Copernicus as async jobs.
+ * When a job finishes, the hub hands the rows here so the Satellite page, insights and the PCI hub keep working. */
+export const EXTERNAL_PROVIDERS=new Set(['airquality','flood']);
+export async function storeExternal(id:'airquality'|'flood',rows:SatelliteBatchObservation[]):Promise<number>{
+ const count=await storeBatch(id,rows);
+ await query('UPDATE satellite.providers SET last_attempt_at=now(),last_success_at=now(),refresh_requested_at=NULL,last_error=NULL WHERE id=$1',[id]);
+ await redis.incr('satellite:epoch').catch(()=>undefined);await reportHub(id,true);if(id==='airquality')void publishInsights();
+ return count;
+}
+export async function reportExternalFailure(id:'airquality'|'flood',message:string){
+ await query('UPDATE satellite.providers SET last_attempt_at=now(),last_error=$2 WHERE id=$1',[id,message.slice(0,200)]).catch(()=>undefined);await reportHub(id,false,message);
+}
+export async function ingest(id:string){if(EXTERNAL_PROVIDERS.has(id))return 0;if(!allowed[id]?.implemented||!CONNECTORS[id])throw Error('Provider connector has not been implemented');if(!configured(id))throw Error('Provider server credentials are not configured');
  try{const count=await CONNECTORS[id]();await query('UPDATE satellite.providers SET last_attempt_at=now(),last_success_at=now(),refresh_requested_at=NULL,last_error=NULL WHERE id=$1',[id]);await redis.incr('satellite:epoch').catch(()=>undefined);await reportHub(id,true);if(id==='airquality'||id==='weather')void publishInsights();return count;}
  catch(e){const message=e instanceof Error?e.message:'Unknown provider error';await query('UPDATE satellite.providers SET last_attempt_at=now(),refresh_requested_at=NULL,last_error=$2 WHERE id=$1',[id,message.slice(0,200)]);await reportHub(id,false,message);throw e;}
 }
@@ -177,7 +183,7 @@ export async function satelliteTick(){
  try{
   const rows=await query<ProviderRow>('SELECT * FROM satellite.providers WHERE enabled=true ORDER BY id');
   for(const p of rows.rows){
-   if(!allowed[p.id]?.implemented||!configured(p.id))continue;
+   if(!allowed[p.id]?.implemented||!configured(p.id)||EXTERNAL_PROVIDERS.has(p.id))continue;
    const minimum=minimumIntervalMinutes(p.id);
    // The timestamp compare and update occur in one atomic SQL statement, across workers.
    // No "refresh_requested_at" override: manual refresh also respects the full interval.

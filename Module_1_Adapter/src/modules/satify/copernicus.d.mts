@@ -1,0 +1,11 @@
+export declare const PORTALS:Readonly<Record<'ads'|'ewds',{base:string;keyEnv:string;label:string}>>;
+export declare const PK_AREA:readonly number[];
+export type CadsRequest={dataset:string;runKey:string;inputs:Record<string,unknown>};
+export type CityPoint={city:string;validTime:string;value:number};
+export declare function camsRun(now?:number):{date:string;time:string;refMs:number};
+export declare function camsRequest(variable:string,now?:number):CadsRequest;
+export declare function glofasRequest(now?:number):CadsRequest;
+export declare function usAqi(pm25:number|null,pm10:number|null):number|null;
+export declare function cityPoints(fields:unknown[],factor?:number):CityPoint[];
+export declare function camsRows(pm25:CityPoint[],pm10:CityPoint[],now?:number):{metric:string;location:string;observationKey:string;observedAt:string;payload:Record<string,unknown>}[];
+export declare function glofasRows(fields:unknown[],now?:number):{metric:string;location:string;observationKey:string;observedAt:string;payload:Record<string,unknown>}[];

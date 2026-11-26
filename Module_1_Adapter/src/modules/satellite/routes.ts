@@ -60,23 +60,23 @@ satellitePublicRoutes.get('/imagery/layers',handler(async(_req,res)=>{
 const hours=z.coerce.number().int().min(1).max(168).default(24);
 satellitePublicRoutes.get('/air-quality/latest',handler(async(req,res)=>{
  const location=city.parse(req.query.city??'lahore');const data=await list('air_quality',location,1,2,'airquality') as Array<Record<string,any>>;
- res.json({data:data.map(x=>({...x,band:aqiBand(x.values?.us_aqi)})),meta:{city:location,source:'Copernicus CAMS via Open-Meteo',modelled:true,notStationMeasurement:true}});
+ res.json({data:data.map(x=>({...x,band:aqiBand(x.values?.us_aqi)})),meta:{city:location,source:'Copernicus CAMS (ADS)',modelled:true,notStationMeasurement:true}});
 }));
 satellitePublicRoutes.get('/air-quality/history',handler(async(req,res)=>{
  const location=city.parse(req.query.city??'lahore'),h=hours.parse(req.query.hours);
- res.json({data:await list('air_quality',location,h,Math.ceil(h/24)+1,'airquality'),meta:{city:location,hours:h,source:'Copernicus CAMS via Open-Meteo'}});
+ res.json({data:await list('air_quality',location,h,Math.ceil(h/24)+1,'airquality'),meta:{city:location,hours:h,source:'Copernicus CAMS (ADS)'}});
 }));
 satellitePublicRoutes.get('/air-stations/latest',handler(async(_req,res)=>{
  res.json({data:await list('aq_station','bounding-box',100,3,'openaq'),meta:{source:'OpenAQ',kind:'ground_station_measurement',coverage:'stations reporting in the last 3 days'}});
 }));
 satellitePublicRoutes.get('/weather/latest',handler(async(req,res)=>{
  const location=city.parse(req.query.city??'lahore');
- res.json({data:await list('weather',location,1,2,'weather'),meta:{city:location,source:'Open-Meteo',kind:'model_forecast',notOfficialWarning:true}});
+ res.json({data:await list('weather',location,1,2,'weather'),meta:{city:location,source:'MET Norway',kind:'model_forecast',notOfficialWarning:true}});
 }));
 satellitePublicRoutes.get('/rivers/latest',handler(async(_req,res)=>{
  const rows=await list('river_flow','all',200,3,'flood') as Array<Record<string,unknown>>;const seen=new Set<string>();
  const data=rows.filter(x=>{const id=String(x.pointId??x.location);if(seen.has(id))return false;seen.add(id);return true;});
- res.json({data,meta:{source:'GloFAS via Open-Meteo',points:Object.keys(RIVER_POINTS).length,modelled:true,notOfficialFloodForecast:true}});
+ res.json({data,meta:{source:'GloFAS (Copernicus EWDS)',points:Object.keys(RIVER_POINTS).length,modelled:true,notOfficialFloodForecast:true}});
 }));
 // Combined decision cards and weekly city rankings, computed from the stored observations above.
 satellitePublicRoutes.get('/insights',handler(async(req,res)=>{

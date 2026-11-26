@@ -117,13 +117,13 @@ export function SatelliteDashboard({sources,fires,rain,solar}:{sources:unknown[]
   category==='city'?{label:'Air quality now',value:shown(aqValues.us_aqi),unit:`US AQI · ${String(aq.band??'not classified')}`,note:'Copernicus CAMS modelled air quality for the city area.',at:aq.observedAt}:
   category==='safety'?{label:'Active disaster alerts',value:String(activeAlerts.length),unit:`${severe.length} orange or red`,note:'GDACS alerts for Pakistan and the Arabian Sea approach, last 30 days.',at:activeAlerts[0]?.observedAt}:
   category==='water'?{label:'River flow outlook',value:topRiver?shown(topRiver.peakToTodayRatio):'Not available',unit:topRiver?`× today · ${String(topRiver.river)} at ${String(topRiver.place)}`:'peak vs today',note:'GloFAS modelled discharge, nearest model river cell. Not an official FFD forecast.',at:topRiver?.observedAt}:
-  {label:'Rain next 7 days',value:days.length?shown(rain7===null?null:Math.round(rain7*10)/10):'Not available',unit:'mm (forecast)',note:'Open-Meteo forecast. Observed history below is NASA POWER corrected precipitation — NOT GPM or a rain gauge.',at:w.observedAt};
- const second=category==='solar'?{label:'UV index today',value:shown(days[0]?.uvIndexMax),unit:'max',note:'Open-Meteo forecast.',at:w.observedAt}:
+  {label:'Rain next 7 days',value:days.length?shown(rain7===null?null:Math.round(rain7*10)/10):'Not available',unit:'mm (forecast)',note:'MET Norway forecast. Observed history below is NASA POWER corrected precipitation — NOT GPM or a rain gauge.',at:w.observedAt};
+ const second=category==='solar'?{label:'UV index today',value:shown(days[0]?.uvIndexMax),unit:'max',note:'MET Norway forecast.',at:w.observedAt}:
   category==='city'?{label:'Feels like today',value:shown(days[0]?.feelsLikeMaxC),unit:'°C max',note:`Now ${shown(wNow.temperatureC)} °C, feels like ${shown(wNow.feelsLikeC)} °C.`,at:w.observedAt}:
   category==='safety'?{label:'Latest earthquake',value:shown(latestQuake.magnitude),unit:'magnitude',note:typeof latestQuake.place==='string'?latestQuake.place:'USGS reports, not early warning.',at:latestQuake.observedAt}:
   {label:'Observed rainfall',value:shown(latestRain?.value),unit:'mm/day',note:'NASA POWER corrected daily precipitation — NOT GPM or a rain gauge.',at:latestRain?.observedAt};
  const third=category==='safety'?{label:'Space weather',value:shown(kp.kp),unit:`Kp · ${String(kp.scale??'')}`,note:'NOAA SWPC estimated planetary K-index (affects GPS and radio).',at:kp.observedAt}:
-  category==='city'?{label:'Hot days ahead',value:shown(w.heatDays),unit:'days ≥ 40 °C feels-like',note:'Open-Meteo 7-day forecast.',at:w.observedAt}:
+  category==='city'?{label:'Hot days ahead',value:shown(w.heatDays),unit:'days ≥ 40 °C feels-like',note:'MET Norway 7-day forecast.',at:w.observedAt}:
   {label:'Air quality now',value:shown(aqValues.us_aqi),unit:`US AQI · ${String(aq.band??'not classified')}`,note:'Copernicus CAMS, modelled.',at:aq.observedAt};
 
  const score=num(goOut.score),scoreInputs=rec(goOut.inputs),scorePartial=goOut.partial===true||['usAqi','feelsLikeMaxC','uvIndexMax','rainChancePct'].some(k=>num(scoreInputs[k])===null);
@@ -171,7 +171,7 @@ export function SatelliteDashboard({sources,fires,rain,solar}:{sources:unknown[]
     <div className="pci-sat-city-details"><div><ScoreGauge score={score}/><p className={styles.goOutLabel} data-level={txt(goOut.level,'none')}>{score===null?'Awaiting observations':scorePartial?'Partial score':txt(goOut.label)}</p></div>
     <div className="pci-sat-city-metrics"><div><Sun/><b>{num(wNow.temperatureC)===null?'—':shown(wNow.temperatureC)+'°C'}</b><small>Temperature</small></div><div><CloudRain/><b>{num(scoreInputs.rainChancePct)===null?'—':shown(scoreInputs.rainChancePct)+'%'}</b><small>Rain chance</small></div><div><Leaf/><b>{num(scoreInputs.usAqi)===null?'—':shown(scoreInputs.usAqi)}</b><small>US AQI</small></div><div><Sun/><b>{num(scoreInputs.uvIndexMax)===null?'—':shown(scoreInputs.uvIndexMax)}</b><small>UV max</small></div></div></div>
     <p className="pci-sat-quiet">{scorePartial?'Some inputs are missing; do not interpret the score as a safety guarantee.':advice[0]??'Regional modeled indicator.'} Not an official PMD warning.</p>
-    <small className="pci-sat-quiet">Observed: {date(goOut.observedAt)} · CAMS / Open-Meteo</small>
+    <small className="pci-sat-quiet">Observed: {date(goOut.observedAt)} · Copernicus CAMS / MET Norway</small>
    </aside><section className="pci-sat-city-panel pci-sat-snapshot rounded-2xl border border-border/70 bg-card p-4 shadow-soft"><div className="pci-sat-card-head"><h3>8-City Snapshot <small>(Go-Out Score)</small></h3><button type="button" onClick={()=>goTo('pci-sat-rankings')}>View rankings <ChevronRight size={14}/></button></div><CitySnapshot data={cityScores} city={city} onCity={chooseCity}/><p className="pci-sat-quiet">Latest published score comparison. Missing cities are not scored.</p></section></div>
   </section>
 
@@ -223,7 +223,7 @@ export function SatelliteDashboard({sources,fires,rain,solar}:{sources:unknown[]
   </section>
   <section className={`${styles.moreEvidence} content-card`}><div className={styles.sectionHeading}><div><p className={styles.eyebrow}>EXPLORE VERIFIED SOURCES</p><h2>What the satellites can currently show</h2></div></div>
    <div className={styles.evidenceGrid}>
-    <article><span>01</span><h3>Weather & sunlight</h3><p>NASA POWER rainfall and sunlight, Open-Meteo current weather and 7-day forecast for eight cities.</p><strong>{power?.lastSuccessAt?'Last refresh: '+date(power.lastSuccessAt):'Refresh status unavailable'}</strong></article>
+    <article><span>01</span><h3>Weather & sunlight</h3><p>NASA POWER rainfall and sunlight, MET Norway current weather and 7-day forecast for eight cities.</p><strong>{power?.lastSuccessAt?'Last refresh: '+date(power.lastSuccessAt):'Refresh status unavailable'}</strong></article>
     <article><span>02</span><h3>Air & rivers</h3><p>Copernicus CAMS air quality and GloFAS river flow at {riverRows.length||11} points on the Indus system.</p><strong>{riverRows.length} river points · AQI {shown(aqValues.us_aqi)} in {city[0].toUpperCase()+city.slice(1)}</strong></article>
     <article><span>03</span><h3>Alerts & hazards</h3><p>GDACS disaster alerts, USGS earthquakes, NASA FIRMS hotspots and EONET events (not emergency alerts).</p><strong>{activeAlerts.length} GDACS alerts · {earthquakes.length} USGS reports · {naturalEvents.length} natural-event records</strong></article>
    </div>

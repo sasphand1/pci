@@ -90,8 +90,10 @@ satifyAdminRoutes.get('/overview',handler(async(_req,res)=>{
   query(`SELECT count(*) FILTER (WHERE status='new')::int AS new FROM satify.school_registrations`),
   query(`SELECT pack_slug,count(*)::int AS n FROM satify.interest GROUP BY pack_slug ORDER BY n DESC`),
   query(`SELECT signal_id,count(*)::int AS scopes,max(observed_at) AS newest FROM satify.signals_latest GROUP BY signal_id ORDER BY signal_id`)]);
+ const jobs=await query(`SELECT connector,run_key,status,error,attempts,updated_at FROM satify.jobs ORDER BY updated_at DESC LIMIT 12`).catch(()=>({rows:[]}));
  res.json({data:{subscribers:subs.rows[0],packs:perPack.rows,deliveries24h:Object.fromEntries(today.rows.map(r=>[r.status,r.n])),sources:sources.rows,
-  notes:notes.rows,newSchools:schools.rows[0]?.new??0,interest:interest.rows,signals:stale.rows,whatsapp:whatsappStatus()}});
+  notes:notes.rows,newSchools:schools.rows[0]?.new??0,interest:interest.rows,signals:stale.rows,jobs:jobs.rows,whatsapp:whatsappStatus(),
+  copernicus:{ads:Boolean(process.env.COPERNICUS_ADS_KEY),ewds:Boolean(process.env.COPERNICUS_EWDS_KEY||process.env.COPERNICUS_ADS_KEY)}}});
 }));
 satifyAdminRoutes.get('/catalog',handler(async(_req,res)=>{
  res.json({data:{signals:Object.entries(SIGNALS).map(([id,d])=>({id,...d})),cities:SATIFY_CITIES,routes:ROUTES,badges:BADGES,groups:GROUPS,ops:['>=','<=','==','exists']}});

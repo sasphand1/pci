@@ -10,9 +10,9 @@ All Earth data is stored twice: full detail in `satellite.observations` (for the
 | usgs | USGS ComCat | Earthquakes | 1 h | – |
 | gibs | NASA GIBS | Map layers: true colour, night lights, dust/haze (AOD), snow cover (each verified by a live tile probe) | daily | – |
 | gpm | NASA GPM IMERG | Rain-rate map image | 6 h | – |
-| airquality | Copernicus CAMS via Open-Meteo | US AQI, PM2.5, PM10, NO2, ozone, dust, UV; hourly, 8 cities, next-24h peak | 1 h | – |
-| weather | Open-Meteo | Current weather and 7-day forecast, heat days, 8 cities | 1 h | – |
-| flood | GloFAS via Open-Meteo | River discharge today, past 7 days and 30-day forecast peak at 11 points (Indus, Jhelum, Chenab, Ravi, Sutlej, Kabul, Swat) | daily | – |
+| airquality | Copernicus CAMS global forecast (ADS job, via Satify Hub) | US AQI, PM2.5, PM10, NO2, ozone, dust, UV; hourly, 8 cities, next-24h peak | 1 h | – |
+| weather | MET Norway Locationforecast | Current weather and 7-day forecast, heat days, fog, 8 cities | 3 h | – |
+| flood | Copernicus GloFAS control forecast (EWDS job, via Satify Hub) | River discharge today, past 7 days and 30-day forecast peak at 11 points (Indus, Jhelum, Chenab, Ravi, Sutlej, Kabul, Swat) | daily | – |
 | gdacs | GDACS (UN / EC) | Disaster alerts (EQ, cyclones, floods, drought, fires, volcanoes) for Pakistan and the Arabian Sea approach | 1 h | – |
 | swpc | NOAA SWPC | Space weather: estimated Kp and G-scale | 3 h | – |
 | celestrak | CelesTrak GP | Orbital elements for ISS, Tiangong and other stations (for pass prediction) | 6 h | – |
@@ -22,7 +22,7 @@ Removed in v4: Sentinel-1, Sentinel-2, Sentinel-5P, Landsat, ECOSTRESS, SMAP and
 
 Public API (Module 1, `/api/v1/satellite`): `/air-quality/latest?city=`, `/air-quality/history?city=&hours=`, `/air-stations/latest`, `/weather/latest?city=`, `/rivers/latest`, `/alerts/latest`, `/space-weather/latest`, `/orbits/latest`, `/imagery/layers`, plus the existing fire, rainfall, solar, earthquake, natural-event and imagery routes. OpenAPI: `/api/v1/satellite/openapi.json`.
 
-Licences: Open-Meteo data is free for non-commercial use; a commercial Pulsr needs an Open-Meteo API plan (or direct Copernicus access). Attribute Copernicus/CAMS, GloFAS, NASA, USGS, GDACS, NOAA, CelesTrak and OpenAQ on the page. None of these outputs is an official PMD, NDMA or FFD warning.
+Licences: every source is free, including commercial use (MET Norway with credit; Copernicus CAMS and GloFAS with the Copernicus attribution). Attribute Copernicus/CAMS, GloFAS, NASA, USGS, GDACS, NOAA, CelesTrak and OpenAQ on the page. None of these outputs is an official PMD, NDMA or FFD warning.
 
 ## Combined scores (v5)
 

@@ -8,7 +8,7 @@ export async function ensureSatifySchema():Promise<void>{
   await client.query('SELECT pg_advisory_lock(710441)');locked=true;
   await client.query('BEGIN');
   try{
-   for(const version of ['121_satify_hub.sql','122_satify_packs.sql']){
+   for(const version of ['121_satify_hub.sql','122_satify_packs.sql','123_satify_engine.sql']){
     const filename=fileURLToPath(new URL(`../../database/migrations/${version}`,import.meta.url));
     await client.query(await readFile(filename,'utf8'));
    }

@@ -1,67 +1,19 @@
 // PCI Earth Intelligence v4: free sources that deliver ready-to-use numbers (no raster processing).
 // Pure URL builders and parsers: no network, no database. Every parser fails closed on malformed input.
-import {CITIES} from './catalog.mjs';
 
-const OPEN_METEO_AQ='https://air-quality-api.open-meteo.com/v1/air-quality';
-const OPEN_METEO_FORECAST='https://api.open-meteo.com/v1/forecast';
-const OPEN_METEO_FLOOD='https://flood-api.open-meteo.com/v1/flood';
+
 const num=v=>typeof v==='number'&&Number.isFinite(v)?v:null;
 const str=(v,max=200)=>typeof v==='string'?v.slice(0,max):null;
 const isObj=v=>Boolean(v)&&typeof v==='object'&&!Array.isArray(v);
 const H=3600000;
-/** Open-Meteo returns local-less ISO times ("2026-11-25T10:00") when timezone=UTC. */
-function utc(t){if(typeof t!=='string'||!/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$/.test(t))return null;const ms=Date.parse(t.length===10?t+'T00:00:00Z':t+(t.length===16?':00Z':'Z'));return Number.isFinite(ms)?ms:null;}
-function coords(city){const c=CITIES[city];if(!c)throw Error('Unknown city');return {longitude:c[0],latitude:c[1]};}
 
-// ---------- Air quality: Copernicus CAMS via Open-Meteo ----------
+// ---------- Air quality: Copernicus CAMS (fetched by the Satify Hub from the ADS; see modules/satify/copernicus.mjs) ----------
 export const AIR_QUALITY_FIELDS=Object.freeze(['us_aqi','pm2_5','pm10','nitrogen_dioxide','ozone','dust','uv_index']);
-export function airQualityUrl(city){
- const {latitude,longitude}=coords(city);const u=new URL(OPEN_METEO_AQ);
- for(const [k,v] of Object.entries({latitude:String(latitude),longitude:String(longitude),hourly:AIR_QUALITY_FIELDS.join(','),past_days:'1',forecast_days:'2',timezone:'UTC'}))u.searchParams.set(k,v);
- return u.toString();
-}
-/** Past ~26 hours as observations; the newest carries the next-24h forecast peak. */
-export function parseAirQuality(body,city,now=Date.now()){
- coords(city);const hourly=body?.hourly;if(!isObj(hourly)||!Array.isArray(hourly.time))throw Error('Malformed air-quality response');
- const units=isObj(body.hourly_units)?Object.fromEntries(AIR_QUALITY_FIELDS.map(f=>[f,str(body.hourly_units[f],20)])):{};
- const rows=[];let forecastAqi=null,forecastPm25=null;
- hourly.time.forEach((t,i)=>{
-  const at=utc(t);if(at===null)return;
-  const values=Object.fromEntries(AIR_QUALITY_FIELDS.map(f=>[f,Array.isArray(hourly[f])?num(hourly[f][i]):null]));
-  if(at>now){if(at<=now+24*H){if(values.us_aqi!==null)forecastAqi=Math.max(forecastAqi??0,values.us_aqi);if(values.pm2_5!==null)forecastPm25=Math.max(forecastPm25??0,values.pm2_5);}return;}
-  if(at<now-26*H||Object.values(values).every(v=>v===null))return;
-  rows.push({metric:'air_quality',location:city,observationKey:city,observedAt:new Date(at).toISOString(),payload:{values,units,source:'Copernicus CAMS via Open-Meteo',kind:'modelled_air_quality_not_station_measurement'}});
- });
- rows.sort((a,b)=>Date.parse(b.observedAt)-Date.parse(a.observedAt));
- if(rows[0])rows[0].payload={...rows[0].payload,next24h:{maxUsAqi:forecastAqi,maxPm2_5:forecastPm25}};
- return rows;
-}
 export function aqiBand(aqi){if(typeof aqi!=='number'||!Number.isFinite(aqi))return null;return aqi<=50?'Good':aqi<=100?'Moderate':aqi<=150?'Unhealthy for sensitive groups':aqi<=200?'Unhealthy':aqi<=300?'Very unhealthy':'Hazardous';}
 
-// ---------- Weather forecast: Open-Meteo ----------
-const CURRENT=['temperature_2m','relative_humidity_2m','apparent_temperature','precipitation','weather_code','wind_speed_10m'];
-const DAILY=['weather_code','temperature_2m_max','temperature_2m_min','apparent_temperature_max','precipitation_sum','precipitation_probability_max','uv_index_max','wind_speed_10m_max'];
-export function weatherUrl(city){
- const {latitude,longitude}=coords(city);const u=new URL(OPEN_METEO_FORECAST);
- for(const [k,v] of Object.entries({latitude:String(latitude),longitude:String(longitude),current:CURRENT.join(','),daily:DAILY.join(','),forecast_days:'7',timezone:'UTC'}))u.searchParams.set(k,v);
- return u.toString();
-}
-export function parseWeather(body,city){
- coords(city);const c=body?.current,d=body?.daily;
- if(!isObj(c)||!isObj(d)||!Array.isArray(d.time))throw Error('Malformed weather response');
- const at=utc(c.time);if(at===null)throw Error('Weather response without a valid time');
- const current={temperatureC:num(c.temperature_2m),feelsLikeC:num(c.apparent_temperature),humidityPct:num(c.relative_humidity_2m),precipitationMm:num(c.precipitation),windKmh:num(c.wind_speed_10m),weatherCode:num(c.weather_code)};
- if(current.temperatureC===null)throw Error('Weather response without temperature');
- const daily=d.time.slice(0,7).map((day,i)=>({date:typeof day==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(day)?day:null,
-  maxC:num(d.temperature_2m_max?.[i]),minC:num(d.temperature_2m_min?.[i]),feelsLikeMaxC:num(d.apparent_temperature_max?.[i]),
-  rainMm:num(d.precipitation_sum?.[i]),rainChancePct:num(d.precipitation_probability_max?.[i]),uvIndexMax:num(d.uv_index_max?.[i]),
-  windMaxKmh:num(d.wind_speed_10m_max?.[i]),weatherCode:num(d.weather_code?.[i])})).filter(x=>x.date);
- const heatDays=daily.filter(x=>(x.feelsLikeMaxC??x.maxC??0)>=40).length;
- return [{metric:'weather',location:city,observationKey:city,observedAt:new Date(at).toISOString(),payload:{current,daily,heatDays,source:'Open-Meteo forecast',kind:'model_forecast_not_official_pmd_warning'}}];
-}
-
-// ---------- River flow: GloFAS via Open-Meteo ----------
-/** Approximate points on main channels. Open-Meteo returns the nearest 5 km model river cell. */
+// Weather forecast: MET Norway (see metno.mjs).
+// ---------- River points for GloFAS (fetched by the Satify Hub from the EWDS; see modules/satify/copernicus.mjs) ----------
+/** Approximate points on main channels. GloFAS values come from the nearest 0.05° model river cell. */
 export const RIVER_POINTS=Object.freeze({
  'indus-attock':{river:'Indus',place:'Attock',latitude:33.893,longitude:72.235},
  'indus-kalabagh':{river:'Indus',place:'Kalabagh',latitude:32.960,longitude:71.550},
@@ -75,24 +27,6 @@ export const RIVER_POINTS=Object.freeze({
  'kabul-nowshera':{river:'Kabul',place:'Nowshera',latitude:34.010,longitude:71.980},
  'swat-chakdara':{river:'Swat',place:'Chakdara',latitude:34.650,longitude:72.030}
 });
-export function floodUrl(id){
- const p=RIVER_POINTS[id];if(!p)throw Error('Unknown river point');const u=new URL(OPEN_METEO_FLOOD);
- for(const [k,v] of Object.entries({latitude:String(p.latitude),longitude:String(p.longitude),daily:'river_discharge,river_discharge_median,river_discharge_max',past_days:'7',forecast_days:'30'}))u.searchParams.set(k,v);
- return u.toString();
-}
-export function parseFlood(body,id,now=Date.now()){
- const p=RIVER_POINTS[id];if(!p)throw Error('Unknown river point');
- const d=body?.daily;if(!isObj(d)||!Array.isArray(d.time)||!Array.isArray(d.river_discharge))throw Error('Malformed river-flow response');
- const days=d.time.map((t,i)=>({date:t,at:utc(t),discharge:num(d.river_discharge[i]),median:num(d.river_discharge_median?.[i]),max:num(d.river_discharge_max?.[i])})).filter(x=>x.at!==null);
- const todayStart=Date.parse(new Date(now).toISOString().slice(0,10)+'T00:00:00Z');
- const past=days.filter(x=>x.at<=todayStart&&x.discharge!==null);const latest=past[past.length-1];
- if(!latest)throw Error('River-flow response without current discharge');
- const forecast=days.filter(x=>x.at>todayStart).map(x=>({date:x.date,median:x.median??x.discharge,max:x.max??x.discharge})).filter(x=>x.median!==null||x.max!==null);
- let peak=null;for(const x of forecast)if(x.max!==null&&(!peak||x.max>peak.max))peak={date:x.date,max:x.max};
- const ratio=peak&&latest.discharge>0?Math.round(peak.max/latest.discharge*100)/100:null;
- return [{metric:'river_flow',location:id,observationKey:id,observedAt:new Date(latest.at).toISOString(),payload:{pointId:id,river:p.river,place:p.place,latitude:p.latitude,longitude:p.longitude,dischargeM3s:latest.discharge,past7:past.slice(-7).map(x=>({date:x.date,dischargeM3s:x.discharge})),forecast30:forecast.slice(0,30),peak30:peak,peakToTodayRatio:ratio,unit:'m³/s',source:'GloFAS via Open-Meteo',kind:'modelled_river_discharge_nearest_model_cell_not_official_ffd_forecast'}}];
-}
-
 // ---------- Disaster alerts: GDACS (UN/EC) ----------
 export const ALERT_REGION=Object.freeze([55,20,80,40]); // Pakistan plus the Arabian Sea approach for cyclones
 export function gdacsUrl(now=new Date()){

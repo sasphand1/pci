@@ -8,7 +8,7 @@ import {useAuth} from '@/components/AuthProvider';
 type Source={id:string;label:string;kind:string;min_minutes:number;enabled:boolean;last_attempt_at:string|null;last_success_at:string|null;last_error:string|null;fail_count:number};
 type Overview={subscribers:{total:number;active:number};packs:{slug:string;name:string;status:string;subscribers:number}[];deliveries24h:Record<string,number>;
  sources:Source[];notes:{pack_slug:string;scope:string;note:string;created_at:string}[];newSchools:number;interest:{pack_slug:string;n:number}[];
- signals:{signal_id:string;scopes:number;newest:string}[];whatsapp:{configured:boolean;webhookReady:boolean;templateReady:boolean;mode:'live'|'dry_run';number:string|null;template:string;graphVersion:string}};
+ signals:{signal_id:string;scopes:number;newest:string}[];jobs:{connector:string;run_key:string;status:string;error:string|null;attempts:number;updated_at:string}[];copernicus:{ads:boolean;ewds:boolean};whatsapp:{configured:boolean;webhookReady:boolean;templateReady:boolean;mode:'live'|'dry_run';number:string|null;template:string;graphVersion:string}};
 
 const fresh=(at:string|null,hours:number)=>Boolean(at)&&Date.now()-new Date(at!).getTime()<hours*3600000;
 
@@ -48,7 +48,14 @@ export default function SatifyOverview(){
    </Card>
    <Card><h2 className="admin-box-title">Satify sources</h2><TableWrap><thead><tr><th>Source</th><th>Health</th><th>Last success</th><th>Every</th><th>Error</th></tr></thead><tbody>
     {d.sources.map(s=><tr key={s.id}><td>{s.label}</td><td>{!s.enabled?<Badge variant="muted">off</Badge>:fresh(s.last_success_at,Math.max(6,s.min_minutes/30))?<Badge>ok</Badge>:<Badge variant="danger">{s.fail_count?`failing (${s.fail_count})`:'waiting'}</Badge>}</td><td>{fmtDate(s.last_success_at)}</td><td>{s.min_minutes} min</td><td>{s.last_error??'—'}</td></tr>)}
-   </tbody></TableWrap><p className="fineprint">Weather, air, rivers, fires and alerts come from the satellite sources (Satify sources page). Weather now uses MET Norway first; Open-Meteo is only a backup and is non-commercial.</p></Card>
+   </tbody></TableWrap><p className="fineprint">Weather comes from MET Norway; air quality (CAMS) and river flow (GloFAS) from Copernicus as background jobs below. Fires, rain history, sunlight and alerts stay on the Satify sources page.</p></Card>
+   <Card><h2 className="admin-box-title">Copernicus jobs</h2>
+    <p className="muted">Keys: ADS {d.copernicus.ads?'set':'missing (COPERNICUS_ADS_KEY)'} · EWDS {d.copernicus.ewds?'set':'missing (COPERNICUS_EWDS_KEY)'}. Copernicus prepares each file in a queue; a job usually finishes within minutes.</p>
+    {!d.jobs.length?<p className="muted">No jobs yet. They start within a minute once the keys are set.</p>:
+    <TableWrap><thead><tr><th>Connector</th><th>Model run</th><th>Status</th><th>Tries</th><th>Updated</th><th>Error</th></tr></thead><tbody>
+     {d.jobs.map(j=><tr key={`${j.connector}-${j.run_key}`}><td>{j.connector}</td><td>{j.run_key}</td><td>{j.status==='done'?<Badge>done</Badge>:j.status==='failed'?<Badge variant="danger">failed</Badge>:<Badge variant="muted">{j.status}</Badge>}</td><td>{j.attempts}</td><td>{fmtDate(j.updated_at)}</td><td>{j.error??'—'}</td></tr>)}
+    </tbody></TableWrap>}
+   </Card>
    <Card><h2 className="admin-box-title">Signals</h2><TableWrap><thead><tr><th>Signal</th><th>Places</th><th>Newest reading</th></tr></thead><tbody>
     {d.signals.map(s=><tr key={s.signal_id}><td>{s.signal_id}</td><td>{s.scopes}</td><td>{fmtDate(s.newest)}{!fresh(s.newest,30)&&<> <Badge variant="danger">stale</Badge></>}</td></tr>)}
    </tbody></TableWrap></Card>

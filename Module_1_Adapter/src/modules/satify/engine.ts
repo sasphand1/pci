@@ -7,6 +7,7 @@ import {logger} from '../../lib/errors.js';
 import {SATIFY_CITIES,ROUTES,scopeLabel} from './catalog.mjs';
 import {renderTemplate,missingSignals,evalRule,dailyDue,pktDate,parseCommand,maskPhone,type Rule} from './derive.mjs';
 import {collectSatify,signalsFor} from './service.js';
+import {runJobs} from './jobs.js';
 import {deliveryMode,sendMessage,whatsappStatus,type Inbound} from './whatsapp.js';
 
 export type Pack={slug:string;code:string;name:string;status:string;card_type:string;daily_at:string|null;scope_type:string;
@@ -99,7 +100,7 @@ export async function satifyTick(){
  try{
   const got=(await client.query<{ok:boolean}>('SELECT pg_try_advisory_lock(710442) AS ok')).rows[0]?.ok;
   if(!got)return;
-  try{await collectSatify();await runPacks();}
+  try{await collectSatify();await runJobs();await runPacks();}
   finally{await client.query('SELECT pg_advisory_unlock(710442)').catch(()=>undefined);}
  }catch(err){logger.warn({err},'Satify tick failed (schema may not be ready yet)');}
  finally{client.release();running=false;}

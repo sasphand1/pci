@@ -38,6 +38,8 @@ const runtimeModules=[
   'modules/satify/catalog.mjs',
   'modules/satify/sources.mjs',
   'modules/satify/derive.mjs',
+  'modules/satify/grib.mjs',
+  'modules/satify/copernicus.mjs',
   'modules/local/rules.mjs',
   'modules/local/image-rules.mjs',
 ];

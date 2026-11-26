@@ -1,13 +1,7 @@
 export type OpenObs={metric:'air_quality'|'weather'|'river_flow'|'disaster_alert'|'space_weather'|'orbit'|'aq_station';location:string;observationKey:string;observedAt:string;payload:Record<string,unknown>};
 export declare const AIR_QUALITY_FIELDS:readonly string[];
-export declare function airQualityUrl(city:string):string;
-export declare function parseAirQuality(body:unknown,city:string,now?:number):OpenObs[];
 export declare function aqiBand(aqi:unknown):string|null;
-export declare function weatherUrl(city:string):string;
-export declare function parseWeather(body:unknown,city:string):OpenObs[];
 export declare const RIVER_POINTS:Readonly<Record<string,{river:string;place:string;latitude:number;longitude:number}>>;
-export declare function floodUrl(id:string):string;
-export declare function parseFlood(body:unknown,id:string,now?:number):OpenObs[];
 export declare const ALERT_REGION:readonly number[];
 export declare function gdacsUrl(now?:Date):string;
 export declare function parseGdacs(body:unknown):OpenObs[];

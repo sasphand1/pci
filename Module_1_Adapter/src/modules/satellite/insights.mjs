@@ -52,7 +52,7 @@ export function goOutScore(air,weather){
  if(feels!==null&&feels<5)advice.push('Cold: dress warmly in the early morning and evening.');
  if(!advice.length)advice.push('No special precautions needed.');
  return {score,level:band.level,label:band.label,advice,inputs:{usAqi:aqi,feelsLikeMaxC:feels,uvIndexMax:uv,rainChancePct:chance,rainMm:mm},penalties:parts,partial:aqi===null||feels===null,
-  observedAt:a.observedAt??w.observedAt??null,sources:['Copernicus CAMS via Open-Meteo (modelled air quality)','Open-Meteo forecast']};
+  observedAt:a.observedAt??w.observedAt??null,sources:['Copernicus CAMS (modelled air quality)','MET Norway forecast']};
 }
 
 // ---------- Daily maxima from hourly air-quality history ----------

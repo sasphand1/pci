@@ -13,7 +13,7 @@ Fog: {fog_risk} · clears {fog_clear_time}
 High: {temp_max}°C
 Closure chance (prediction): {school_closure_chance}
 Official notice: {school_notice}',NULL),
-('motorway','MOTORWAY','Motorway','🛣️','featured',3,true,'live','alert','Fog closures and clearing times','["M-2, M-3, M-5 and N-5 status", "Expected clearing time", "Rain and accident alerts"]'::jsonb,'Daily 05:00 + urgent alerts','05:00','free','route',ARRAY['en','ur']::text[],ARRAY['motorway_status','route_visibility_km','route_fog_clear_time','nhmp_status']::text[],'[{"signal": "nhmp_status", "op": "exists", "label": "NHMP notice"}, {"signal": "route_visibility_km", "op": "<=", "value": 1, "label": "Dense fog on the route"}]'::jsonb,'🛣️ {route}
+('motorway','MOTORWAY','Motorway','🛣️','featured',3,true,'soon','alert','Fog closures and clearing times','["M-2, M-3, M-5 and N-5 status", "Expected clearing time", "Rain and accident alerts"]'::jsonb,'Daily 05:00 + urgent alerts','05:00','free','route',ARRAY['en','ur']::text[],ARRAY['motorway_status','route_visibility_km','route_fog_clear_time','nhmp_status']::text[],'[{"signal": "nhmp_status", "op": "exists", "label": "NHMP notice"}, {"signal": "route_visibility_km", "op": "<=", "value": 1, "label": "Dense fog on the route"}]'::jsonb,'🛣️ {route}
 Status: {motorway_status}
 Lowest visibility: {route_visibility_km} km
 Fog clears: {route_fog_clear_time}

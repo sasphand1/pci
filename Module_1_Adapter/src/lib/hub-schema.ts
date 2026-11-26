@@ -433,7 +433,7 @@ INSERT INTO ingest_sources(id,platform,method,enabled,category,expected_hours,la
  ('sat_gibs.api','sat_gibs','api',false,'satellite',36,'NASA GIBS map layers'),
  ('sat_gpm.api','sat_gpm','api',false,'satellite',9,'NASA GPM rain map'),
  ('sat_airquality.api','sat_airquality','api',false,'satellite',2,'Copernicus CAMS air quality'),
- ('sat_weather.api','sat_weather','api',false,'satellite',2,'Open-Meteo weather'),
+ ('sat_weather.api','sat_weather','api',false,'satellite',2,'MET Norway weather'),
  ('sat_flood.api','sat_flood','api',false,'satellite',36,'GloFAS river flow'),
  ('sat_gdacs.api','sat_gdacs','api',false,'satellite',2,'GDACS disaster alerts'),
  ('sat_swpc.api','sat_swpc','api',false,'satellite',5,'NOAA space weather'),

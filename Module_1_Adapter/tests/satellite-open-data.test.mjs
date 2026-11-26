@@ -1,34 +1,34 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {airQualityUrl,parseAirQuality,aqiBand,weatherUrl,parseWeather,RIVER_POINTS,floodUrl,parseFlood,gdacsUrl,parseGdacs,parseKp,geomagneticScale,parseCelestrak,parseOpenaqLocations,parseOpenaqLatest,openaqLatestUrl,GIBS_EXTRA_LAYERS,gibsLayerProbeUrl,gibsLayerTemplate,gibsMaxZoom} from '../src/modules/satellite/open-data.mjs';
+import {aqiBand,RIVER_POINTS,gdacsUrl,parseGdacs,parseKp,geomagneticScale,parseCelestrak,parseOpenaqLocations,parseOpenaqLatest,openaqLatestUrl,GIBS_EXTRA_LAYERS,gibsLayerProbeUrl,gibsLayerTemplate,gibsMaxZoom} from '../src/modules/satellite/open-data.mjs';
 import {buildObservationBatch} from '../src/modules/satellite/bulk.mjs';
 const src=p=>readFileSync(new URL(p,import.meta.url),'utf8').replace(/\r\n/g,'\n');
 const NOW=Date.parse('2026-11-25T12:30:00Z');
 
-test('air quality: fixed Open-Meteo host, Lahore coordinates, past hours stored and next-24h peak attached',()=>{
- const u=new URL(airQualityUrl('lahore'));assert.equal(u.hostname,'air-quality-api.open-meteo.com');assert.equal(u.searchParams.get('latitude'),'31.5204');assert.match(u.searchParams.get('hourly'),/pm2_5/);
- assert.throws(()=>airQualityUrl('london'));
- const body={hourly_units:{pm2_5:'μg/m³',us_aqi:'USAQI'},hourly:{time:['2026-11-25T10:00','2026-11-25T11:00','2026-11-25T12:00','2026-11-25T13:00','2026-11-26T05:00'],pm2_5:[150.2,160.5,170,190,250],us_aqi:[200,205,210,230,300],pm10:[1,2,3,4,5],nitrogen_dioxide:[null,null,null,null,null],ozone:[1,1,1,1,1],dust:[0,0,0,0,0],uv_index:[1,1,1,0,0]}};
- const rows=parseAirQuality(body,'lahore',NOW);
- assert.equal(rows.length,3);assert.equal(rows[0].observedAt,'2026-11-25T12:00:00.000Z');assert.equal(rows[0].payload.values.pm2_5,170);
- assert.deepEqual(rows[0].payload.next24h,{maxUsAqi:300,maxPm2_5:250});assert.equal(rows[0].metric,'air_quality');
+import {camsRows,cityPoints,glofasRows,usAqi,camsRequest,glofasRequest} from '../src/modules/satify/copernicus.mjs';
+// Grid over Pakistan at 0.4° (like a CAMS download) with one constant value per field.
+const field=(validTime,value,di=0.4)=>{const ni=Math.round(19/di)+1,nj=Math.round(15/di)+1;return {lat1:38,lon1:60,lat2:23,lon2:79,di,dj:di,ni,nj,scan:0,validTime,values:new Float64Array(ni*nj).fill(value)};};
+test('air quality: Copernicus CAMS (ADS) fields become hourly rows with the next-24h peak; no Open-Meteo',()=>{
+ const r=camsRequest('particulate_matter_2.5um',NOW);assert.equal(r.dataset,'cams-global-atmospheric-composition-forecasts');assert.deepEqual(r.inputs.area,[38,60,23,79]);
+ const pm25=[field('2026-11-25T12:00:00Z',170e-9),field('2026-11-25T15:00:00Z',190e-9),field('2026-11-26T03:00:00Z',250e-9)];
+ const pm10=[field('2026-11-25T12:00:00Z',200e-9)];
+ const rows=camsRows(cityPoints(pm25),cityPoints(pm10),NOW).filter(x=>x.location==='lahore');
+ assert.equal(rows.length,1);assert.equal(rows[0].observedAt,'2026-11-25T12:00:00.000Z');assert.equal(rows[0].payload.values.pm2_5,170);
+ assert.equal(rows[0].payload.values.us_aqi,usAqi(170,200));assert.deepEqual(rows[0].payload.next24h,{maxUsAqi:usAqi(250,null),maxPm2_5:250});
+ assert.match(rows[0].payload.source,/Copernicus CAMS/);
  assert.equal(aqiBand(210),'Very unhealthy');assert.equal(aqiBand(40),'Good');assert.equal(aqiBand(null),null);
- assert.throws(()=>parseAirQuality({},'lahore'));
+ assert.equal(usAqi(9,null),50);assert.equal(usAqi(35.4,null),100);assert.equal(usAqi(500,null),500);
+ assert.throws(()=>camsRows([],[],NOW));
 });
-test('weather: current conditions, 7 days and heat days; negative temperatures allowed',()=>{
- assert.equal(new URL(weatherUrl('quetta')).hostname,'api.open-meteo.com');
- const body={current:{time:'2026-11-25T12:15',temperature_2m:-3.4,apparent_temperature:-7,relative_humidity_2m:40,precipitation:0,wind_speed_10m:12,weather_code:1},daily:{time:['2026-11-25','2026-11-26'],temperature_2m_max:[42,10],temperature_2m_min:[-5,-6],apparent_temperature_max:[44,8],precipitation_sum:[0,1.2],precipitation_probability_max:[0,40],uv_index_max:[4,3],wind_speed_10m_max:[20,22],weather_code:[1,61]}};
- const [w]=parseWeather(body,'quetta');assert.equal(w.payload.current.temperatureC,-3.4);assert.equal(w.payload.daily.length,2);assert.equal(w.payload.heatDays,1);assert.equal(w.observedAt,'2026-11-25T12:15:00.000Z');
- assert.throws(()=>parseWeather({current:{time:'x'},daily:{time:[]}},'quetta'));
-});
-test('river flow: today discharge, 30-day forecast peak and ratio; unknown points rejected',()=>{
- assert.ok(Object.keys(RIVER_POINTS).length>=10);assert.throws(()=>floodUrl('thames'));
- const u=new URL(floodUrl('indus-sukkur'));assert.equal(u.hostname,'flood-api.open-meteo.com');assert.equal(u.searchParams.get('forecast_days'),'30');
- const body={daily:{time:['2026-11-24','2026-11-25','2026-11-26','2026-11-27'],river_discharge:[1000,1100,1200,1500],river_discharge_median:[null,null,1150,1400],river_discharge_max:[null,null,1600,2400]}};
- const [r]=parseFlood(body,'indus-sukkur',NOW);
- assert.equal(r.payload.dischargeM3s,1100);assert.deepEqual(r.payload.peak30,{date:'2026-11-27',max:2400});assert.equal(r.payload.peakToTodayRatio,2.18);assert.equal(r.payload.river,'Indus');
- assert.throws(()=>parseFlood({daily:{time:['2026-12-01'],river_discharge:[5]}},'indus-sukkur',NOW));
+test('river flow: GloFAS (EWDS) daily discharge, forecast peak and ratio at every river point',()=>{
+ assert.ok(Object.keys(RIVER_POINTS).length>=7);
+ assert.equal(glofasRequest(NOW).dataset,'cems-glofas-forecast');
+ const days=[1100,1500,2400,1300].map((v,i)=>field(new Date(Date.parse('2026-11-25T00:00:00Z')+i*86400000).toISOString(),v,0.05));
+ const rows=glofasRows(days,NOW);const r=rows.find(x=>x.location==='indus-sukkur');
+ assert.equal(rows.length,Object.keys(RIVER_POINTS).length);assert.equal(r.payload.dischargeM3s,1100);
+ assert.deepEqual(r.payload.peak30,{date:'2026-11-27',max:2400});assert.equal(r.payload.peakToTodayRatio,2.18);assert.equal(r.payload.river,'Indus');
+ assert.doesNotMatch(JSON.stringify(r),/Open-Meteo/);
 });
 test('GDACS: Pakistan and Arabian Sea events kept, others dropped, one row per event',()=>{
  const u=new URL(gdacsUrl(new Date(NOW)));assert.equal(u.hostname,'www.gdacs.org');assert.equal(u.searchParams.get('alertlevel'),'green;orange;red');
