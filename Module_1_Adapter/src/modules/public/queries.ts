@@ -27,7 +27,8 @@ export async function peopleByIds(ids: string[]): Promise<Map<string, PublicPers
   const out = new Map<string, PublicPerson>(); if (!ids.length) return out;
   const [p, a, c] = await Promise.all([
     query('SELECT id,slug,display_name FROM people WHERE id = ANY($1::uuid[])', [ids]),
-    query('SELECT a.id,a.person_id,a.platform,a.external_id,a.handle,a.avatar_url,c.fetched_at AS cached_at FROM accounts a LEFT JOIN avatar_cache c ON c.account_id=a.id AND c.source_url=a.avatar_url WHERE a.person_id = ANY($1::uuid[]) ORDER BY a.platform', [ids]),
+    // TikTok is authorization-only in this increment; keep existing public audience figures unchanged.
+    query("SELECT a.id,a.person_id,a.platform,a.external_id,a.handle,a.avatar_url,c.fetched_at AS cached_at FROM accounts a LEFT JOIN avatar_cache c ON c.account_id=a.id AND c.source_url=a.avatar_url WHERE a.person_id = ANY($1::uuid[]) AND a.platform IN ('youtube','instagram') ORDER BY a.platform", [ids]),
     query(`SELECT pc.person_id,c.slug,c.label FROM person_categories pc JOIN categories c ON c.id=pc.category_id WHERE pc.person_id = ANY($1::uuid[]) AND c.active=true ORDER BY pc.is_primary DESC, c.label`, [ids])
   ]);
   for (const r of p.rows) out.set(r.id, { slug: r.slug, displayName: r.display_name, avatarUrl: null, categories: [], accounts: [] });
@@ -116,7 +117,7 @@ export async function personDetail(slug: string) {
       FROM hub_account_metrics o JOIN accounts a ON a.id=o.account_id
       WHERE a.person_id=$1 AND o.observed_at > now() - make_interval(days => $2) ORDER BY o.account_id, o.metric, o.observed_at DESC`, [id, FRESHNESS_DAYS_DEFAULT]),
     query(`SELECT pp.scope, s.slot, s.rank, s.value::text AS value FROM published_pointers pp JOIN rank_slots s ON s.run_id=pp.run_id WHERE s.person_id=$1 ORDER BY pp.scope`, [id]),
-    query('SELECT a.id,a.platform,a.handle,a.external_id,a.avatar_url,c.fetched_at AS cached_at FROM accounts a LEFT JOIN avatar_cache c ON c.account_id=a.id AND c.source_url=a.avatar_url WHERE a.person_id=$1 ORDER BY a.platform', [id])
+    query("SELECT a.id,a.platform,a.handle,a.external_id,a.avatar_url,c.fetched_at AS cached_at FROM accounts a LEFT JOIN avatar_cache c ON c.account_id=a.id AND c.source_url=a.avatar_url WHERE a.person_id=$1 AND a.platform IN ('youtube','instagram') ORDER BY a.platform", [id])
   ]);
   const cats = await categoryLabels();
   const fig = new Map<string, { followers: number | null; views: number | null; posts30d: number | null; observedAt: string | null }>();

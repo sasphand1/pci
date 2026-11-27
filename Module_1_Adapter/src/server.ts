@@ -23,6 +23,8 @@ import { config } from './lib/config.js';
 import {ensureUnifiedSchema} from './lib/unified-schema.js';
 import {ensureEngineSchema} from './lib/engine-schema.js';
 import {ensureRegistrySchema} from './lib/registry-schema.js';
+import {ensureTikTokSchema} from './lib/tiktok-schema.js';
+import {tiktokOAuthRoutes} from './modules/tiktok/oauth.js';
 import {bucketAdminRoutes} from './modules/bucket/routes.js';
 import {ensureObservationsSchema} from './lib/observations-schema.js';
 import {ensureCreatorAnalyticsSchema} from './lib/creator-analytics-schema.js';
@@ -155,6 +157,7 @@ export function makeApp() {
   app.use('/api/v1/admin',adminRoutes);
   app.use('/api/v1/admin/events',adminEventsRoutes);
   app.use('/api/v1/admin',bucketAdminRoutes);
+  app.use('/api/v1/admin',tiktokOAuthRoutes);
   app.use('/api/v1/admin',refreshAdminRoutes);
   app.use('/api/v1/admin/local/images',restaurantImageAdminRoutes);
   app.use('/api/v1/admin/local',localAdminRoutes);
@@ -209,6 +212,8 @@ async function main(){
           logger.error({err},'Registry schema verification failed');
           console.error('[PCI_SCHEMA_FAILURE] registry schema failed');
         }
+        try {await ensureTikTokSchema();logger.info('TikTok OAuth schema verified');}
+        catch(err){logger.error({err},'TikTok OAuth schema unavailable; existing collectors remain enabled');}
         try {
           await ensureObservationsSchema();
           logger.info('Observations schema verified');

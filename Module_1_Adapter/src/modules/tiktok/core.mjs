@@ -131,6 +131,16 @@ export function mapUserInfo(body,httpStatus,expectedOpenId){
   if(!metrics.length&&!extra.length)return {outcome:'unsupported',detail:['stats_scope_missing',...notes].join(','),metrics,extra,identity};
   return {outcome:'ok',detail:notes.join(',')||undefined,metrics,extra,identity};
 }
+/** Authorization is accepted only for the expected identity and the four granted scopes.
+ * A valid identity may have unavailable statistics; that never creates a fabricated metric. */
+export function verifyAuthorizedAccount({expectedUsername,expectedOpenId,grantedScopes,body,httpStatus}){
+  if(missingScopes(grantedScopes,DEFAULT_SCOPES).length)return {ok:false,reason:'missing_scopes'};
+  const mapped=mapUserInfo(body,httpStatus,expectedOpenId);
+  if(!mapped.identity)return {ok:false,reason:mapped.detail==='open_id_mismatch'?'identity_mismatch':'provider_unavailable'};
+  if(!mapped.identity.username)return {ok:false,reason:'username_unavailable'};
+  if(mapped.identity.username!==expectedUsername)return {ok:false,reason:'identity_mismatch'};
+  return {ok:true,identity:mapped.identity};
+}
 /** One video object; a missing count stays null (never zero). */
 export function mapVideo(v){
   if(!v||typeof v!=='object'||typeof v.id!=='string'||!/^\d{5,30}$/.test(v.id))return null;

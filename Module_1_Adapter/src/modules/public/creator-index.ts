@@ -22,7 +22,7 @@ const q = z.object({
 
 async function pageIds(o: { search?: string; category?: string; platform: string; sort: string; page: number; limit: number }) {
   const where: string[] = []; const v: unknown[] = [];
-  if (o.search) { v.push(likePattern(o.search)); where.push(`(p.display_name ILIKE $${v.length} ESCAPE '\\' OR EXISTS (SELECT 1 FROM accounts a WHERE a.person_id=p.id AND a.handle ILIKE $${v.length} ESCAPE '\\'))`); }
+  if (o.search) { v.push(likePattern(o.search)); where.push(`(p.display_name ILIKE $${v.length} ESCAPE '\\' OR EXISTS (SELECT 1 FROM accounts a WHERE a.person_id=p.id AND a.platform IN ('youtube','instagram') AND a.handle ILIKE $${v.length} ESCAPE '\\'))`); }
   if (o.category) { v.push(o.category); where.push(`EXISTS (SELECT 1 FROM person_categories pc JOIN categories c ON c.id=pc.category_id WHERE pc.person_id=p.id AND c.slug=$${v.length} AND c.active=true)`); }
   if (o.platform) { v.push(o.platform); where.push(`EXISTS (SELECT 1 FROM accounts a WHERE a.person_id=p.id AND a.platform=$${v.length})`); }
   const w = where.length ? `WHERE ${where.join(' AND ')}` : '';
@@ -47,7 +47,7 @@ async function lastKnown(ids: string[]) {
     FROM accounts a LEFT JOIN LATERAL (
       SELECT DISTINCT ON (metric) metric, value, observed_at FROM hub_account_metrics
       WHERE account_id=a.id AND metric IN ('followers','views','posts_30d') ORDER BY metric, observed_at DESC) o ON true
-    WHERE a.person_id = ANY($1::uuid[])`, [ids]);
+    WHERE a.person_id = ANY($1::uuid[]) AND a.platform IN ('youtube','instagram')`, [ids]);
   for (const x of r.rows) {
     const m = out.get(x.pid) ?? new Map(); out.set(x.pid, m);
     const f = m.get(x.aid) ?? { platform: x.platform, handle: x.handle, followers: null, views: null, posts30d: null, asOf: null };

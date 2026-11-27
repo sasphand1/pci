@@ -24,6 +24,7 @@ export declare function classifyTikTokError(httpStatus:number,body:unknown):{out
 export type MetricValue={metric:string;value:number;accuracy:'exact'};
 export type Identity={openId:string;unionId:string|null;username:string|null;displayName:string|null;bio:string|null;isVerified:boolean|null;profileUrl:string|null;avatarUrl:string|null};
 export declare function mapUserInfo(body:unknown,httpStatus:number,expectedOpenId?:string|null):{outcome:Outcome;detail?:string;metrics:MetricValue[];extra:MetricValue[];identity?:Identity};
+export declare function verifyAuthorizedAccount(o:{expectedUsername:string;expectedOpenId:string;grantedScopes:string[];body:unknown;httpStatus:number}):{ok:true;identity:Identity}|{ok:false;reason:'missing_scopes'|'identity_mismatch'|'provider_unavailable'|'username_unavailable'};
 export type TikTokVideo={id:string;publishedAt:string|null;title:string|null;description:string|null;durationSec:number|null;width:number|null;height:number|null;aspectRatio:number|null;coverUrl:string|null;shareUrl:string|null;embedLink:string|null;isAigc:boolean|null;counts:{views:number|null;likes:number|null;comments:number|null;shares:number|null}};
 export declare function mapVideo(v:unknown):TikTokVideo|null;
 export declare function mapVideoPage(body:unknown,httpStatus:number):{ok:true;videos:TikTokVideo[];cursor:number|null;hasMore:boolean;dropped:number}|{ok:false;outcome:Outcome;detail:string};
