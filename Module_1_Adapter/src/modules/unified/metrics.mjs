@@ -4,7 +4,7 @@ import {rankCrossPlatform} from '../cross-platform/score.mjs';
  * counts, NOT unique people. Views are YouTube-only until a compatible
  * Instagram lifetime account-view metric is officially available.
  */
-export const PLATFORMS = Object.freeze(['all','youtube','instagram','tiktok']);
+export const PLATFORMS = Object.freeze(['all','youtube','instagram']);
 export const METRICS = Object.freeze(['views','subscribers','videos']);
 export const METRIC_LABELS = Object.freeze({views:'Most Viewed',subscribers:'Most Subscribed',videos:'Most Active'});
 const asCount=(v)=>v===null||v===undefined?null:/^(0|[1-9]\d*)$/.test(String(v))?BigInt(v):null;
@@ -22,7 +22,7 @@ export function projectCreator(person,platform='all'){
  const viewCount=asCount(y?.views)?.toString()??null;
  return {...person,platform,subscriberCount,videoCount,viewCount,
    metricSources:{views:viewCount!==null?['youtube']:[],subscribers:[...(asCount(y?.subscribers)!==null?['youtube']:[]),...(asCount(i?.followers)!==null?['instagram']:[])],videos:[...(asCount(y?.videos)!==null?['youtube']:[]),...(asCount(i?.posts)!==null?['instagram']:[])]},
-   platforms:{youtube:youtube?.url??null,instagram:instagram?.url??null,tiktok:null},
+   platforms:{youtube:youtube?.url??null,instagram:instagram?.url??null},
    disclaimer:'Account-level reported audience counts are summed for comparison, not deduplicated unique people; one person may follow on multiple platforms.'};
 }
 export function rankPeople(people,{metric='subscribers',platform='all',limit=100,category}={}){
@@ -30,7 +30,7 @@ export function rankPeople(people,{metric='subscribers',platform='all',limit=100
  const field=metric==='views'?'viewCount':metric==='videos'?'videoCount':'subscriberCount';
  const projected=people.filter(p=>p.humanReviewStatus==='approved'&&p.enabled===true)
    .filter(p=>!category||p.categories?.some(c=>c.slug===category))
-   .filter(p=>platform!=='tiktok'&&(platform!=='youtube'||Boolean(p.youtube))&&(platform!=='instagram'||Boolean(p.instagram)))
+   .filter(p=>(platform!=='youtube'||Boolean(p.youtube))&&(platform!=='instagram'||Boolean(p.instagram)))
    .map(p=>projectCreator(p,platform));
  projected.sort((a,b)=>{const x=asCount(a[field]),y=asCount(b[field]);
    if(x===null)return y===null?String(a.id).localeCompare(String(b.id)):1;
@@ -50,7 +50,6 @@ export function aggregate(people,platform='all'){
  if(!PLATFORMS.includes(platform))throw new Error('Invalid platform');
  const eligible=people.filter(p=>p.humanReviewStatus==='approved'&&p.enabled===true)
  .filter(p=>platform==='all'||(platform==='youtube'&&p.youtube)||(platform==='instagram'&&p.instagram));
- if(platform==='tiktok')return {creators:0,subscribers:null,views:null,posts:null};
  const projected=eligible.map(p=>projectCreator(p,platform));
  const sumField=f=>addAvailable(projected.map(p=>p[f]));
  return {creators:projected.length,subscribers:sumField('subscriberCount'),views:sumField('viewCount'),posts:sumField('videoCount')};

@@ -8,9 +8,9 @@ import { formatCount } from "@/lib/format.mjs";
 import { asOfLabel } from "@/lib/creators.mjs";
 import type { PubCreatorRow } from "@/lib/public";
 
-export type Plat = "youtube" | "instagram" | "tiktok";
-export const PLAT_LABEL: Record<Plat, string> = { youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok" };
-export const PLAT_ORDER: Plat[] = ["youtube", "instagram", "tiktok"];
+export type Plat = "youtube" | "instagram";
+export const PLAT_LABEL: Record<Plat, string> = { youtube: "YouTube", instagram: "Instagram" };
+export const PLAT_ORDER: Plat[] = ["youtube", "instagram"];
 const ORDER = PLAT_ORDER;
 export const hasPlat = (r: PubCreatorRow, p: Plat) => r.accounts.some((a) => a.platform === p);
 export const platBtn = (on: boolean, off: boolean) => (on ? "bg-gold-soft text-gold-foreground ring-1 ring-gold" : off ? "cursor-not-allowed bg-secondary/50 text-muted-foreground opacity-50" : "bg-secondary text-primary hover:bg-secondary/70");

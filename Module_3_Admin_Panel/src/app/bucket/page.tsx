@@ -87,19 +87,6 @@ export default function BucketPage(){
   if(failed.length)setError(`${done} deleted, ${failed.length} failed: ${failed[0]}`);else setOk(`${done} deleted. They are gone from the bucket and from every live ranking.`);
  }
 
- async function connectTikTok(p:BucketPerson){
-  const existing=p.accounts.find(a=>a.platform==='tiktok');
-  const handle=window.prompt('Enter the TikTok username for '+p.displayName,existing?.handle??'');
-  if(!handle||!identity)return;
-  setError('');
-  try{const result=await api<{authorizeUrl:string}>('/admin/tiktok/oauth/start',{method:'POST',csrf:identity.csrfToken,body:{personId:p.id,handle}});const url=new URL(result.authorizeUrl);if(url.origin!=='https://www.tiktok.com'||url.pathname!=='/v2/auth/authorize/')throw new Error('Unexpected authorization URL');window.location.assign(url.toString());}
-  catch(e){setError(errorText(e));}
- }
- async function disconnectTikTok(id:string){
-  if(!identity||!window.confirm('Disconnect this TikTok authorization? The creator identity remains in PCI.'))return;
-  setError('');setOk('');
-  try{const result=await api<{revoked:boolean}>(`/admin/tiktok/oauth/disconnect/${id}`,{method:'POST',csrf:identity.csrfToken,timeoutMs:25000});setOk(result.revoked?'TikTok disconnected.':'PCI credentials removed. Revoke the app in TikTok settings too.');list.reload();}catch(e){setError(errorText(e));}
- }
  function startEdit(p:BucketPerson){setEditing(p);setEditCats(p.categories.map(c=>c.slug));setEditPrimary(p.categories.find(c=>c.primary)?.slug??'');}
  async function saveEdit(){
   if(!editing)return;setBusy(true);setError('');setOk('');
@@ -119,7 +106,6 @@ export default function BucketPage(){
     <div className="seg" role="group" aria-label="Platform">
      <button type="button" className={`seg-btn${platform==='youtube'?' is-on':''}`} aria-pressed={platform==='youtube'} onClick={()=>{setPlatform('youtube');setResult(null);}}>YouTube</button>
      <button type="button" className={`seg-btn${platform==='instagram'?' is-on':''}`} aria-pressed={platform==='instagram'} onClick={()=>{setPlatform('instagram');setResult(null);}}>Instagram</button>
-     <button type="button" className="seg-btn" disabled title="Use Connect TikTok on an existing person below">TikTok (connect below)</button>
     </div>
    </div>
    <div className="seg" role="group" aria-label="How many accounts">
@@ -159,13 +145,13 @@ export default function BucketPage(){
    </div>}
    <DataBlock loading={list.loading} error={list.error} empty={!rows.length}>
     <TableWrap><thead><tr>{canEdit&&<th className="col-check"><input type="checkbox" aria-label="Select everyone on this page" checked={rows.length>0&&rows.every(r=>selected.includes(r.id))} onChange={e=>setSelected(sel=>togglePage(sel,rows.map(r=>r.id),e.target.checked))}/></th>}<th>Person</th><th>YouTube</th><th>Instagram</th><th>Niches</th><th>Added</th><th>Actions</th></tr></thead><tbody>{rows.map(p=>{
-     const yt=p.accounts.find(a=>a.platform==='youtube'),ig=p.accounts.find(a=>a.platform==='instagram'),tt=p.accounts.find(a=>a.platform==='tiktok');
+     const yt=p.accounts.find(a=>a.platform==='youtube'),ig=p.accounts.find(a=>a.platform==='instagram');
      return <tr key={p.id}>
       {canEdit&&<td className="col-check"><input type="checkbox" aria-label={`Select ${p.displayName}`} checked={selected.includes(p.id)} onChange={()=>setSelected(s=>toggle(s,p.id))}/></td>}
       <td><span className="person-cell"><span className="top-avatar" aria-hidden="true">{initials(p.displayName)}</span><strong>{p.displayName}</strong></span></td><td>{yt?.handle??'—'}</td><td>{ig?.handle??'—'}</td>
       <td>{p.categories.length?p.categories.map(c=><Badge key={c.slug} variant={c.primary?'normal':'muted'}>{c.label}</Badge>):'—'}</td>
       <td>{fmtDate(p.createdAt)}</td>
-      <td><button type="button" className="btn btn-secondary" onClick={()=>startEdit(p)}>Niches</button>{canEdit&&<>{tt&&<span className="fineprint">TikTok: {tt.handle}</span>}<button type="button" className="btn btn-secondary" onClick={()=>connectTikTok(p)}>{tt?'Authorize TikTok':'Connect TikTok'}</button>{tt&&<button type="button" className="btn btn-secondary" onClick={()=>disconnectTikTok(tt.id)}>Disconnect TikTok</button>}</>}</td></tr>;})}</tbody></TableWrap>
+      <td><button type="button" className="btn btn-secondary" onClick={()=>startEdit(p)}>Niches</button></td></tr>;})}</tbody></TableWrap>
     <div className="admin-inline-actions">
      <button type="button" className="btn btn-secondary" disabled={offset===0} onClick={()=>setOffset(Math.max(0,offset-PAGE))}>Previous</button>
      <span>{total?`${offset+1}–${Math.min(total,offset+PAGE)} of ${total}`:''}</span>

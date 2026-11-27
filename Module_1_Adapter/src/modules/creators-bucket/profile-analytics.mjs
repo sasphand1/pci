@@ -40,7 +40,7 @@ export function dailyTotals(points){const m=new Map();for(const p of [...points]
 /** Same weighted daily rate as grouped comparison, using interval-ending PKT dates. */
 export function dailyRates(rates){const m=new Map();for(const r of rates){const t=pktDay(r.time),p=m.get(t)??{gain:0,hours:0};p.gain+=r.gain;p.hours+=r.hours;m.set(t,p);}return [...m].sort((a,b)=>a[0]-b[0]).filter(([,p])=>p.hours>0).map(([time,p])=>({time,value:24*p.gain/p.hours}));}
 
-export const PLATFORMS=['YouTube','Instagram','TikTok'];
+export const PLATFORMS=['YouTube','Instagram'];
 export function platformAudience(accounts){return PLATFORMS.map(platform=>{const rows=accounts.filter(a=>a.platform.toLowerCase()===platform.toLowerCase());const known=rows.length>0&&rows.every(a=>Number.isSafeInteger(a.followersCount)&&a.followersCount>=0);return {platform,linked:rows.length>0,count:known?rows.reduce((n,a)=>n+a.followersCount,0):null};});}
 export function recordedTotal(rows){const linked=rows.filter(r=>r.linked);return linked.length&&linked.every(r=>r.count!==null)?linked.reduce((n,r)=>n+r.count,0):null;}
 export function historyWindow(points,days){const valid=points.filter(p=>Number.isFinite(Date.parse(p.at))&&Number.isFinite(p.value)&&p.value>=0).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));if(!valid.length)return [];const end=Date.parse(valid.at(-1).at);return valid.filter(p=>Date.parse(p.at)>=end-days*86400000);}

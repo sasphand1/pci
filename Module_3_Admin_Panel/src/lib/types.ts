@@ -25,7 +25,7 @@ export interface Setting {key:string;value:unknown}
 
 // PCI_ZIP_3: bucket, refresh and publication
 export type Platform='youtube'|'instagram';
-export interface BucketAccount {id:string;platform:Platform|'tiktok';handle:string;externalId:string}
+export interface BucketAccount {id:string;platform:Platform;handle:string;externalId:string}
 export interface BucketCategory {slug:string;label:string;primary:boolean}
 export interface BucketPerson {id:string;slug:string;displayName:string;createdAt:string;accounts:BucketAccount[];categories:BucketCategory[]}
 export interface BucketList {total:number;rows:BucketPerson[]}

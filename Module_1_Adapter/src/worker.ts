@@ -7,7 +7,6 @@ import { logger } from './lib/errors.js';
 import { ensureUnifiedSchema } from './lib/unified-schema.js';
 import { ensureEngineSchema } from './lib/engine-schema.js';
 import { ensureRegistrySchema } from './lib/registry-schema.js';
-import {ensureTikTokSchema} from './lib/tiktok-schema.js';
 import { ensureObservationsSchema } from './lib/observations-schema.js';
 import { ensureCreatorAnalyticsSchema } from './lib/creator-analytics-schema.js';
 import {ensureIngestSchema} from './lib/ingest-schema.js';
@@ -23,7 +22,6 @@ async function main(){
  try{await ensureUnifiedSchema();}catch(err){logger.error({err},'Unified schema verification failed in worker');}
  try{await ensureEngineSchema();}catch(err){logger.error({err},'Engine schema verification failed in worker');}
  try{await ensureRegistrySchema();await ensureObservationsSchema();await ensurePublicationSchema();await ensurePublicSchema();}catch(err){logger.error({err},'Registry/observations schema verification failed in worker');}
- try{await ensureTikTokSchema();}catch(err){logger.error({err},'TikTok OAuth schema unavailable in worker');}
  try{await ensureCreatorAnalyticsSchema();}catch(err){logger.error({err},'Creator video analytics schema unavailable');}
  try{await ensureIngestSchema();}catch(err){logger.error({err},'PCI Ingest schema unavailable; legacy collection remains active');}
  try{await ensureHubSchema();}catch(err){logger.error({err},'PCI Hub schema unavailable; hub monitoring disabled');}

@@ -12,7 +12,7 @@ export const unifiedPublicRoutes=Router();
 export const unifiedAdminRoutes=Router();
 unifiedAdminRoutes.use(requireAdmin);
 const params=z.object({metric:z.enum(['views','subscribers','videos']).default('subscribers'),
- platform:z.enum(['all','youtube','instagram','tiktok']).default('all'),
+ platform:z.enum(['all','youtube','instagram']).default('all'),
  limit:z.coerce.number().int().min(1).max(100).default(100),
  category:z.string().regex(/^[a-z0-9-]{2,60}$/).optional()});
 const review=z.object({decision:z.enum(['approved','rejected','pending']),
@@ -75,22 +75,21 @@ async function listPeople(){
 const disclosure={audience:'Summed account follower/subscriber counts; NOT unique people. The same individual may follow a creator on multiple platforms.',
  views:'YouTube lifetime channel views only. Instagram does not provide an equivalent account-wide total through the current connector.',
  activity:'Lifetime reported YouTube video count plus Instagram media count, NOT uploads per week or posting frequency.',
- tiktok:'TikTok integration is not activated. It is a UI and schema placeholder only.',
  eligibility:'Only curator-confirmed individual human YouTubers are eligible; company and generic channel records remain excluded.'};
 async function rankings(q:z.infer<typeof params>){
  const all=await listPeople();const r=rankPeople(all,q);
  return {data:r.data,meta:{platform:q.platform,metric:q.metric,total:r.total,known:r.known,
  limit:q.limit,disclosure,rankingMethod:'Descending source-reported counts, BigInt-safe, dense ties; unavailable values unranked.',
- platformCoverage:{youtube:true,instagram:true,tiktok:false}}};
+ platformCoverage:{youtube:true,instagram:true}}};
 }
-// PCI_ALL_ROUNDERS_ROUTE_V1: no fake TikTok data or silent fallback.
+// PCI_ALL_ROUNDERS_ROUTE_V1: no silent fallback.
 unifiedPublicRoutes.get('/unified/all-rounders',handler(async(req,res)=>{
  const q=z.object({limit:z.coerce.number().int().min(1).max(100).default(20),category:z.string().regex(/^[a-z0-9-]{2,60}$/).optional()}).parse(req.query);
  res.json(rankAllRounders(await listPeople(),q));
 }));
 unifiedPublicRoutes.get('/unified/rankings',handler(async(req,res)=>res.json(await rankings(params.parse(req.query)))));
 unifiedPublicRoutes.get('/unified/overview',handler(async(req,res)=>{
- const platform=z.enum(['all','youtube','instagram','tiktok']).default('all').parse(req.query.platform);
+ const platform=z.enum(['all','youtube','instagram']).default('all').parse(req.query.platform);
  res.json({data:{...aggregate(await listPeople(),platform),platform,disclosure}});
 }));
 unifiedAdminRoutes.get('/unified/creators',roles('owner','editor'),handler(async(_req,res)=>{

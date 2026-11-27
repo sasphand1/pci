@@ -57,7 +57,6 @@ export function CreatorDiscoveryRows({categories,youtube,instagram,curatedYoutub
      <div className="pci-discovery-caption"><strong>{p.displayName}</strong><span>{formatCount(p.subscriberCount,true)} Instagram followers</span></div>
     </Link>)}
    </PanelRail>
-   <PanelRail title="TikTok" summary="Reserved for an official future integration" empty={false}><div className="pci-discovery-placeholder"><span aria-hidden="true">♪</span><strong>TikTok creators</strong><p>Coming soon · no invented rankings or statistics</p></div></PanelRail>
    <div className="pci-discovery-future"><div><span className="pci-discovery-future-symbol" aria-hidden="true">◈</span><strong>Restaurants</strong><span>Coming soon</span></div><div><span className="pci-discovery-future-symbol" aria-hidden="true">✧</span><strong>Events</strong><span>Coming soon</span></div></div>
    <p className="pci-discovery-disclaimer">*YouTube and Instagram rows use separate platform-reported follower/subscriber counts. Cross-platform audiences may overlap. The YouTube row lists enabled, curated channels with reported subscriber counts; unified rankings and Instagram continue to require human approval. Each row displays up to 15 ranked profiles with available source statistics.</p>
   </div>

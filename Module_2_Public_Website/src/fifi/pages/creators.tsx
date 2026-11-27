@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Link } from "@/fifi/router";
 import { UsersRound } from "lucide-react";
-import { PlatformIcon, InstagramIcon, TikTokIcon, YouTubeIcon } from "@/fifi/components/platform-icon";
+import { PlatformIcon, InstagramIcon, YouTubeIcon } from "@/fifi/components/platform-icon";
 
 import { EmptyState, Pagination, Pic } from "@/fifi/components/page-elements";
 import { ChipRow, CompareToggle, HeadToHeadCard, KpiTile, OptionButtons, PANEL, PanelHeader, PillSelect, SearchBox, UnderlineTabs, ViewToggle } from "@/fifi/components/explorer-kit";
@@ -71,7 +71,7 @@ export function CreatorsPage(props: CreatorsProps) {
     { label: "On YouTube", value: totals ? String(totals.youtube) : "Not available", sub: "channels tracked", icon: YouTubeIcon, plain: true },
     { label: "On Instagram", value: totals ? String(totals.instagram) : "Not available", sub: "accounts tracked", icon: InstagramIcon, plain: true }
   ];
-  const tabs = [{ id: "", label: "All creators", icon: UsersRound }, { id: "youtube", label: "YouTube", icon: YouTubeIcon }, { id: "instagram", label: "Instagram", icon: InstagramIcon }, { id: "tiktok", label: "TikTok", icon: TikTokIcon }] as const;
+  const tabs = [{ id: "", label: "All creators", icon: UsersRound }, { id: "youtube", label: "YouTube", icon: YouTubeIcon }, { id: "instagram", label: "Instagram", icon: InstagramIcon }] as const;
 
   return (
     <main className="page-main pb-10 pt-5">
@@ -99,10 +99,10 @@ export function CreatorsPage(props: CreatorsProps) {
         <ChipRow value={category} onChange={(id) => go({ category: id })} chips={[{ id: "", label: "All categories" }, ...categories.map((c) => ({ id: c.slug, label: c.label }))]} />
 
         <div className="mt-4" aria-live="polite">
-          <h2 className="text-sm font-bold text-foreground">{platform === "youtube" ? "YouTube creators" : platform === "instagram" ? "Instagram creators" : platform === "tiktok" ? "TikTok creators" : "All creators"}</h2>
+          <h2 className="text-sm font-bold text-foreground">{platform === "youtube" ? "YouTube creators" : platform === "instagram" ? "Instagram creators" : "All creators"}</h2>
           <p className="text-[11px] text-muted-foreground"><span className="font-semibold text-foreground">{total}</span> {total === 1 ? "creator" : "creators"}{search ? <> matching “{search}”</> : null}, ordered by {SORTS.find((s) => s.id === sort)?.label.toLowerCase()}.</p>
 
-          {rows.length === 0 && platform === "tiktok" ? <div className="mt-3 rounded-2xl border border-dashed border-border bg-background/60 px-6 py-12 text-center"><span className="mx-auto grid h-10 w-10 place-items-center rounded-xl bg-background ring-1 ring-border/70"><TikTokIcon className="h-5 w-5" /></span><h3 className="mt-3 text-sm font-bold text-primary">TikTok is coming</h3><p className="mt-1 text-xs text-muted-foreground">No TikTok accounts are tracked yet. They will appear here, with the same figures and comparison, as soon as collection starts.</p></div> : rows.length === 0 ? <div className="mt-3"><EmptyState onReset={() => { setQuery(""); router.push("/creators"); }} /></div> : grid ? (
+          {rows.length === 0 ? <div className="mt-3"><EmptyState onReset={() => { setQuery(""); router.push("/creators"); }} /></div> : grid ? (
             <ul className="mt-3 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
               {rows.map((r) => (
                 <li key={r.slug} className={cn("overflow-hidden rounded-xl border border-border/70 bg-background/50 p-2.5", selected.includes(r.slug) && "ring-2 ring-primary")}>

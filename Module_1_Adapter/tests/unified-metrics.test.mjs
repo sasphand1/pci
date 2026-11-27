@@ -10,7 +10,7 @@ test('views do not mix Instagram followers into lifetime YouTube views',()=>asse
 test('Instagram platform excludes YouTube-only creators and has unavailable views',()=>{const r=rankPeople(people,{platform:'instagram',metric:'views'});assert.equal(r.total,2);assert.equal(r.known,0);assert.deepEqual(r.data.map(x=>x.rank),[]);});
 test('pending and rejected humans are excluded',()=>assert.equal(rankPeople(people).total,3));
 test('category filter applies to linked person across platforms',()=>assert.equal(rankPeople(people,{category:'vloggers-influencers',platform:'instagram'}).total,2));
-test('TikTok placeholder does not fabricate metrics',()=>assert.equal(rankPeople(people,{platform:'tiktok'}).total,0));
+test('TikTok is not a ranking platform (no approved data source)',()=>assert.throws(()=>rankPeople(people,{platform:'tiktok'}),/Invalid ranking options/));
 test('BigInt counts beyond JS safe integer retain exact ordering',()=>{const r=rankPeople([p('x',yt('9007199254740994',null,null)),p('y',yt('9007199254740993',null,null))]);assert.equal(r.data[0].id,'x');});
 test('no accidental input mutation',()=>{const old=JSON.stringify(people);rankPeople(people);assert.equal(JSON.stringify(people),old);});
 test('overview totals are source-count sums',()=>{const r=aggregate(people);assert.equal(r.subscribers,'900');assert.equal(r.views,'11000');assert.equal(r.posts,'60');});
