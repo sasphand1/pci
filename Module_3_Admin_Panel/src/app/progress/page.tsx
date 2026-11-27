@@ -1,7 +1,7 @@
 'use client';
 import {useCallback,useEffect,useRef,useState} from 'react';
-import {Card,Notice} from '@pci/ui';
-import {AdminPage} from '@/components/Shared';
+import Link from 'next/link';
+import {Notice} from '@pci/ui';
 import {useAuth} from '@/components/AuthProvider';
 import {api,ApiError,errorText,fmtDate} from '@/lib/api';
 
@@ -106,27 +106,31 @@ export default function ProgressPage(){
  // See teammates' changes without reloading the page.
  useEffect(()=>{if(!active)return;const t=setInterval(()=>{if(!pending.current)void load(active,true);},POLL);return()=>clearInterval(t);},[active,load]);
 
+ // Full-screen workspace: the menu and top bar hide; the menu slides in from the left edge.
+ useEffect(()=>{
+  const body=document.body;body.classList.add('admin-focus');
+  const side=document.querySelector('.admin-sidebar');
+  const hide=()=>body.classList.remove('admin-focus-reveal');
+  side?.addEventListener('mouseleave',hide);
+  return()=>{side?.removeEventListener('mouseleave',hide);body.classList.remove('admin-focus','admin-focus-reveal');};
+ },[]);
+ const reveal=()=>document.body.classList.add('admin-focus-reveal');
+ const toggle=()=>document.body.classList.toggle('admin-focus-reveal');
+
  const current=projects.find(p=>p.slug===active);
  const status=saving==='saving'?'Saving…':saving==='pending'?'Unsaved changes…':board?.updatedAt?`Saved ${fmtDate(board.updatedAt)}${board.updatedBy?` by ${board.updatedBy}`:''}`:'Default statuses (not edited yet)';
- return <AdminPage title="Progress" description="Architecture and build progress for each PCI project. Everyone on the team sees the same board; owners and editors can update it.">
-  {error&&<Notice tone="danger">{error}</Notice>}
-  {info&&<Notice>{info}</Notice>}
-  <div className="progress-projects">
-   {projects.map(p=>{const c=counts[p.slug];const pct=c&&c.total?Math.round(c.done/c.total*100):null;
-    return <button key={p.slug} type="button" className={`progress-project${p.slug===active?' is-active':''}`} aria-pressed={p.slug===active} onClick={()=>setActive(p.slug)}>
-     <span className="progress-project-title">{p.title}</span>
-     <span className="progress-project-desc">{p.description}</span>
-     {c&&<progress value={c.done} max={c.total} aria-label={`${pct}% done`}/>}
-     <span className="progress-project-stats">{c?`${pct}% done · ${c.doing} in progress · ${c.missing} missing`:'Status not published yet'}</span>
-    </button>;})}
+ const c=counts[active];const pct=c&&c.total?Math.round(c.done/c.total*100):null;
+ return <div className="progress-workspace">
+  <div className="focus-edge" onMouseEnter={reveal} onClick={toggle} role="button" tabIndex={0} aria-label="Show menu" onKeyDown={e=>{if(e.key==='Enter')toggle();}}/>
+  <div className="progress-topline">
+   <button type="button" className="progress-menu-btn" onClick={toggle} aria-label="Show menu">☰</button>
+   {projects.length>1?<select className="progress-project-select" value={active} onChange={e=>setActive(e.target.value)} aria-label="Project">{projects.map(p=><option key={p.slug} value={p.slug}>{p.title}</option>)}</select>
+    :<strong className="progress-topline-title">{current?.title??'Progress'}</strong>}
+   {c&&<><progress value={c.done} max={c.total} aria-label={`${pct}% done`}/><span className="progress-topline-stats">{pct}% done · {c.doing} in progress · {c.missing} missing</span></>}
+   <span className={`progress-save progress-save-${saving}`} role="status">{current?status:''}</span>
+   <Link href="/" className="progress-exit">Exit</Link>
   </div>
-  {current&&<Card>
-   <div className="progress-board-head">
-    <h2>{current.title}</h2>
-    <span className={`progress-save progress-save-${saving}`} role="status">{status}</span>
-   </div>
-   <iframe ref={frame} key={current.slug} className="progress-frame" src={`${BASE}/${current.slug}/index.html?embed=1${canEdit?'':'&view=1'}`} title={`${current.title} progress board`}/>
-   <p className="admin-stat-note">{canEdit?'Click a shape, arrow or card to set its status and note. Edit text, + Text and + Arrow add your own content; Undo (Ctrl+Z) reverts. Changes save automatically for the whole team. PNG and SVG save a picture of the board.':'Read-only for your role. PNG and SVG save a picture of the board.'}</p>
-  </Card>}
- </AdminPage>;
+  {(error||info)&&<div className="progress-notices">{error&&<Notice tone="danger">{error}</Notice>}{info&&<Notice>{info}</Notice>}</div>}
+  {current&&<iframe ref={frame} key={current.slug} className="progress-frame-full" src={`${BASE}/${current.slug}/index.html?embed=1${canEdit?'':'&view=1'}`} title={`${current.title} progress board`}/>}
+ </div>;
 }

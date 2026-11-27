@@ -23,6 +23,7 @@ test('shared state is saved through Module 1 with CSRF, versioning and role chec
  const p=read('src/app/progress/page.tsx');
  assert.match(p,/api<Board>\(`\/admin\/progress\/\$\{b\.slug\}`,\{method:'PUT',csrf,body:\{version:b\.version,state\}\}\)/);
  assert.match(p,/status===409/);assert.match(p,/canEdit\?'':'&view=1'/);
+ assert.match(p,/classList\.add\('admin-focus'\)/);assert.match(p,/classList\.remove\('admin-focus','admin-focus-reveal'\)/);
  assert.match(p,/e\.origin!==window\.location\.origin\|\|e\.source!==frame\.current\?\.contentWindow/);
  const board=read('public/progress-board/creator-index/index.html');
  assert.match(board,/e\.source!==window\.parent\|\|e\.origin!==location\.origin/);assert.match(board,/showSaveFilePicker/);assert.match(board,/id="pngdl"/);assert.match(board,/id="undo"/);
@@ -34,4 +35,11 @@ test('progress styles are centralized',()=>{
 test('Overview links to the Progress tab',()=>{
  assert.match(read('src/app/page.tsx'),/<Link href="\/progress" className="progress-overview-link">/);
  assert.match(read('vendor/pci-ui/src/styles/progress.css'),/\.progress-overview-link\{/);
+});
+test('Progress is a full-screen workspace with a hover menu and a slim menu scrollbar',()=>{
+ const css=read('vendor/pci-ui/src/styles/progress.css');
+ assert.match(css,/body\.admin-focus \.admin-topbar\{display:none!important\}/);
+ assert.match(css,/body\.admin-focus\.admin-focus-reveal \.admin-sidebar\{transform:none/);
+ assert.match(css,/\.admin-sidebar::-webkit-scrollbar-button/);
+ assert.match(read('src/app/progress/page.tsx'),/className="focus-edge" onMouseEnter=\{reveal\}/);
 });

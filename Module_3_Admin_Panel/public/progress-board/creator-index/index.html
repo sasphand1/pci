@@ -45,7 +45,12 @@ textarea{min-height:80px;resize:vertical}
 #modal .row{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
 .hint{font-size:12px;color:var(--mut);padding:4px 12px;background:#f8fafc;border-bottom:1px solid var(--line)}
 .view .edit-only{display:none!important}
-.embed header h1{display:none}.embed #banner{display:none!important}
+.embed header h1{display:none}.embed #banner{display:none!important}.embed .hint{display:none}
+.embed header{padding:6px 10px}
+.embed aside{position:absolute;right:0;top:0;bottom:0;width:360px;max-width:92vw;z-index:5;transform:translateX(102%);transition:transform .2s ease;box-shadow:-14px 0 40px #0f172a22}
+.embed aside.open{transform:none}
+.panel-close{display:none}.embed .panel-close{display:block;flex:0 0 44px;border:0;border-radius:0;font-size:18px}
+#listbtn{display:none}.embed #listbtn{display:inline-block}
 .el.sel .frame,.el.sel .line{filter:drop-shadow(0 0 10px var(--st))}
 @media (max-width:820px){main{flex-direction:column}aside{width:100%;height:42%;border-left:0;border-top:1px solid var(--line)}header h1{font-size:14px}.bar{width:100px}}
 </style>
@@ -66,6 +71,7 @@ textarea{min-height:80px;resize:vertical}
     <button class="edit-only" id="undo" title="Undo last change (Ctrl+Z)" disabled>Undo</button>
     <button class="edit-only" id="exp" title="Save a backup copy of the board (status.json)">Backup</button>
     <label class="btn edit-only" style="margin:0;font-size:13px;color:var(--ink)">Import<input type="file" id="imp" accept=".json" hidden></label>
+    <button id="listbtn" title="Show all items and their status">Items</button>
     <button id="pngdl" title="Save the diagram as a PNG image">PNG</button>
     <button id="svgdl" title="Save the diagram as an SVG (scalable) file">SVG</button>
     <button class="edit-only" id="reset" title="Reset the board to its original statuses">Reset</button>
@@ -1141,7 +1147,7 @@ textarea{min-height:80px;resize:vertical}
     <div class="zoom"><button id="zin">+</button><button id="zout">−</button><button id="zfit" title="Fit">⤢</button></div>
   </div>
   <aside>
-    <div class="tabs"><button class="on" data-t="details">Details</button><button data-t="list">All items</button></div>
+    <div class="tabs"><button class="on" data-t="details">Details</button><button data-t="list">All items</button><button class="panel-close" id="pclose" title="Close panel">×</button></div>
     <div class="pane" id="details"><p>Select a component or connection in the diagram.</p></div>
     <div class="pane list" id="list" hidden></div>
   </aside>
@@ -1254,9 +1260,12 @@ function list(){
   if(state.arrows?.length){h+='<h3>Your arrows</h3>';state.arrows.forEach(a=>h+=`<div class="it" data-id="${a.id}"><span class="dot" style="background:${COL[a.st]}"></span>${esc(a.label||'Arrow')}</div>`)}
   L.innerHTML=h;L.querySelectorAll('.it').forEach(i=>i.onclick=()=>{select(i.dataset.id);focusOn(i.dataset.id)});
 }
-function tab(t){document.querySelectorAll('aside .tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+function panel(open){document.querySelector('aside').classList.toggle('open',open)}
+function tab(t){if(EMBED)panel(true);document.querySelectorAll('aside .tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   document.getElementById('details').hidden=t!=='details';document.getElementById('list').hidden=t!=='list'}
-document.querySelectorAll('aside .tabs button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
+document.querySelectorAll('aside .tabs button[data-t]').forEach(b=>b.onclick=()=>tab(b.dataset.t));
+document.getElementById('pclose').onclick=()=>panel(false);
+document.getElementById('listbtn').onclick=()=>{const a=document.querySelector('aside');if(a.classList.contains('open')&&!document.getElementById('list').hidden)panel(false);else tab('list')};
 // ---------- modal ----------
 function ask(title,fields){return new Promise(res=>{const M=document.getElementById('modal'),B=document.getElementById('mbox');
   B.innerHTML=`<h2 style="margin:0 0 8px;font-size:17px">${esc(title)}</h2>`+fields.map((f,i)=>`<label>${esc(f.label)}</label>${f.type==='select'?`<select id="f${i}">${f.options.map(([v,k])=>`<option value="${v}">${k}</option>`).join('')}</select>`:`<textarea id="f${i}" style="min-height:${f.big?90:44}px">${esc(f.value||'')}</textarea>`}`).join('')+`<div class="row"><button id="mc">Cancel</button><button id="mo" class="on">OK</button></div>`;
@@ -1308,7 +1317,7 @@ async function clickAt(e){
     tmp.remove();tmp=null;const a={id:'a'+Date.now(),x1:Math.round(arrowStart.x),y1:Math.round(arrowStart.y),x2:Math.round(p.x),y2:Math.round(p.y),st:'r',label:''};arrowStart=null;
     const v=await ask('Arrow label (optional)',[{label:'Label',value:''},{label:'Status',type:'select',options:[['r','Missing'],['a','In progress'],['g','Implemented'],['x','Not verifiable']]}]);
     if(v){a.label=v[0].slice(0,200);a.st=v[1]}state.arrows.push(a);drawUser();store();progress();list();setMode('select');select(a.id);return}
-  const el=target?.closest?.('.el, .unote');if(el)select(el.id);
+  const el=target?.closest?.('.el, .unote');if(el)select(el.id);else if(EMBED&&mode==='select')panel(false);
 }
 function hint(t){document.getElementById('hint').textContent=t}
 const HINTS={select:'Click a shape or arrow to change its status. Drag your notes to move them. Drag the background to pan.',text:'Click any text in the diagram to change it.',addtext:'Click where the text should go.',arrow:'Click where the arrow should start.'};
