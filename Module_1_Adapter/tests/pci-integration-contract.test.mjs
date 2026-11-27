@@ -36,7 +36,7 @@ test('one shared public header across Home, Events and Satify',()=>{
  assert.match(layout,/<SiteHeader\s*\/>/);
  for(const p of ["href:'/events'","href:'/satify'"])assert.ok(header.includes(p));
  assert.match(header,/pathname\.startsWith/);
- assert.match(events,/pci-events-frame/);assert.match(sat,/SatelliteDashboard/);
+ assert.match(events,/pci-events-frame/);assert.match(sat,/<FifiPage>/);assert.match(sat,/<SatifyPage\b/);assert.doesNotMatch(sat,/SatelliteDashboard/);assert.match(sat,/\/api\/v1\/satify\/packs/);assert.match(sat,/\/api\/v1\/satify\/now\?city=lahore/);
  assert.doesNotMatch(radar,/<header\b/i,'radar frame must not have its own independent global header');
  assert.doesNotMatch(radar,/<span class=["']tab-num/,'category labels must not contain 01/02 decorations');
 });

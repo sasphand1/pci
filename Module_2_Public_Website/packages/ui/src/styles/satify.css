@@ -143,7 +143,7 @@
 .fifi .pulsr-signals .ps-reach>div{display:flex;gap:7px;align-items:center;border-top:1px solid var(--ps-border);padding-top:7px;font-size:12px}
 .fifi .pulsr-signals .ps-reach strong{margin-left:auto}.fifi .pulsr-signals .ps-reach small{color:var(--ps-muted);font-size:11px}
 .fifi .pulsr-signals .ps-modal{position:fixed;inset:0;margin:auto;max-height:90dvh;overflow:auto;width:min(92vw,448px);padding:0;background:#002115ed;color:white;border:1px solid #ffffff40;border-radius:16px;backdrop-filter:blur(24px);box-shadow:0 24px 80px #041d1870}
-.fifi .pulsr-signals .ps-modal::backdrop{background:#00211566;backdrop-filter:blur(10px)}
+.fifi .pulsr-signals .satify-modal::backdrop{background:#00211566;backdrop-filter:blur(10px)}
 .fifi .pulsr-signals .satify-modal-inner{padding:20px;display:grid;gap:12px}
 .fifi .pulsr-signals .satify-modal-top{display:flex;align-items:center;justify-content:space-between}
 .fifi .pulsr-signals .ps-modal .ps-kicker{color:var(--ps-gold)}
