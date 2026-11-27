@@ -9,6 +9,7 @@ export const NAV_GROUPS:NavGroup[]=[
   {title:'Pipeline',href:'/pipeline',icon:'pipeline',roles:['owner','editor']},
   {title:'Categories',href:'/categories',icon:'tag',roles:['owner','editor']}]},
  {label:'Website',items:[
+  {title:'Broadcast',href:'/broadcast',icon:'pulse',roles:['owner','editor']},
   {title:'Page content',href:'/content',icon:'edit',roles:['owner','editor']},
   {title:'Restaurants',href:'/local',icon:'tag',roles:['owner','editor']},
   {title:'Event sources',href:'/events/sources',icon:'settings',roles:['owner','editor']},

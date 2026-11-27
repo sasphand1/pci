@@ -1,3 +1,5 @@
+import {ensureBroadcastSchema} from './lib/broadcast-schema.js';
+import {broadcastAdminRoutes,broadcastDispatchRoutes} from './modules/broadcast/routes.js';
 import {ensureSatelliteSchema} from './lib/satellite-schema.js';
 import {ensureSatifySchema} from './lib/satify-schema.js';
 import {satifyPublicRoutes,satifyAdminRoutes,satifyWebhookRoutes} from './modules/satify/routes.js';
@@ -145,6 +147,8 @@ export function makeApp() {
   app.use('/api/v1/wall/auth',wallAuthRoutes);
   app.use('/api/v1/wall',wallRoutes);
   app.use('/api/v1/admin/auth',adminAuthRoutes);
+  app.use('/api/v1/admin/broadcast',broadcastAdminRoutes);
+  app.use('/api/v1/broadcast/dispatch',broadcastDispatchRoutes);
   app.use('/api/v1/admin',adminRoutes);
   app.use('/api/v1/admin/events',adminEventsRoutes);
   app.use('/api/v1/admin',bucketAdminRoutes);
@@ -231,6 +235,8 @@ async function main(){
         catch(err){logger.error({err},'Satellite schema unavailable; satellite endpoints may fail until migration is applied');}
         try{await ensureSatifySchema();logger.info('Satify Hub schema verified');}
         catch(err){logger.error({err},'Satify Hub schema unavailable; Satify endpoints may fail until it is applied');}
+        try{await ensureBroadcastSchema();logger.info('Broadcast schema verified');}
+        catch(err){logger.error({err},'Broadcast schema unavailable; broadcast endpoints may fail until migration is applied');}
         pciStartupReady=true;
         logger.info('API server ready');
         if(config.RUN_WORKER_IN_API==='true'){
