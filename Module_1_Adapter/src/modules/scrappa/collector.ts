@@ -1,6 +1,9 @@
 /** Scrappa public creator collection. No scheduler, OAuth, or database side effects. */
 const BASE = 'https://scrappa.co/api/tiktok/user/';
 const MAX_BYTES = 4_000_000;
+export const MAX_COLLECTION_CREDITS = 4;
+export const MONTHLY_CREDIT_LIMIT = 500;
+export const SCHEDULED_CREDIT_CEILING = 400;
 export type ReserveCredit = () => Promise<boolean>;
 const count = (v: unknown): number | null => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? v : null;
 const obj = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
@@ -62,10 +65,27 @@ export async function collectProfile(handle: string, apiKey: string, reserve: Re
   const name = username(handle);
   return parseProfile(await requester(apiKey,reserve,fetcher)('profile',{unique_id:name}),name);
 }
-export async function collect(handle: string, apiKey: string, reserve: ReserveCredit, fetcher: typeof fetch = fetch) {
+export async function collect(handle: string, apiKey: string, reserve: ReserveCredit, fetcher: typeof fetch = fetch, expectedAccountId?: string) {
   const name = username(handle);
   const request = requester(apiKey,reserve,fetcher);
   const profile = parseProfile(await request('profile',{unique_id:name}),name);
-  const posts = parsePosts(await request('posts',{user_id:profile.accountId,count:'10',cursor:'0'}),profile.accountId);
+  if(expectedAccountId!==undefined&&profile.accountId!==expectedAccountId)throw new Error('candidate_identity_changed');
+  const byId = new Map<string, ReturnType<typeof parsePosts>[number]>();
+  const seenCursors = new Set<string>();
+  let cursor = '0';
+  for (let page=0; page<MAX_COLLECTION_CREDITS-1; page++) {
+    seenCursors.add(cursor);
+    const body = await request('posts',{user_id:profile.accountId,count:'10',cursor});
+    for (const post of parsePosts(body,profile.accountId)) if (!byId.has(post.postId)) byId.set(post.postId,post);
+    if (byId.size>=10) break;
+    const data=obj(obj(body).data);
+    const more=data.hasMore??data.has_more;
+    const raw=data.cursor??data.next_cursor;
+    const next=typeof raw==='string'?raw:typeof raw==='number'&&Number.isSafeInteger(raw)?String(raw):'';
+    // Never invent a cursor or retry a repeated page. A missing continuation leaves an incomplete sample.
+    if (!(more===true||more===1) || !/^\d{1,40}$/.test(next) || seenCursors.has(next)) break;
+    cursor=next;
+  }
+  const posts=[...byId.values()].sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt)||a.postId.localeCompare(b.postId)).slice(0,10);
   return {source:'scrappa.api',observedAt:new Date().toISOString(),profile,posts,analytics:summarize(posts)};
 }

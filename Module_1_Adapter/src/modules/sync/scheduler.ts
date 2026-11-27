@@ -1,3 +1,4 @@
+import {refreshScrappaCandidates} from '../scrappa/admin.js';
 import {syncApprovedEventSources} from '../events/service.js';
 import {classifyPendingEvents} from '../events/intelligence.js';
 import cron from 'node-cron';
@@ -115,6 +116,7 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
  tasks.push(cron.schedule('*/10 * * * *',()=>recoverStalledJobs().catch(e=>logger.error({err:e},'stalled job recovery failed'))));
  tasks.push(cron.schedule('*/10 * * * *',()=>recoverStalledRuns().catch(e=>logger.error({err:e},'stalled refresh recovery failed'))));
  tasks.push(cron.schedule('*/15 * * * *',()=>void freshness()));
+ tasks.push(cron.schedule('25 * * * *',()=>{if(!stopped)void refreshScrappaCandidates().catch(err=>logger.warn({code:err instanceof Error?err.name:'unknown'},'Scrappa refresh unavailable'));}));
  // PCI Hub Monitor: source health, freshness, quota and coverage alerts.
  // Web picture fill for Instagram accounts the API left without one: every 2 hours, 5 accounts, off unless enabled.
  tasks.push(cron.schedule('0 */2 * * *',()=>{void fillInstagramAvatars({limit:5}).catch(err=>logger.warn({err},'Avatar fill unavailable'));}));

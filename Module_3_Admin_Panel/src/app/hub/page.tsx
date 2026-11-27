@@ -8,6 +8,7 @@ type Alert={id:string;createdAt:string;kind:string;scope:string|null;severity:'i
 type Job={id:string;sourceId:string;trigger:string;status:string;startedAt:string|null;finishedAt:string|null;errorCode:string|null};
 type Stored={category:string;entities:number;fields:number;latestAt:string|null};
 type CreatorsBucketStatus={name:string;platform:string;source:string;registered:number;withFollowers:number;withViews:number;withVideoCount:number;withUploads:number;withContent:number;trackedVideos:number;latestAt:string|null};
+type ScrappaStatus={staged:number;linked:number;collected:number;fresh:number;full_samples:number;latest_at:string|null;enabled:boolean;autoConfigured:boolean;used:number;limit:number;scheduledLimit:number};
 type Health={sources:Source[];openAlerts:Alert[];recentJobs:Job[];discrepancies7d:number;categories?:Stored[]};
 type Coverage={byTier:{platform:string;tier:string;n:number}[];byCategory:{platform:string;category:string;n:number;noData:number}[];freshness:{platform:string;registered:number;fresh:number;withPicture:number;noData:number}[]};
 type Discrepancy={entityId:string;metric:string;apiValue:string;httpValue:string;detectedAt:string};
@@ -24,7 +25,7 @@ function SourceCard({s,owner,csrf,reload}:{s:Source;owner:boolean;csrf?:string;r
   try{await api(`/admin/ingest/sources/${s.id}`,{method:'PATCH',csrf,body:{enabled:next}});reload();}catch(e){setError(errorText(e));}finally{setBusy(false);}
  }
  return <article className="admin-setting-card"><h3>{s.label||s.id}</h3>
-  <p><span className={badge(s.status)}>{s.status}</span> · {s.method==='api'?'Official API':s.method==='manual'?'Admin entry':'Public web page'}{s.category?` · ${s.category}`:''}</p>
+  <p><span className={badge(s.status)}>{s.status}</span> · {s.id==='scrappa.api'?'Third-party API':s.method==='api'?'Official API':s.method==='manual'?'Admin entry':'Public web page'}{s.category?` · ${s.category}`:''}</p>
   {s.expectedHours&&<p className="fineprint">{s.id} · expected every {s.expectedHours<48?`${s.expectedHours} hours`:`${Math.round(s.expectedHours/24)} days`}</p>}
   <p className="fineprint">Last success: {fmtDate(s.lastSuccessAt)} · Last attempt: {fmtDate(s.lastAttemptAt)}</p>
   {s.consecutiveFailures>0&&<p className="fineprint">Consecutive failures: {s.consecutiveFailures}</p>}
@@ -39,9 +40,14 @@ export default function DataHub(){
  const health=useData<Health>('/admin/ingest/health');
  const coverage=useData<Coverage>('/admin/ingest/coverage');
  const creatorBucket=useData<CreatorsBucketStatus>('/admin/ingest/creators-bucket');
+ const scrappa=useData<ScrappaStatus>('/admin/bucket/scrappa/status');
  const disc=useData<Discrepancy[]>('/admin/ingest/discrepancies');
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[ok,setOk]=useState(''),[showDisc,setShowDisc]=useState(10);
- const reloadAll=()=>{health.reload();coverage.reload();disc.reload();creatorBucket.reload();};
+ const reloadAll=()=>{health.reload();coverage.reload();disc.reload();creatorBucket.reload();scrappa.reload();};
+ async function switchScrappa(enabled:boolean){
+  if(enabled&&!window.confirm('Enable scheduled third-party TikTok data collection only after confirming source permissions and credit allowance?'))return;
+  setBusy(true);setError('');setOk('');try{await api('/admin/bucket/scrappa/refresh-settings',{method:'POST',csrf,body:{enabled}});reloadAll();}catch(e){setError(errorText(e));}finally{setBusy(false);}
+ }
  async function run(){setBusy(true);setError('');setOk('');try{const r=await api<{sources:number;alertsOpened:number}>('/admin/ingest/check',{method:'POST',csrf});setOk(`Checked ${r.sources} sources; ${r.alertsOpened} new alert(s).`);reloadAll();}catch(e){setError(errorText(e));}finally{setBusy(false);}}
  async function fillGraphPictures(){
   setBusy(true);setError('');setOk('');
@@ -73,6 +79,14 @@ export default function DataHub(){
    <DataBlock loading={creatorBucket.loading} error={creatorBucket.error} empty={!creatorBucket.data}>
     <p className="fineprint">YouTube creator intelligence · read-only derived sub-bucket of the Data Hub. Counts below are coverage, not sums of followers.</p>
     {creatorBucket.data&&<TableWrap><thead><tr><th>Registered channels</th><th>Subscribers</th><th>Views</th><th>Public video count</th><th>30-day uploads</th><th>Video coverage</th><th>Tracked videos</th><th>Latest video reading</th></tr></thead><tbody><tr>{[creatorBucket.data.registered,creatorBucket.data.withFollowers,creatorBucket.data.withViews,creatorBucket.data.withVideoCount,creatorBucket.data.withUploads,creatorBucket.data.withContent,creatorBucket.data.trackedVideos].map((n,i)=><td key={i}>{fmtNum(n)}</td>)}<td>{fmtDate(creatorBucket.data.latestAt)}</td></tr></tbody></TableWrap>}
+   </DataBlock>
+   <h2>TikTok Creators Bucket (private staging)</h2>
+   <DataBlock loading={scrappa.loading} error={scrappa.error} empty={!scrappa.data}>
+    {scrappa.data&&<><p className="fineprint">Third-party Scrappa source; not included in public rankings. Fresh means a collected snapshot within 15 days.</p>
+     <TableWrap><thead><tr><th>Staged</th><th>Linked people</th><th>Collected</th><th>Fresh</th><th>10-video samples</th><th>Latest snapshot</th></tr></thead><tbody><tr>{[scrappa.data.staged,scrappa.data.linked,scrappa.data.collected,scrappa.data.fresh,scrappa.data.full_samples].map((n,i)=><td key={i}>{fmtNum(n)}</td>)}<td>{fmtDate(scrappa.data.latest_at)}</td></tr></tbody></TableWrap>
+     <p className="fineprint">UTC month: {scrappa.data.used}/{scrappa.data.limit} requests reserved. Automatic refresh stops at {scrappa.data.scheduledLimit}. Worker opt-in: {scrappa.data.autoConfigured?'configured':'off'}.</p>
+     {owner&&<button className="btn btn-secondary" disabled={busy||(!scrappa.data.enabled&&!scrappa.data.autoConfigured)} onClick={()=>void switchScrappa(!scrappa.data!.enabled)}>{scrappa.data.enabled?'Disable scheduled TikTok refresh':'Enable scheduled TikTok refresh'}</button>}
+    </>}
    </DataBlock>
    <h2>Open alerts {h&&h.openAlerts.length>0&&<span className="badge badge-danger">{h.openAlerts.length}</span>}</h2>
    {h&&h.openAlerts.length===0?<p className="muted">No open hub alerts. Alerts clear themselves when the problem goes away.</p>:

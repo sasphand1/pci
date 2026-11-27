@@ -153,7 +153,7 @@ export default function BucketPage(){
      const yt=p.accounts.find(a=>a.platform==='youtube'),ig=p.accounts.find(a=>a.platform==='instagram');
      return <tr key={p.id}>
       {canEdit&&<td className="col-check"><input type="checkbox" aria-label={`Select ${p.displayName}`} checked={selected.includes(p.id)} onChange={()=>setSelected(s=>toggle(s,p.id))}/></td>}
-      <td><span className="person-cell"><span className="top-avatar" aria-hidden="true">{initials(p.displayName)}</span><strong>{p.displayName}</strong></span></td><td>{yt?.handle??'—'}</td><td>{ig?.handle??'—'}</td>
+      <td><span className="person-cell"><span className="top-avatar" aria-hidden="true">{initials(p.displayName)}</span><span><strong>{p.displayName}</strong> <small className="fineprint">{p.slug}</small></span></span></td><td>{yt?.handle??'—'}</td><td>{ig?.handle??'—'}</td>
       <td>{p.categories.length?p.categories.map(c=><Badge key={c.slug} variant={c.primary?'normal':'muted'}>{c.label}</Badge>):'—'}</td>
       <td>{fmtDate(p.createdAt)}</td>
       <td><button type="button" className="btn btn-secondary" onClick={()=>startEdit(p)}>Niches</button></td></tr>;})}</tbody></TableWrap>

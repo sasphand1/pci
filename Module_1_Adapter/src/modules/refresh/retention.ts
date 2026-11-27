@@ -24,6 +24,11 @@ export async function runHubRetention(env: NodeJS.ProcessEnv = process.env): Pro
       AND entity_id LIKE $1 AND observed_at < now() - make_interval(days => $2)`, [`${platform}:%`, days]);
     out[platform] = r.rowCount ?? 0;
   }
+  const scrappaDays=90;
+  const scrappa=await query(`DELETE FROM ingest_observations WHERE source_id='scrappa.api' AND observed_at<now()-make_interval(days => $1)`,[scrappaDays]);
+  out.scrappa=scrappa.rowCount??0;
+  await query(`DELETE FROM ingest_latest WHERE source_id='scrappa.api' AND observed_at<now()-make_interval(days => $1)`,[scrappaDays]);
+  if((await query("SELECT to_regclass('public.scrappa_snapshots') AS table_name")).rows[0]?.table_name)await query('DELETE FROM scrappa_snapshots WHERE observed_at<now()-make_interval(days => $1)',[scrappaDays]);
   // Google Maps Platform terms allow only short-term caching of place details: keep 30 days of readings.
   const places = await query(`DELETE FROM ingest_observations WHERE entity_kind='place' AND observed_at < now() - interval '30 days'`);
   out.places = places.rowCount ?? 0;

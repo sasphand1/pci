@@ -1,3 +1,4 @@
+import {ensureScrappaSchema} from './modules/scrappa/admin.js';
 import {ensureSatelliteSchema} from './lib/satellite-schema.js';
 import {ensureSatifySchema} from './lib/satify-schema.js';
 import {ensureEventsSchema} from './lib/events-schema.js';
@@ -25,6 +26,7 @@ async function main(){
  try{await ensureCreatorAnalyticsSchema();}catch(err){logger.error({err},'Creator video analytics schema unavailable');}
  try{await ensureIngestSchema();}catch(err){logger.error({err},'PCI Ingest schema unavailable; legacy collection remains active');}
  try{await ensureHubSchema();}catch(err){logger.error({err},'PCI Hub schema unavailable; hub monitoring disabled');}
+ try{await ensureScrappaSchema();}catch(err){logger.warn({err},'Scrappa schema unavailable in worker');}
  try{await ensureSatelliteSchema();}catch(err){logger.error({err},'Satellite schema initialization failed in worker');}
  try{await ensureSatifySchema();}catch(err){logger.error({err},'Satify Hub schema initialization failed in worker');}
  try{await ensureEventsSchema();}catch(err){logger.error({err},'Event sources schema initialization failed in worker');}

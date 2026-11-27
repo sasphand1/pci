@@ -1,3 +1,4 @@
+import {ensureScrappaSchema} from './modules/scrappa/admin.js';
 import {ensureBroadcastSchema} from './lib/broadcast-schema.js';
 import {ensureHubCadence,ensureProgressSchema} from './lib/progress-schema.js';
 import {progressAdminRoutes} from './modules/progress/routes.js';
@@ -231,6 +232,7 @@ async function main(){
         try {await ensureHubSchema();logger.info('PCI Hub schema verified');
           await ensureRestaurantImageSchema().then(()=>logger.info('PCI restaurant image schema verified')).catch(err=>logger.warn({err},'PCI restaurant image schema unavailable'));}
         catch(err){logger.error({err},'PCI Hub schema unavailable; hub monitoring disabled until it is applied');}
+        try{await ensureScrappaSchema();logger.info('Scrappa schema verified');}catch(err){logger.warn({err},'Scrappa schema unavailable; TikTok staging disabled until schema is ready');}
         await ensureRedis();
         try{await ensureEventsSchema();logger.info('Events schema verified');}
         catch(err){logger.error({err},'Events schema unavailable; event endpoints may fail until the migration is applied');}
