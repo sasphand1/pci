@@ -1,191 +1,57 @@
 'use client';
-import {useEffect,useState,type ReactNode} from 'react';
-import {Home,ChevronLeft,ChevronRight,Pause,Share2,MoreHorizontal,UsersRound,Play,Heart,MessageSquare,MapPin,ChartNoAxesCombined,Globe,CalendarDays,Sparkles,CheckCircle2,Trophy,Info,Bookmark,BarChart3,Video} from 'lucide-react';
-import {Link} from '@/fifi/router';
-import {Pic,FollowButton,SaveButton} from '@/fifi/components/page-elements';
-import {SLIDE_DWELL_MS} from '@/fifi/components/pulse-slideshow';
+import {useState,type ReactNode} from 'react';
+import {Pic} from '@/fifi/components/page-elements';
 import type {CreatorProfileProps} from './creator';
-import type {BucketVideo,BucketObservation,ProfilePortfolio,ProfileGrowth} from '../../lib/creators-bucket';
+import type {ProfilePortfolio,ProfileGrowth} from '../../lib/creators-bucket';
 import {alignDaily,VIEW_BANDS,type Peer} from './youtube-profile-data.mjs';
 import {LineChart,HorizontalBars,Scatter,BandChart,GroupedBars} from './youtube-reference';
-const TABS=['Overview','Content','Audience','Growth','Brand & Collab','Reports'] as const;
-type Tab=typeof TABS[number];
-const fmt=(n:number|null|undefined)=>n==null?'—':new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:2}).format(n);
-const exact=(n:number|null|undefined)=>n==null?'Not available':n.toLocaleString('en-US',{maximumFractionDigits:2});
+const fmt=(n:number|null|undefined)=>n==null?'N/A':new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:2}).format(n);
+const exact=(n:number|null|undefined)=>n==null?'N/A':n.toLocaleString('en-US',{maximumFractionDigits:2});
 const date=(s:string|undefined|null)=>s&&Number.isFinite(Date.parse(s))?new Date(s).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}):'Not available';
-const watch=(id:string)=>'https://www.youtube.com/watch?v='+encodeURIComponent(id);
-const signed=(v:number|null|undefined)=>v==null?'Not available':`${v>=0?'+':''}${fmt(v)}`;
-function PlatformIcon({platform}:{platform:string}){return <span className={'cp-platform cp-'+platform.toLowerCase()} aria-label={platform}>{platform==='YouTube'?<Play size={10} fill="currentColor"/>:platform==='Instagram'?'◎':'♪'}</span>}
-function Card({title,icon,children,aside,className=''}:{title:string;icon:ReactNode;children:ReactNode;aside?:ReactNode;className?:string}){return <section className={'cp-card rounded-2xl border border-border/70 bg-card shadow-soft '+className}><div className="cp-card-heading"><span className="cp-card-icon">{icon}</span><h2>{title}</h2>{aside&&<div className="cp-card-aside">{aside}</div>}</div>{children}</section>}
-function Empty({children='Data not available yet.'}:{children?:ReactNode}){return <div className="cp-empty">{children}</div>}
-function KPI({title,value,icon,tone,note}:{title:string;value:string;icon:ReactNode;tone:string;note:ReactNode}){return <div className="cp-kpi rounded-xl border border-border/70 bg-background/60"><span className={'cp-kpi-icon '+tone}>{icon}</span><div><strong>{value}</strong><p>{title}</p><small>{note}</small></div></div>}
-const pct=(n:number|null|undefined)=>n==null?'—':n.toFixed(1)+'%';
-const NOTES=['*','†','‡','§','¶','‖'];
+const signed=(n:number|null|undefined)=>n==null?'N/A':`${n>=0?'+':''}${exact(n)}`;
+const pct=(n:number|null|undefined)=>n==null?'N/A':n.toFixed(2)+'%';
+const NOTES=['¹','²','³','⁴','⁵'];
 function NoteMark({n}:{n:number}){return <sup><a className="cp-note-mark" aria-label={'Read methodology note '+n} href={'#cp-note-'+n}>{NOTES[n-1]}</a></sup>}
+function Card({title,children,aside,className=''}:{title:string;children:ReactNode;aside?:ReactNode;className?:string}){return <section className={'cp-card rounded-2xl border border-border/70 bg-card shadow-soft '+className}><div className="cp-card-heading"><h2>{title}</h2>{aside&&<div className="cp-card-aside">{aside}</div>}</div>{children}</section>}
+function KPI({title,value,note}:{title:string;value:string;note:ReactNode}){return <div className="cp-kpi"><p>{title}</p><strong>{value}</strong><small>{note}</small></div>}
+function Empty({children='Data not available yet.'}:{children?:ReactNode}){return <div className="cp-empty">{children}</div>}
 function ChartEmbed({children,comparison=false}:{children:ReactNode;comparison?:boolean}){return <div className={'pci-yt-reference cp-chart-embed'+(comparison?' yr-comparison':'')}>{children}</div>}
-function MetricsList({items}:{items:[string,ReactNode][]}){return <dl className="cp-metric-list">{items.map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}
 const COMPARE=['Subscribers','Lifetime views','Public videos','Daily views gained','Video view bands'] as const;
-const COMPARE_TITLES=['Subscriber comparison','Lifetime view comparison','Public video comparison','Daily view-gain comparison','Tracked videos by view band'] as const;
+const COMPARE_TITLES=['Subscriber comparison','Lifetime view comparison','Public video comparison','Daily view-gain comparison','Videos by view band'] as const;
 function PeerComparison({peers,rankingDate}:{peers:Peer[];rankingDate?:string|null}){
  const [metric,setMetric]=useState(0);
  const groups=alignDaily(peers).map(g=>({label:new Date(g.day+'T00:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'}),values:g.values}));
  const bands=VIEW_BANDS.map(label=>({label,values:peers.map(p=>p.bands.find(b=>b.label===label)?.value??null)}));
- return <Card title="Creator comparison" icon={<UsersRound size={15}/>} className="cp-full-card cp-peer-compact"><div className="cp-compare-tabs" role="group" aria-label="Comparison metric">{COMPARE.map((label,i)=><button type="button" key={label} aria-pressed={metric===i} className={metric===i?'cp-tab cp-tab-active':'cp-tab'} onClick={()=>setMetric(i)}>{label}</button>)}</div><h3 className="cp-subheading">{COMPARE_TITLES[metric]}</h3><p className="cp-note">{['Published YouTube subscriber ranking · '+date(rankingDate),'Current public YouTube lifetime views','Official public YouTube video counts','Observed view gains normalized to 24 hours · UTC ending day','Number of tracked videos in each view range'][metric]}</p>{!peers.length?<Empty>No comparable YouTube accounts recorded.</Empty>:<ChartEmbed comparison>{metric<3?<HorizontalBars displayExact={metric===2} rows={peers.map((p,i)=>({key:p.slug,label:p.name,value:metric===0?p.subscribers:metric===1?p.views:p.publicVideos,color:i}))}/>:metric===3?<GroupedBars key={metric} peers={peers} groups={groups}/>:<GroupedBars key={metric} peers={peers} groups={bands} distribution/>}</ChartEmbed>}<p className="cp-note">Same creator colors across tabs. Missing figures are unavailable, not zero.</p></Card>;
+ return <Card title="Creator comparison" className="cp-full-card cp-peer-compact"><div className="cp-compare-tabs" role="group" aria-label="Comparison metric">{COMPARE.map((label,i)=><button type="button" key={label} aria-pressed={metric===i} className={metric===i?'cp-tab cp-tab-active':'cp-tab'} onClick={()=>setMetric(i)}>{label}</button>)}</div><h3 className="cp-subheading">{COMPARE_TITLES[metric]}</h3><p className="cp-note">{['Published YouTube subscriber ranking · '+date(rankingDate),'Current public YouTube lifetime views','Official public YouTube video counts','Observed primary-channel view gains normalized to 24 hours · UTC ending day','Number of sampled videos in each view range'][metric]}</p>{!peers.length?<Empty>No comparable YouTube accounts recorded.</Empty>:<ChartEmbed comparison>{metric<3?<HorizontalBars displayExact={metric!==0} rounded={metric===0} rows={peers.map((p,i)=>({key:p.slug,label:p.name,value:metric===0?p.subscribers:metric===1?p.views:p.publicVideos,color:i}))}/>:metric===3?<GroupedBars key={metric} peers={peers} groups={groups}/>:<GroupedBars key={metric} peers={peers} groups={bands} distribution/>}</ChartEmbed>}<p className="cp-note">Same creator colors across tabs. Missing figures are unavailable, not zero.</p></Card>;
 }
-function MetricSlides({slides}:{slides:{title:string;content:ReactNode}[]}){
- const [index,setIndex]=useState(0);const i=Math.min(index,slides.length-1);if(!slides.length)return null;
- return <div className="cp-metric-slides"><div className="cp-slide-heading"><strong>{slides[i].title}</strong><div className="cp-slide-controls"><button type="button" disabled={i===0} aria-label="Previous metric slide" onClick={()=>setIndex(i-1)}>‹</button><span aria-live="polite">{i+1}/{slides.length}</span><button type="button" disabled={i===slides.length-1} aria-label="Next metric slide" onClick={()=>setIndex(i+1)}>›</button></div></div>{slides[i].content}</div>;
-}
-
-/** These are the original bucket-backed chart cards, not a second analytics engine. */
-type GraphSlide={title:string;short:string;help:string;content:ReactNode};
-const GRAPH_SWISH_MS=620; // Same transition as the existing homepage PulseSlideshow.
-function graphPoint(target:EventTarget|null):string|null{
- if(!(target instanceof Element))return null;
- const row=target.closest('[data-graph-point]');
- if(row)return row.getAttribute('data-graph-point');
- const mark=target.closest('svg g[aria-label],svg a[aria-label],svg [role="button"][aria-label]');
- if(mark)return mark.getAttribute('aria-label');
- const bar=target.closest('.yr-bar-row');
- if(bar)return bar.querySelector('svg[aria-label]')?.getAttribute('aria-label')??null;
- return null;
-}
-function GraphSlides({slides}:{slides:GraphSlide[]}){
- const [pos,setPos]=useState(0),[animate,setAnimate]=useState(true),[hover,setHover]=useState(false),[focused,setFocused]=useState(false),[paused,setPaused]=useState(false),[reduced,setReduced]=useState(false),[point,setPoint]=useState<string|null>(null);
- const [anchor,setAnchor]=useState<{x:number;y:number}|null>(null);
- const inspect=(target:EventTarget|null)=>{const label=graphPoint(target);setPoint(label);if(label&&target instanceof Element){const mark=target.closest('svg g[aria-label],svg a[aria-label],.yr-bar-row,[data-graph-point]')??target;const r=mark.getBoundingClientRect();setAnchor({x:r.left+r.width/2,y:r.top});}else setAnchor(null);};
- const count=slides.length,active=pos%count;
- useEffect(()=>{const clear=()=>setAnchor(null);window.addEventListener('scroll',clear,true);window.addEventListener('resize',clear);return ()=>{window.removeEventListener('scroll',clear,true);window.removeEventListener('resize',clear);};},[]);
- useEffect(()=>{
-  const media=window.matchMedia('(prefers-reduced-motion: reduce)');
-  const change=()=>setReduced(media.matches);change();media.addEventListener('change',change);
-  return ()=>media.removeEventListener('change',change);
- },[]);
- useEffect(()=>{
-  if(paused||hover||focused||reduced||count<2)return;
-  const timer=window.setInterval(()=>{if(!document.hidden)setPos(p=>Math.min(p+1,count));},SLIDE_DWELL_MS);
-  return ()=>window.clearInterval(timer);
- },[paused,hover,focused,reduced,count]);
- useEffect(()=>{
-  setPoint(null);
-  if(pos!==count)return;
-  const timer=window.setTimeout(()=>{setAnimate(false);setPos(0);},reduced?0:GRAPH_SWISH_MS);
-  return ()=>window.clearTimeout(timer);
- },[pos,count,reduced]);
- useEffect(()=>{
-  if(animate)return;
-  let next=0;const frame=window.requestAnimationFrame(()=>{next=window.requestAnimationFrame(()=>setAnimate(true));});
-  return ()=>{window.cancelAnimationFrame(frame);if(next)window.cancelAnimationFrame(next);};
- },[animate]);
- const back=()=>{if(pos===0||pos===count){setAnimate(false);setPos(count-1);}else setPos(p=>p-1);};
- const choose=(i:number)=>{if(pos===count)setAnimate(false);setPos(i);};
- const current=slides[active]!;
- return <section className="cp-graph-carousel rounded-2xl border border-border/70 bg-card p-4 shadow-soft" aria-label="Growth intelligence graph slideshow" aria-roledescription="carousel" onMouseEnter={()=>setHover(true)} onMouseLeave={()=>{setHover(false);setPoint(null);}} onFocusCapture={()=>setFocused(true)} onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node|null)){setFocused(false);setPoint(null);}}}>
-  <div className="cp-graph-heading"><div className="flex items-center gap-2"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-secondary text-primary"><ChartNoAxesCombined size={17}/></span><div><h2 className="text-base font-bold tracking-tight text-primary">Growth intelligence</h2><p className="cp-note">Recorded performance · PCI Hub / Creators Bucket</p></div></div><div className="cp-graph-controls flex items-center gap-1">
-   <button type="button" onClick={back} aria-label="Previous graph" className="grid h-7 w-7 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-primary"><ChevronLeft size={15}/></button>
-   <button type="button" onClick={()=>setPaused(v=>!v)} disabled={reduced} aria-pressed={paused||reduced} aria-label={paused?'Resume slideshow':'Pause slideshow'} title={reduced?'Automatic playback disabled by reduced-motion preference':paused?'Resume slideshow':'Pause slideshow'} className="grid h-7 w-7 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-primary">{paused||reduced?<Play size={13}/>:<Pause size={13}/>}</button>
-   <button type="button" onClick={()=>setPos(p=>Math.min(p+1,count))} aria-label="Next graph" className="grid h-7 w-7 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-primary"><ChevronRight size={15}/></button>
-  </div></div>
-  <div className="cp-graph-nav" role="group" aria-label="Select graph">{slides.map((slide,i)=><button key={slide.title} type="button" onClick={()=>choose(i)} aria-pressed={i===active} title={slide.title} className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${i===active?'bg-primary text-primary-foreground':'bg-muted/70 text-muted-foreground hover:text-primary'}`}>{slide.short}</button>)}</div>
-  <div className="cp-graph-viewport"><div className="cp-graph-track" style={{transform:`translate3d(-${pos*100}%, 0, 0)`,transition:animate&&!reduced?`transform ${GRAPH_SWISH_MS}ms cubic-bezier(0.22, 0.61, 0.36, 1)`:'none'}}>{[...slides,slides[0]!].map((slide,i)=><div key={`${slide.title}-${i}`} className="cp-graph-panel" aria-hidden={i!==pos} inert={i!==pos} role="group" aria-roledescription="slide" aria-label={`${i%count+1} of ${count}: ${slide.title}`} onPointerOver={e=>inspect(e.target)} onPointerDown={e=>inspect(e.target)} onPointerLeave={()=>{setPoint(null);setAnchor(null);}} onFocusCapture={e=>inspect(e.target)} onBlurCapture={()=>{setPoint(null);setAnchor(null);}} onScrollCapture={()=>setAnchor(null)}>{slide.content}</div>)}</div></div>
-  {point&&anchor&&<div className="cp-point-tooltip" aria-hidden="true" style={{left:`clamp(12px, ${anchor.x-120}px, calc(100vw - 252px))`,top:anchor.y>110?anchor.y-10:anchor.y+18,transform:anchor.y>110?'translateY(-100%)':'none'}}><span>Recorded observation</span><strong>{point}</strong></div>}
-  <div className="cp-graph-readout" aria-live="polite"><Info size={14}/><div><span>{point?'Recorded observation':current.help}</span>{point&&<strong>{point}</strong>}</div></div>
-  <div className="cp-graph-bottom"><div className="cp-graph-dots" role="group" aria-label="Graph slideshow positions">{slides.map((slide,i)=><button key={slide.title} type="button" aria-pressed={i===active} aria-label={`Show ${slide.title}`} title={slide.title} onClick={()=>choose(i)}><span aria-hidden="true"/></button>)}</div><span className="cp-mini">{active+1} / {count}</span></div>
- </section>;
-}
-
-function VideoSlides({videos}:{videos:BucketVideo[]}){
- const [page,setPage]=useState(0);const pages=Math.ceil(videos.length/3),i=Math.min(page,Math.max(0,pages-1));
- if(!videos.length)return <Empty>No observed videos.</Empty>;
- return <><div className="cp-video-grid">{videos.slice(i*3,i*3+3).map(v=><a key={v.videoId} href={watch(v.videoId)} target="_blank" rel="noopener noreferrer" className="cp-video"><VideoThumb video={v}/><strong>{v.title}</strong><small>{fmt(v.currentViews)} views</small></a>)}</div>{pages>1&&<div className="cp-slide-controls cp-video-controls"><button type="button" disabled={i===0} aria-label="Previous videos" onClick={()=>setPage(i-1)}>‹</button><span aria-live="polite">{i+1}/{pages}</span><button type="button" disabled={i===pages-1} aria-label="Next videos" onClick={()=>setPage(i+1)}>›</button></div>}</>;
-}
-function Line({points}:{points:BucketObservation[]}){if(!points.length)return <Empty>No recorded subscriber history in this period.</Empty>;const W=340,H=120,L=37,R=330,T=12,B=96,vals=points.map(p=>p.value),min=Math.min(...vals),max=Math.max(...vals),pad=Math.max((max-min)*.15,max*.0005,1),lo=Math.max(0,min-pad),hi=Math.max(lo+1,max+pad),first=Date.parse(points[0].at),last=Date.parse(points.at(-1)!.at),x=(at:string)=>first===last?(L+R)/2:L+(Date.parse(at)-first)/(last-first)*(R-L),y=(n:number)=>B-(n-lo)/(hi-lo)*(B-T),path=points.map(p=>`${x(p.at)},${y(p.value)}`).join(' ');return <svg className="cp-line" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Recorded YouTube subscriber history">{[0,.33,.66,1].map(v=>{const n=lo+(hi-lo)*v;return <g key={v}><line x1={L} x2={R} y1={y(n)} y2={y(n)} stroke="var(--border)" strokeWidth=".7"/><text x={L-4} y={y(n)+3} textAnchor="end">{fmt(n)}</text></g>})}{points.length>1&&<><polygon points={`${x(points[0].at)},${B} ${path} ${x(points.at(-1)!.at)},${B}`} fill="var(--secondary)"/><polyline points={path} stroke="var(--primary-light)" strokeWidth="2" fill="none"/></>}{points.map(p=><g key={p.at} tabIndex={0} aria-label={`${date(p.at)}: ${exact(p.value)} subscribers`}><title>{date(p.at)}: {exact(p.value)} subscribers</title><circle cx={x(p.at)} cy={y(p.value)} r="8" fill="transparent"/><circle cx={x(p.at)} cy={y(p.value)} r="3.5" className="cp-observation-dot" fill="var(--primary)"/></g>)}<text x={L} y={113}>{date(points[0].at)}</text>{points.length>1&&<text x={R} y={113} textAnchor="end">{date(points.at(-1)!.at)}</text>}</svg>}
-function Track({value,max}:{value:number|null;max:number}){return <svg className="cp-track" viewBox="0 0 100 8" preserveAspectRatio="none" role="img" aria-label={value===null?'Unavailable':exact(value)}><title>{value===null?'Unavailable':exact(value)}</title><rect width="100" height="8" rx="3" fill="var(--muted)"/>{value!==null&&<rect width={Math.max(0,Math.min(100,100*value/Math.max(1,max)))} height="8" rx="3" fill="var(--primary-light)"/>}</svg>}
-/** One universal branded fallback, including a failed remote image. */
-function CreatorCover({url,name}:{url?:string|null;name:string}){return <div className="cp-cover" aria-label={url?`${name} channel cover`:'Fifi creator profile cover'} role="img">{url&&<img key={url} src={url} alt="" referrerPolicy="no-referrer" onError={e=>{e.currentTarget.hidden=true;}}/>}</div>}
-function VideoThumb({video}:{video:BucketVideo}){return <span className="cp-thumb"><Pic src={video.thumbnailUrl??''} alt={video.title} className="h-full w-full object-cover"/><span className="cp-play"><Play size={13} fill="currentColor"/></span></span>}
-export function CreatorProfilePage({creator,rank,rankLabel,ytRank,accounts,ytAccounts,creatorsBucket:bucket,creatorAudience,comparisonPeers,rankingDate}:CreatorProfileProps){
- const [tab,setTab]=useState<Tab>('Overview'),[days,setDays]=useState<7|30|90>(90),[notice,setNotice]=useState(''),[more,setMore]=useState(false);
- const audience=creatorAudience?.rows??[],total=creatorAudience?.total??null,knownSum=creatorAudience?.knownSum??0;
+export function CreatorProfilePage({creator,ytRank,ytAccounts,creatorsBucket:bucket,comparisonPeers,rankingDate}:CreatorProfileProps){
  const yt=ytAccounts[0];
  const portfolio:ProfilePortfolio=bucket?.profile?.portfolio??{known:[],total:null,median:null,topShare:null,topFiveShare:null,topFiveViews:null,age:[],bands:[],dated:0};
- const growth:ProfileGrowth=bucket?.profile?.growth??{points:[],dailyTotals:[],dailyRates:[],pace:null,delta:null,change:null};
- const trackedCount=bucket?.profile?portfolio.known.length:null;
- const rounds=bucket?.profile?growth.points.length:null;
- const videos=portfolio.known,range=bucket?.profile?.subscriberRanges[days],history=range?.points??[];
- const latest=accounts.map(a=>a.asOf).filter(a=>a!=='—').join(' · '),views=bucket?.totals.views??null,count=bucket?.totals.totalVideos??null;
- const avgLikes=bucket?.video.averageLikes??null,avgComments=bucket?.video.averageComments??null,subs=bucket?.totals.subscribers??null;
- const top=portfolio.known[0],fiveViews=portfolio.topFiveViews;
- const cohort=bucket?.video.cohort??null,first=growth.points[0]?.time,last=growth.points.at(-1)?.time;
- const peers:Peer[]=comparisonPeers??[];
+ const growth:ProfileGrowth=bucket?.profile?.channelGrowth??{points:[],dailyTotals:[],dailyRates:[],pace:null,delta:null,change:null};
+ const count=bucket?.totals.totalVideos??null,subs=bucket?.totals.subscribers??null,views=bucket?.totals.views??null;
+ const first=growth.points[0]?.time,last=growth.points.at(-1)?.time;
  const iso=(t:number|undefined)=>t===undefined?null:new Date(t).toISOString();
- const full=(v:number|null|undefined,suffix='')=>v==null?'Not available':exact(v)+suffix;
- const shown=(...tabs:Tab[])=>tab==='Overview'||tabs.includes(tab);
- const share=async()=>{try{await navigator.clipboard.writeText(window.location.href);setNotice('Profile link copied.');}catch{setNotice('Copy the profile URL from your address bar.');}};
- const graphs:GraphSlide[]=[
- {title:"Follower Growth",short:"Followers",help:"Actual recorded YouTube subscriber readings. Hover or focus a point to read its exact value.",content:<Card title="Follower Growth" icon={<ChartNoAxesCombined size={15}/>} aside={<span className="cp-mini">YouTube · {days}d</span>}><div className="cp-big-stat">{fmt(history.at(-1)?.value)} <small>Subscribers</small></div><p className="cp-positive">{range?.gain!=null?signed(range.gain)+' observed':'Insufficient history'}</p><Line points={history}/></Card>},
- {title:"Total tracked views",short:"Tracked views",help:"Matched-video totals, latest complete observation per UTC day.",content:<Card title="Total tracked views" icon={<ChartNoAxesCombined size={15}/>} aside={<span className="cp-mini">Daily snapshots</span>}><div className="cp-big-stat">{growth.delta==null?'—':signed(growth.delta)} <small>{growth.change==null?'':`${growth.change>=0?'+':''}${growth.change.toFixed(2)}% observed`}</small></div><ChartEmbed><LineChart points={growth.dailyTotals} label="Total tracked views"/></ChartEmbed><p className="cp-note">{rounds===null?'Observation coverage unavailable':`${rounds} observation rounds`} · latest matched total per UTC day.</p></Card>},
- {title:"Daily view-gain rate",short:"Daily growth",help:"Actual elapsed-time-weighted 24-hour rate, grouped by UTC ending day.",content:<Card title="Daily view-gain rate" icon={<ChartNoAxesCombined size={15}/>} aside={<span className="cp-mini">24h rate</span>}><div className="cp-big-stat">{growth.pace==null?'—':`Average ${fmt(growth.pace)}/day`}</div><ChartEmbed><LineChart points={growth.dailyRates} label="Daily view-gain rate"/></ChartEmbed><p className="cp-note">Actual elapsed-time-weighted rate, grouped by UTC ending day.</p></Card>},
- {title:"Views by video age",short:"Video age",help:"Each point is an observed video; hover for exact views and age, or select to open the original video.",content:<Card title="Views by video age" icon={<BarChart3 size={15}/>} aside={<span className="cp-mini">{portfolio.dated} videos</span>}><ChartEmbed><Scatter points={portfolio.age}/></ChartEmbed><p className="cp-note">Each point links to the original video. Square-root view axis.</p></Card>},
- {title:"Tracked videos by view band",short:"View bands",help:"Hover or focus a bar for the exact number of tracked videos in its view range.",content:<Card title="Tracked videos by view band" icon={<BarChart3 size={15}/>}><ChartEmbed><BandChart rows={portfolio.bands}/></ChartEmbed><p className="cp-note">Counts of sampled videos by observed view range. Unused upper ranges are omitted.</p></Card>},
- {title:"Creator comparison",short:"Comparison",help:"Published peer metrics; hover or focus a bar for the recorded value. All original comparison controls remain available.",content:<PeerComparison peers={peers} rankingDate={rankingDate}/>},
- ];
-  return <main className="page-main pb-10 pt-5 cp-profile" data-creator-template="fifi-unified-profile-v1" data-creator-layout="pulse-v2" data-profile-section={tab} data-creator-metrics="restored-v1" data-creator-analytics="bucket-v1" data-creator-backend={bucket?.profile?'ready':'unavailable'}>
- <div className="cp-breadcrumb"><nav aria-label="Breadcrumb"><Link to="/"><Home size={14}/></Link><ChevronRight size={12}/><Link to="/creators">Creators</Link><ChevronRight size={12}/><strong>{creator.name}</strong></nav><div className="cp-actions"><button type="button" className="cp-plain-button" onClick={share}>Share <Share2 size={14}/></button><button type="button" className="cp-plain-button" aria-label="More profile actions" aria-expanded={more} onClick={()=>setMore(!more)}><MoreHorizontal size={17}/></button>{more&&<div className="cp-action-menu"><Link to="/creators">Browse creators</Link><button type="button" onClick={share}>Copy profile link</button></div>}</div></div>
- {notice&&<p className="cp-notice" role="status">{notice}</p>}
- <section className="cp-hero cp-pulse-hero rounded-2xl border border-primary/10 bg-secondary/60 p-5 shadow-soft">
-  <div className="cp-pulse-identity"><div className="cp-hero-body"><div className="cp-avatar"><Pic src={creator.image||yt?.avatarUrl||''} alt={creator.name} className="h-full w-full object-cover"/></div><div className="cp-identity"><h1>{creator.name}</h1><div className="cp-meta"><span><Bookmark size={12}/>{creator.category}</span><span><MapPin size={12}/>{creator.city}</span></div><p className="cp-bio">{creator.bio||`Explore ${creator.name}’s recorded public creator statistics and linked accounts.`}</p><p className="cp-note">{fmt(total)} reported followers</p>{rank!=='Not ranked'&&<div className="cp-rank"><span><Trophy size={13}/>{rank} · {rankLabel}</span>{ytRank&&/^#\d+$/.test(ytRank)&&rankLabel!=='YouTube subscribers'&&<span><Trophy size={13}/>{ytRank} · YouTube</span>}</div>}<div className="cp-hero-actions"><FollowButton name={creator.name}/><button className="cp-plain-button" disabled title="Messaging is not connected"><MessageSquare size={14}/>Message</button><SaveButton label={creator.name}/></div></div></div>{bucket?.bannerUrl&&<details className="cp-pulse-cover"><summary>Channel cover</summary><CreatorCover url={bucket?.bannerUrl} name={creator.name}/></details>}</div>
-  <div className="cp-pulse-metrics"><div className="flex items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gold-soft text-gold-foreground"><BarChart3 size={19}/></span><div><h2 className="text-xl font-bold tracking-tight text-primary">Creator Performance Pulse</h2><p className="cp-note">Recorded reach, growth and content performance.</p></div></div>
- <div className="cp-kpi-grid">
- <KPI title="Subscribers" value={fmt(subs)} icon={<UsersRound size={20}/>} tone="green" note={full(subs,' YouTube subscribers')}/>
- <KPI title="Lifetime views" value={fmt(views)} icon={<Play size={20}/>} tone="gold" note={full(views,' YouTube views')}/>
- <KPI title="Public videos" value={count==null?'—':exact(count)} icon={<Video size={20}/>} tone="green" note={<>{full(count,' public videos')} <NoteMark n={5}/></>}/>
- <KPI title="Average daily views gained" value={fmt(growth.pace)} icon={<ChartNoAxesCombined size={20}/>} tone="green" note={<>{growth.pace==null?'Not available':`Since ${date(iso(first))}`} <NoteMark n={6}/></>}/>
- <KPI title="Tracked views" value={fmt(portfolio.total)} icon={<BarChart3 size={20}/>} tone="gold" note={<>{full(portfolio.total,' views')} <NoteMark n={1}/></>}/>
- <KPI title="Top-video share" value={pct(portfolio.topShare)} icon={<Play size={20}/>} tone="green" note={<>{full(top?.currentViews,' views')} <NoteMark n={2}/></>}/>
- <KPI title="Top-five share" value={pct(portfolio.topFiveShare)} icon={<BarChart3 size={20}/>} tone="gold" note={<>{full(fiveViews,' views')} <NoteMark n={3}/></>}/>
- <KPI title="Median video views" value={fmt(portfolio.median)} icon={<Video size={20}/>} tone="green" note={<>{full(portfolio.median,' views')} <NoteMark n={4}/></>}/>
+ const coverage=portfolio.known.length;
+ return <main className="page-main pb-10 pt-5 cp-profile" data-creator-template="fifi-unified-profile-v1" data-creator-layout="approved-no-tabs" data-creator-analytics="bucket-v1">
+ <section className="cp-hero cp-compact-header"><div className="cp-avatar"><Pic src={creator.image||yt?.avatarUrl||''} alt={creator.name} className="h-full w-full object-cover"/></div><div className="cp-identity"><h1>{creator.name} {ytRank&&/^#\d+$/.test(ytRank)&&<span className="cp-header-rank" title="PCI YouTube subscriber ranking">{ytRank}</span>}</h1>{yt?.handle&&(yt.url?<a className="cp-note" href={yt.url} target="_blank" rel="noopener noreferrer">{yt.handle} ↗</a>:<span className="cp-note">{yt.handle}</span>)}</div><span className="cp-data-label">PCI data</span></section>
+ <div className="cp-dashboard"><div className="cp-main-column"><div className="cp-kpi-grid">
+ <KPI title="Subscribers" value={fmt(subs)} note={<>Current public channel total <NoteMark n={1}/></>}/>
+ <KPI title="Lifetime views" value={exact(views)} note="Current public channel total"/>
+ <KPI title="Public videos" value={exact(count)} note={<>Current public catalogue <NoteMark n={2}/></>}/>
+ <KPI title="Average daily views gained" value={exact(growth.pace)} note={<>{first===undefined?'Not available':`Since ${date(iso(first))}`} <NoteMark n={5}/></>}/>
+ <KPI title="Top-video share" value={pct(portfolio.topShare)} note={<>Recorded sample share <NoteMark n={3}/></>}/>
+ <KPI title="Median video views" value={exact(portfolio.median)} note={<>Recorded sample median <NoteMark n={4}/></>}/>
  </div>
-  </div>
- </section>
- <div className="cp-tabs"><nav aria-label="Creator profile sections">{TABS.map(t=><button type="button" key={t} aria-pressed={tab===t} className={tab===t?'cp-tab cp-tab-active':'cp-tab'} onClick={()=>setTab(t)}>{t}</button>)}</nav><label className="cp-range"><span className="sr-only">Subscriber history period</span><select value={days} onChange={e=>setDays(Number(e.target.value) as 7|30|90)}><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option></select></label></div>
- <div className="cp-dashboard"><div className="cp-main-column">
- <GraphSlides slides={graphs}/>
-
- <div className="cp-overview-grid">
- {shown('Content')&&<Card title="Content Performance" icon={<BarChart3 size={15}/>} aside={<span className="cp-mini">YouTube sample</span>} className="cp-performance">{tab==='Overview'?<MetricsList items={[['Daily views gained',fmt(growth.pace)],['Tracked views',fmt(portfolio.total)],['Median video views',fmt(portfolio.median)],['Top-video share',pct(portfolio.topShare)],['Top-five share',pct(portfolio.topFiveShare)]]}/>:<><div className="cp-table-scroll"><table><thead><tr><th>#</th><th>Content</th><th>Views</th><th>Likes</th><th>ER</th></tr></thead><tbody>{videos.slice(0,4).map((v,i)=><tr key={v.videoId}><td>{i+1}</td><td><a href={watch(v.videoId)} target="_blank" rel="noopener noreferrer"><VideoThumb video={v}/><span>{v.title}</span></a></td><td>{fmt(v.currentViews)}</td><td>{fmt(v.likes)}</td><td>{v.engagementRate==null?'—':v.engagementRate.toFixed(1)+'%'}</td></tr>)}</tbody></table></div>{!videos.length&&<Empty>No tracked video data.</Empty>}</>}</Card>}
- {shown('Content')&&<Card title="Best Performing Content" icon={<Video size={15}/>} aside={<button className="cp-text-button" type="button" onClick={()=>setTab('Content')}>View all →</button>}><VideoSlides videos={videos}/></Card>}
- {shown('Content','Growth')&&<Card title="Posting Cadence" icon={<CalendarDays size={15}/>}><div className="cp-big-stat">{fmt(bucket?.totals.posts30d)} <small>YouTube posts / 30 days</small></div><div className="cp-platform-list">{audience.map(a=>{const linked=accounts.filter(x=>x.platform.toLowerCase()===a.platform.toLowerCase());return <div className="cp-cadence-row" key={a.platform}><span><PlatformIcon platform={a.platform}/>{a.platform}</span><strong>{linked.length===1?linked[0].posts30d:'—'}</strong></div>})}</div><p className="cp-note">Recorded rolling 30-day uploads.</p></Card>}
- {shown('Brand & Collab')&&<Card title="Content Categories" icon={<Bookmark size={15}/>}><span className="cp-tag">{creator.category}</span></Card>}
- </div>
- <div className="cp-two-grid">
- {(tab==='Brand & Collab'||tab==='Content')&&<Card title="Engagement and reach" icon={<Heart size={15}/>}><MetricsList items={[
- ['Average video views',fmt(bucket?.video.averageViews)],['Average video likes',fmt(avgLikes)],['Average comments',fmt(avgComments)],['Average engagement rate',pct(bucket?.video.averageEngagement)],['Average like rate',pct(bucket?.video.averageLikeRate)]
- ]}/><p className="cp-note">Averages use available tracked YouTube readings; engagement uses matched view/like/comment observations, not audience demographics.</p></Card>}
- {shown('Reports','Growth')&&<Card title="Channel growth by period" icon={<ChartNoAxesCombined size={15}/>}><div className="cp-table-scroll"><table><thead><tr><th>Metric</th><th>24 hours</th><th>7 days</th><th>30 days</th></tr></thead><tbody><tr><th scope="row">YouTube view gain</th>{(['24h','7d','30d'] as const).map(d=><td key={d}>{signed(bucket?.growth?.views[d])}</td>)}</tr><tr><th scope="row">Subscriber gain</th>{(['24h','7d','30d'] as const).map(d=><td key={d}>{signed(bucket?.growth?.subscribers[d])}</td>)}</tr></tbody></table></div><p className="cp-note">Recorded primary YouTube channel windows; distinct from matched-video growth.</p></Card>}
- </div>
- {tab==='Content'&&<Card title="All tracked videos" icon={<Video size={15}/>}><div className="cp-table-scroll"><table className="cp-video-metrics"><thead><tr>{['Video','Views','Likes','Comments','Engagement','Like rate','24h views','7d views','30d views','Views/hour','Breakout factor'].map(h=><th key={h} scope="col">{h}</th>)}</tr></thead><tbody>{videos.map(v=><tr key={v.videoId}><td><a href={watch(v.videoId)} target="_blank" rel="noopener noreferrer"><VideoThumb video={v}/><span title={v.title}>{v.title}</span></a></td><td>{fmt(v.currentViews)}</td><td>{fmt(v.likes)}</td><td>{fmt(v.comments)}</td><td>{pct(v.engagementRate)}</td><td>{pct(v.likeRate)}</td><td>{fmt(v.views24h)}</td><td>{fmt(v.views7d)}</td><td>{fmt(v.views30d)}</td><td>{fmt(v.velocityPerHour)}</td><td>{v.breakoutFactor==null?'—':v.breakoutFactor.toFixed(2)+'×'}</td></tr>)}</tbody></table></div>{!videos.length&&<Empty>No tracked videos.</Empty>}<p className="cp-note">Milestones, velocity and breakout use only available recorded observations. A missing figure is not zero.</p></Card>}
- {shown('Reports')&&<Card title="Provenance & validation" icon={<Info size={15}/>}><h3 className="cp-subheading">Source-backed observations</h3><MetricsList items={[
- ['Source','PCI Hub / Creators Bucket'],['First matched observation',date(iso(first))],['Latest matched observation',last===undefined?'Not available':new Date(last).toISOString().replace('T',' ').slice(0,16)+' UTC'],['Latest channel snapshot',latest||'Not available'],['Tracked videos',trackedCount??'Not available'],['Matched videos',cohort?.videoCount??'—'],['Observation rounds',rounds??'Not available'],['Matched observations',cohort?.observationCount??'—']
- ]}/><p className="cp-note">Growth compares only the same videos in every round; no missing observations are invented.</p></Card>}
-
- </div><aside className="cp-sidebar">
- {shown('Audience')&&<Card title="Audience by Platform" className="cp-audience-compact" icon={<UsersRound size={15}/>}><div className="cp-platform-list">{!audience.length&&<Empty>Audience data not available.</Empty>}{audience.map(a=><div className="cp-platform-row" key={a.platform} tabIndex={0} title={`${a.platform}: ${exact(a.count)} reported followers${a.share===null?'':` · ${a.share.toFixed(1)}%`}`}><span><PlatformIcon platform={a.platform}/>{a.platform}</span><Track value={a.count} max={knownSum}/><strong>{a.share!==null?`${a.share.toFixed(1)}%`:a.count!==null?fmt(a.count):'—'}</strong></div>)}</div><p className="cp-note">Share of reported account totals when all linked counts are known; not unique people.</p></Card>}
- <Card title="Creator Brief" icon={<Sparkles size={15}/>}><p className="cp-brief">{creator.name} is listed in {creator.category}. {total!==null?`Recorded linked accounts report ${fmt(total)} followers.`:'Complete follower totals are not available.'}</p><p className="cp-note">Summary of recorded public figures, not unique people.</p></Card>
- <Card title="Key Takeaways" icon={<CheckCircle2 size={15}/>}><ul className="cp-check-list"><li><CheckCircle2 size={13}/>{rank==='Not ranked'?'Published rank unavailable':`${rankLabel}: ${rank}`}</li><li><CheckCircle2 size={13}/>{trackedCount===null?'Tracked-video coverage unavailable':`${trackedCount} videos with tracked views`}</li><li><CheckCircle2 size={13}/>{growth.pace==null?'Average daily gain unavailable':`${fmt(growth.pace)} average daily tracked views gained`}</li></ul></Card>
- <Card title="Performance concentration" icon={<BarChart3 size={15}/>}><MetricSlides slides={[{title:'Top-video share',content:<><div className="cp-big-stat">{pct(portfolio.topShare)}</div><Track value={portfolio.topShare} max={100}/><p className="cp-note">{full(top?.currentViews,' views')} <NoteMark n={2}/></p><div className="cp-slide-second"><strong>Top-five share · {pct(portfolio.topFiveShare)}</strong><Track value={portfolio.topFiveShare} max={100}/><p className="cp-note">{full(fiveViews,' views')} <NoteMark n={3}/></p></div></>},{title:'Median video views',content:<MetricsList items={[[ 'Median video views',full(portfolio.median)],['Average video views',full(bucket?.video.averageViews)]]}/>}]}/><p className="cp-note">Latest recorded tracked sample.</p></Card>
- <Card title="Growth summary" icon={<ChartNoAxesCombined size={15}/>}><MetricsList items={[
- ['Matched view gain',signed(growth.delta)],['Observed growth',pct(growth.change)],['Average daily gain',growth.pace==null?'—':fmt(growth.pace)+'/day'],['YouTube uploads / 30 days',fmt(bucket?.totals.posts30d)],['Uploads / day (30d)',bucket?.totals.publishingFrequency==null?'—':bucket.totals.publishingFrequency.toFixed(2)]
- ]}/><p className="cp-note">Matched-video growth and recorded publishing cadence.</p></Card>
- <Card title="Engagement summary" icon={<Heart size={15}/>}><MetricsList items={[
- ['Average likes',fmt(avgLikes)],['Average comments',fmt(avgComments)],['Average engagement rate',pct(bucket?.video.averageEngagement)],['Average like rate',pct(bucket?.video.averageLikeRate)]
- ]}/><p className="cp-note">Tracked-video metrics; unavailable readings remain unestimated.</p></Card>
- <Card title="Observation coverage" icon={<Info size={15}/>}><MetricsList items={[
- ['Tracked videos',trackedCount??'Not available'],['Matched videos',cohort?.videoCount??'—'],['Observation rounds',rounds??'Not available'],['Likes coverage',bucket?.video.likesCoverage==null?'—':`${bucket.video.likesCoverage} videos`],['Comments coverage',bucket?.video.commentsCoverage==null?'—':`${bucket.video.commentsCoverage} videos`],['Engagement coverage',bucket?.video.engagementCoverage==null?'—':`${bucket.video.engagementCoverage} videos`]
- ]}/><p className="cp-note">Source: PCI Hub / Creators Bucket.</p></Card>
- {tab!=='Overview'&&<Card title="Linked Accounts" icon={<Globe size={15}/>}><div className="cp-linked">{accounts.map((a,i)=><div key={a.platform+a.handle+i}><PlatformIcon platform={a.platform}/>{a.url?<a href={a.url} target="_blank" rel="noopener noreferrer">{a.handle||a.platform}</a>:<span>{a.handle||a.platform}</span>}<strong>{a.followers}</strong></div>)}</div></Card>}
- </aside></div>
- {<section className="cp-card rounded-2xl border border-border/70 bg-card shadow-soft cp-footnotes" id="cp-footnotes"><h2>Footnotes</h2><p id="cp-note-1"><b>* Tracked views.</b> Sum of the latest recorded views for {trackedCount===null?'the':trackedCount} sampled videos, not the full catalogue. Readings may have different timestamps.</p><p id="cp-note-2"><b>† Top-video share.</b> Views of the most-viewed tracked video divided by the total tracked views.</p><p id="cp-note-3"><b>‡ Top-five share.</b> Combined views of up to five highest-viewed tracked videos divided by the tracked total.</p><p id="cp-note-4"><b>§ Median video views.</b> Middle view count after sorting the tracked sample; for an even sample, the mean of the two middle counts.</p><p id="cp-note-5"><b>¶ Public videos.</b> YouTube’s official public channel video count, not the tracked sample. Unavailable readings are not estimated.</p><p id="cp-note-6"><b>‖ Growth and average daily gain.</b> {cohort?`${cohort.videoCount} matched videos were present in every selected round.`:'A matched set of videos is required.'} The total-view line uses the latest complete observation per UTC day. Daily rates sum valid gains for intervals ending that UTC day and divide by their actual elapsed hours, multiplied by 24. The displayed average is weighted by all valid observed hours, not an average of daily dots. Missing days, resets and gaps beyond two days are excluded; no values are invented.</p></section>}
- <p className="cp-source">Source: PCI Hub / Creators Bucket · Public figures, not unique people. Missing data stays unavailable; readings older than 7 days are not treated as zero.</p>
+ <div className="cp-growth-heading"><div className="cp-eyebrow">Performance movement{first===undefined?'':` · Since ${date(iso(first))}`}</div><h2>Growth signals from {growth.points.length} observation rounds</h2></div>
+ <div className="cp-two-grid cp-analytics-grid">
+ <Card title="Total channel views gained" aside={<span className="cp-mini">Daily snapshots</span>}><div className="cp-big-stat">{signed(growth.delta)}</div><ChartEmbed><LineChart points={growth.dailyTotals} label="Channel lifetime views"/></ChartEmbed><p className="cp-note">{growth.dailyTotals.length} daily points · {growth.points.length} observation rounds · UTC</p></Card>
+ <Card title="Daily view-gain rate" aside={<span className="cp-mini">24h rate</span>}><div className="cp-big-stat">{growth.pace==null?'N/A':`Average ${exact(growth.pace)}/day`}</div><ChartEmbed><LineChart points={growth.dailyRates} label="Daily view-gain rate"/></ChartEmbed><p className="cp-note">Recorded primary-channel observations.</p></Card>
+ </div><p className="cp-note">Daily points use observed UTC dates. Missing observations are not filled or interpolated.</p>
+ <div className="cp-two-grid cp-analytics-grid"><Card title="Views by video age" aside={<span className="cp-mini">{portfolio.dated} videos</span>}><ChartEmbed><Scatter points={portfolio.age}/></ChartEmbed><p className="cp-note">Each point links to an observed video. Square-root view axis.</p></Card><Card title="Videos by view band" aside={<span className="cp-mini">Vertical bars</span>}><ChartEmbed><BandChart rows={portfolio.bands}/></ChartEmbed><p className="cp-note">Number of sampled videos in each view range.</p></Card></div>
+ <div className="cp-growth-heading"><div className="cp-eyebrow">Current platform scale</div></div><PeerComparison peers={comparisonPeers??[]} rankingDate={rankingDate}/>
+ <Card title="Provenance & validation"><h3 className="cp-subheading">Source-backed observations</h3><div className="cp-two-grid"><div className="cp-provenance"><p className="cp-note">PCI data · Latest channel observation</p><strong>{last===undefined?'Not available':new Date(last).toISOString().replace('T',' ').slice(0,16)+' UTC'}</strong><p className="cp-note">First observation: {date(iso(first))}</p></div><div className="cp-provenance"><p className="cp-note">Video catalogue & growth</p><strong>{exact(coverage)} observed videos / {exact(count)} public videos</strong><p className="cp-note">Full-catalogue collection is not yet enabled.</p></div></div></Card>
+ </div></div>
+ <section className="cp-card rounded-2xl border border-border/70 bg-card shadow-soft cp-footnotes" id="cp-footnotes"><h2>Footnotes</h2><p id="cp-note-1"><b>¹ Subscribers.</b> YouTube public counts are rounded to three significant figures.</p><p id="cp-note-2"><b>² Public videos.</b> Official public channel video count.</p><p id="cp-note-3"><b>³ Top-video share.</b> Highest-viewed recorded video divided by total sampled views.</p><p id="cp-note-4"><b>⁴ Median video views.</b> Middle view count of the recorded sample; for an even sample the mean of the two middle counts.</p><p id="cp-note-5"><b>⁵ Growth and average daily gain.</b> Primary YouTube channel observations; daily gains are weighted by elapsed time. Counter decreases and gaps beyond two days are excluded from the rate. Missing observations are not estimated. Channel totals can include multiple linked accounts.</p></section>
+ <p className="cp-source">Source: PCI Hub / Creators Bucket · Missing data stays unavailable; readings older than 7 days are not treated as zero.</p>
  </main>;
 }
