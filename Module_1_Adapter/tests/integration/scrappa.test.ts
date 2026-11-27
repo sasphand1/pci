@@ -65,3 +65,15 @@ test('explicit one-to-one identity mapping does not publish an account',async()=
  await assert.rejects(query('INSERT INTO scrappa_candidates(external_id,handle,person_id) VALUES($1,$2,$3)',[other,'other_fixture',person]),/scrappa_candidate_person_uq/);
  await query('DELETE FROM people WHERE id=$1',[person]);assert.equal((await query('SELECT person_id FROM scrappa_candidates WHERE external_id=$1',[id])).rows[0].person_id,null);
 });
+test('public TikTok route exposes only approved latest snapshots and revokes visibility',async()=>{
+ const {default:express}=await import('express');const {default:request}=await import('supertest');
+ const {publicTikTokRoutes}=await import('../../src/modules/public/tiktok.js');
+ const app=express();app.use('/tiktok',publicTikTokRoutes);
+ await collectCandidate(id,'manual',null,fixture());
+ assert.equal((await request(app).get('/tiktok').expect(200)).body.data.length,0);
+ await query('UPDATE scrappa_candidates SET published_at=now() WHERE external_id=$1',[id]);
+ const r=(await request(app).get('/tiktok?handle=pci_fixture').expect(200)).body.data;
+ assert.equal(r.length,1);assert.equal(r[0].followers,123);assert.equal(r[0].rank,1);assert.equal(r[0].external_id,undefined);
+ await query('UPDATE scrappa_candidates SET published_at=NULL WHERE external_id=$1',[id]);
+ assert.equal((await request(app).get('/tiktok').expect(200)).body.data.length,0);
+});

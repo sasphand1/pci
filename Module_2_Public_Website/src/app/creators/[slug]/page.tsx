@@ -1,3 +1,4 @@
+import {TikTokDirectory} from '@/components/TikTokDirectory';
 import type {Metadata} from 'next';
 import Link from 'next/link';
 import {formatCompact,platformLabel} from '@/lib/fifi.mjs';
@@ -44,5 +45,5 @@ export default async function CreatorPage({params,searchParams}:{params:Promise<
  // Allowlist public display fields before crossing the server/client boundary.
  const analytics=a?{history:a.history,growth:a.growth,video:a.video,historyAccountCount:a.historyAccountCount}:null;
  const platforms=[...new Set(p.accounts.map(x=>x.platform).filter((x):x is 'youtube'|'instagram'=>x==='youtube'||x==='instagram'))];
- return <FifiPage><CreatorProfilePage platforms={platforms} initialPlatform={initialPlatform} creator={creator} rank={best?`#${best.rank}`:'Not ranked'} rankLabel={best?.label??'PCI ranking'} accounts={accounts} ytAccounts={ytAccounts} analytics={analytics} creatorsBucket={p.creatorsBucket??null} creatorAudience={p.creatorAudience} ytRank={ytPosition?`#${ytPosition.rank}`:'Not ranked'} comparison={comparison} comparisonPeers={comparisonPeers} rankingDate={ytRanking?.publishedAt??null}/></FifiPage>;
+ return <FifiPage><CreatorProfilePage platforms={platforms} initialPlatform={initialPlatform} creator={creator} rank={best?`#${best.rank}`:'Not ranked'} rankLabel={best?.label??'PCI ranking'} accounts={accounts} ytAccounts={ytAccounts} analytics={analytics} creatorsBucket={p.creatorsBucket??null} creatorAudience={p.creatorAudience} ytRank={ytPosition?`#${ytPosition.rank}`:'Not ranked'} comparison={comparison} comparisonPeers={comparisonPeers} rankingDate={ytRanking?.publishedAt??null}/><div className="page-main pb-10"><TikTokDirectory person={slug}/></div></FifiPage>;
 }

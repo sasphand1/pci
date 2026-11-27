@@ -26,6 +26,9 @@ CREATE TABLE IF NOT EXISTS scrappa_snapshots (
  analytics jsonb NOT NULL
 );
 CREATE INDEX IF NOT EXISTS scrappa_snapshot_latest_idx ON scrappa_snapshots(external_id, observed_at DESC);
+-- Explicit owner approval of third-party data publication; private by default.
+ALTER TABLE scrappa_candidates ADD COLUMN IF NOT EXISTS published_at timestamptz;
+
 `;
 let ready: Promise<unknown>|undefined;
 export function ensureScrappaSchema(){return ready??=(transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock(710323)');await c.query(SQL);}).then(()=>ensureTikTokSource()).catch(e=>{ready=undefined;throw e;}));}
@@ -77,12 +80,26 @@ export function mountScrappaAdmin(router:Router){
    if(personSlug!==null&&!person)throw new HttpError(404,'NOT_FOUND','Existing person slug not found');
    const personId=person?.id??null;
    if(personId&&(await c.query('SELECT 1 FROM scrappa_candidates WHERE person_id=$1 AND external_id<>$2',[personId,id])).rowCount)throw new HttpError(409,'PERSON_ALREADY_LINKED','Person already has a staged TikTok account');
-   await c.query('UPDATE scrappa_candidates SET person_id=$2 WHERE external_id=$1',[id,personId]);
+   await c.query('UPDATE scrappa_candidates SET person_id=$2,published_at=NULL WHERE external_id=$1',[id,personId]);
    await c.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[(res.locals.admin as AdminIdentity).id,'scrappa.identity.link',id,JSON.stringify({personId})]);
   });
   res.json({data:{linked:personSlug!==null}});
  }));
- router.get('/bucket/scrappa/candidates',roles('owner','editor'),handler(async(_req,res)=>{await ensure();res.json({data:(await query('SELECT s.external_id,s.handle,s.display_name,s.person_name,s.niche,s.checked_at,s.last_success_at,s.last_attempt_at,s.last_error,p.slug AS person_slug,x.analytics,x.profile FROM scrappa_candidates s LEFT JOIN people p ON p.id=s.person_id LEFT JOIN LATERAL (SELECT analytics,profile FROM scrappa_snapshots WHERE external_id=s.external_id ORDER BY observed_at DESC LIMIT 1) x ON true ORDER BY s.checked_at DESC LIMIT 200')).rows});}));
+ router.post('/bucket/scrappa/candidates/:id/publish',roles('owner'),handler(async(req,res)=>{
+  await ensure();
+  const id=z.string().regex(/^\d{1,30}$/).parse(req.params.id);
+  const {publish}=z.object({publish:z.boolean(),confirm:z.literal(true)}).strict().parse(req.body);
+  await transaction(async c=>{
+   const candidate=(await c.query(`SELECT s.handle,x.profile,x.observed_at FROM scrappa_candidates s LEFT JOIN LATERAL
+    (SELECT profile,observed_at FROM scrappa_snapshots WHERE external_id=s.external_id ORDER BY observed_at DESC,run_id DESC LIMIT 1) x ON true WHERE s.external_id=$1 FOR UPDATE OF s`,[id])).rows[0];
+   if(!candidate)throw new HttpError(404,'NOT_FOUND','Candidate not found');
+   if(publish&&(!candidate.profile||candidate.profile.handle!==candidate.handle||!Number.isSafeInteger(candidate.profile.followers)||candidate.profile.followers<0||Date.now()-new Date(candidate.observed_at).getTime()>15*86400000))throw new HttpError(409,'SCRAPPA_NOT_READY','Collect a recent verified snapshot with followers first');
+   await c.query('UPDATE scrappa_candidates SET published_at=CASE WHEN $2 THEN now() ELSE NULL END WHERE external_id=$1',[id,publish]);
+   await c.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[(res.locals.admin as AdminIdentity).id,'scrappa.publication',id,JSON.stringify({publish})]);
+  });
+  res.json({data:{published:publish}});
+ }));
+ router.get('/bucket/scrappa/candidates',roles('owner','editor'),handler(async(_req,res)=>{await ensure();res.json({data:(await query('SELECT s.external_id,s.handle,s.display_name,s.person_name,s.niche,s.checked_at,s.last_success_at,s.last_attempt_at,s.last_error,s.published_at,p.slug AS person_slug,x.analytics,x.profile FROM scrappa_candidates s LEFT JOIN people p ON p.id=s.person_id LEFT JOIN LATERAL (SELECT analytics,profile FROM scrappa_snapshots WHERE external_id=s.external_id ORDER BY observed_at DESC LIMIT 1) x ON true ORDER BY s.checked_at DESC LIMIT 200')).rows});}));
  router.get('/bucket/scrappa/candidates/:id/snapshots',roles('owner','editor'),handler(async(req,res)=>{
   await ensure();const id=z.string().regex(/^\d{1,30}$/).parse(req.params.id);
   if(!(await query('SELECT 1 FROM scrappa_candidates WHERE external_id=$1',[id])).rowCount)throw new HttpError(404,'NOT_FOUND','Candidate not found');
@@ -103,7 +120,7 @@ export function mountScrappaAdmin(router:Router){
   res.json({data:{removed:true}});
  }));
  router.post('/bucket/scrappa/check',roles('owner','editor'),handler(async(req,res)=>{await ensure();const b=z.object({account:z.string().min(1).max(200)}).strict().parse(req.body);res.json({data:await lookup(b.account)});}));
- router.post('/bucket/scrappa/candidates',roles('owner','editor'),handler(async(req,res)=>{await ensure();const b=z.object({account:z.string().min(1).max(200),person:z.string().max(120).optional(),niche:z.string().max(60).optional()}).strict().parse(req.body);const p=await lookup(b.account);await query('INSERT INTO scrappa_candidates(external_id,handle,display_name,person_name,niche) VALUES($1,$2,$3,$4,$5) ON CONFLICT(external_id) DO UPDATE SET handle=excluded.handle,display_name=excluded.display_name,person_name=excluded.person_name,niche=excluded.niche,checked_at=now()',[p.accountId,p.handle,p.name,b.person||null,b.niche||null]);res.json({data:{handle:p.handle}});}));
+ router.post('/bucket/scrappa/candidates',roles('owner','editor'),handler(async(req,res)=>{await ensure();const b=z.object({account:z.string().min(1).max(200),person:z.string().max(120).optional(),niche:z.string().max(60).optional()}).strict().parse(req.body);const p=await lookup(b.account);await query('INSERT INTO scrappa_candidates(external_id,handle,display_name,person_name,niche) VALUES($1,$2,$3,$4,$5) ON CONFLICT(external_id) DO UPDATE SET handle=excluded.handle,display_name=excluded.display_name,person_name=excluded.person_name,niche=excluded.niche,checked_at=now(),published_at=NULL',[p.accountId,p.handle,p.name,b.person||null,b.niche||null]);res.json({data:{handle:p.handle}});}));
 }
 
 /** Shared manual/scheduled collector. The database lease serializes all workers. */

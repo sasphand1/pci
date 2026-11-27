@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Link } from "@/fifi/router";
 import { UsersRound } from "lucide-react";
-import { PlatformIcon, InstagramIcon, YouTubeIcon } from "@/fifi/components/platform-icon";
+import { PlatformIcon, InstagramIcon, YouTubeIcon, TikTokIcon } from "@/fifi/components/platform-icon";
 
 import { EmptyState, Pagination, Pic } from "@/fifi/components/page-elements";
 import { ChipRow, CompareToggle, HeadToHeadCard, KpiTile, OptionButtons, PANEL, PanelHeader, PillSelect, SearchBox, UnderlineTabs, ViewToggle } from "@/fifi/components/explorer-kit";
@@ -71,7 +71,7 @@ export function CreatorsPage(props: CreatorsProps) {
     { label: "On YouTube", value: totals ? String(totals.youtube) : "Not available", sub: "channels tracked", icon: YouTubeIcon, plain: true },
     { label: "On Instagram", value: totals ? String(totals.instagram) : "Not available", sub: "accounts tracked", icon: InstagramIcon, plain: true }
   ];
-  const tabs = [{ id: "", label: "All creators", icon: UsersRound }, { id: "youtube", label: "YouTube", icon: YouTubeIcon }, { id: "instagram", label: "Instagram", icon: InstagramIcon }] as const;
+  const tabs = [{ id: "", label: "All creators", icon: UsersRound }, { id: "youtube", label: "YouTube", icon: YouTubeIcon }, { id: "instagram", label: "Instagram", icon: InstagramIcon }, { id: "tiktok", label: "TikTok", icon: TikTokIcon }] as const;
 
   return (
     <main className="page-main pb-10 pt-5">

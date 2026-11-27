@@ -1,3 +1,4 @@
+import {TikTokDirectory} from '@/components/TikTokDirectory';
 import {adapterGet} from '@/lib/api';
 import {pubGet,pubLocal,WHEEL_SCOPES,type PubCategory,type PubRanking,type PubRows,type PubStatus} from '@/lib/public';
 import {publishedRankedTotal} from '@/lib/creator-totals';
@@ -33,6 +34,7 @@ export default async function Home(){
    local={localRes?.data??[]}/></FifiPage>
   <FifiPage><div className="site-container space-y-3 pb-10 pt-4">
    <section id="top-100" aria-label="Top 100 creators"><PublishedTop100 initial={initial} categories={(categories??[]).filter(c=>c.hasRanking).map(c=>({slug:c.slug,label:c.label}))}/></section>
+   <TikTokDirectory compact/>
    <SnapshotStatus publishedAt={status?.publishedAt}/>
   </div></FifiPage>
  </>;

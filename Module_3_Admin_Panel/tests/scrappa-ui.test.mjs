@@ -9,3 +9,4 @@ test('TikTok candidate admin reads snapshots and guards owner mutations',()=>{
 test('Data Hub shows private TikTok coverage and distinguishes third-party source',()=>{
  const s=read('src/app/hub/page.tsx');assert.match(s,/TikTok Creators Bucket \(private staging\)/);assert.match(s,/Third-party API/);assert.match(s,/scheduledLimit/);assert.match(s,/refresh-settings/);
 });
+test('owner can approve or revoke TikTok publication explicitly',()=>{const s=read('src/app/bucket/ScrappaPeople.tsx');assert.match(s,/Publish to PCI/);assert.match(s,/Unpublish/);assert.match(s,/permission to republish/);assert.match(s,/publish:!r.published_at,confirm:true/);});

@@ -34,6 +34,7 @@ import {publishAdminRoutes} from './modules/publish/routes.js';
 import {ensurePublicSchema} from './lib/public-schema.js';
 import {publicRankingRoutes} from './modules/public/routes.js';
 import {publicAvatarRoutes} from './modules/public/avatar-routes.js';
+import {publicTikTokRoutes} from './modules/public/tiktok.js';
 import {creatorIndexRoutes} from './modules/public/creator-index.js';
 import {publicLocalRoutes} from './modules/local/routes.js';
 import {localAdminRoutes} from './modules/local/admin-routes.js';
@@ -134,6 +135,7 @@ export function makeApp() {
   app.use(docsRoutes);
   app.use('/api/v1/public/avatars',publicAvatarRoutes);
   app.use('/api/v1/public/creator-index',creatorIndexRoutes);
+  app.use('/api/v1/public/tiktok',publicTikTokRoutes);
   app.use('/api/v1/public/local/images',restaurantImagePublicRoutes);
   app.use('/api/v1/public/local',publicLocalRoutes);
   app.use('/api/v1/public',publicRankingRoutes);
