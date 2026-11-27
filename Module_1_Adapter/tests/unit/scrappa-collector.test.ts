@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {parseProfile,parsePosts,summarize,collect} from '../../src/modules/scrappa/collector.ts';
+const profile={code:0,data:{user:{id:'107955',uniqueId:'tiktok',privateAccount:false},stats:{followerCount:97208414,heartCount:469665065,videoCount:1511}}};
+const posts={code:0,data:{videos:Array.from({length:10},(_,i)=>({video_id:String(100+i),author:{id:'107955'},create_time:1700000000-i,is_ad:false,is_top:0,duration:10,play_count:100+i,digg_count:10,comment_count:2,share_count:1}))}};
+test('profile counts and nulls',()=>{const p=parseProfile(profile,'@tiktok');assert.equal(p.followers,97208414);assert.equal(p.following,null);});
+test('profile mismatch',()=>assert.throws(()=>parseProfile(profile,'other'),/unverified/));
+test('post ownership',()=>assert.throws(()=>parsePosts(posts,'999'),/mismatch/));
+test('averages',()=>assert.equal(summarize(parsePosts(posts,'107955')).averageViews,104.5));
+test('duplicates and incomplete cohort',()=>{const p=structuredClone(posts);p.data.videos[1]=p.data.videos[0];assert.equal(summarize(parsePosts(p,'107955')).averageViews,null);});
+test('missing metric is not zero',()=>{const p=structuredClone(posts);delete p.data.videos[0].play_count;assert.equal(summarize(parsePosts(p,'107955')).averageViews,null);});
+test('two calls, server key and stable id',async()=>{let credits=0;const urls=[];const r=await collect('tiktok','test',async()=>++credits<=2,async(u,o)=>{urls.push(String(u));assert.equal(o.headers['x-api-key'],'test');return Response.json(urls.length===1?profile:posts);});assert.equal(credits,2);assert.match(urls[1],/user_id=107955/);assert.equal(r.analytics.averageViews,104.5);});
+test('quota refuses before network',async()=>{await assert.rejects(collect('tiktok','test',async()=>false,async()=>{throw Error('unexpected');}),/quota_exhausted/);});
+test('no retries on 404',async()=>{let calls=0;await assert.rejects(collect('tiktok','test',async()=>true,async()=>{calls++;return new Response(null,{status:404});}),/http_404/);assert.equal(calls,1);});
