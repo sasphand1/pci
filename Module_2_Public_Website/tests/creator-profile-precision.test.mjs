@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
+const read=p=>readFileSync(new URL(p,import.meta.url),'utf8');const view=read('../src/fifi/pages/creator-profile.tsx'),css=read('../packages/ui/src/styles/creator-profile.css');
+test('rounded subscribers never expanded into exact counts',()=>{const line=view.split('\n').find(l=>l.includes('<KPI title="Subscribers"'));assert.match(line,/value=\{fmt\(subs\)\}/);assert.doesNotMatch(line,/exact\(subs/);assert.match(view,/rounded to three significant figures/);});
+test('count-based KPIs preserve recorded numbers',()=>{for(const [title,value] of [['Lifetime views','views'],['Public videos','count'],['Average daily views gained','growth.pace'],['Median video views','portfolio.median']]){assert.ok(view.split('\n').find(l=>l.includes(`<KPI title="${title}"`)).includes(`value={exact(${value})}`),title);}});

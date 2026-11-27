@@ -59,3 +59,9 @@ export function safeChannelBanner(value){
  if(typeof value!=='string'||value.length>500)return null;
  try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&['yt3.ggpht.com','yt3.googleusercontent.com','i.ytimg.com','img.youtube.com'].includes(u.hostname)?u.toString():null;}catch{return null;}
 }
+
+/** Primary channel history, independent of the sampled-video cohort. */
+export function channelGrowth(history){
+ const g=cohortSeries({points:history.map(p=>({at:p.at,total:p.value,median:0}))});
+ return {...g,dailyTotals:dailyTotals(g.points),dailyRates:dailyRates(g.rates)};
+}

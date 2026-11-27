@@ -5,3 +5,5 @@ export function profileAnalytics<T extends Video>(videos:T[],cohort:Cohort|null,
 export function profileAudience(accounts:{platform:string;followers:number|null}[]):{total:number|null;knownSum:number;rows:{platform:string;linked:boolean;count:number|null;share:number|null}[]};
 
 export function safeChannelBanner(value:unknown):string|null;
+
+export function channelGrowth(history:Observation[]):ReturnType<typeof profileAnalytics>['growth'];

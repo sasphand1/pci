@@ -38,7 +38,7 @@ export default async function CreatorPage({params,searchParams}:{params:Promise<
  const comparisonPeers:Peer[]=ytAccounts.length?await Promise.all(peerSeeds.map(async seed=>{
   const detail=seed.self?p:await pubGet<PubPersonDetail>(`/people/${encodeURIComponent(seed.slug)}`).catch(()=>null);
   const bucket=detail?.creatorsBucket??null;
-  return {slug:seed.slug,name:seed.name,subscribers:bucket?.totals.subscribers??null,views:bucket?.totals.views??null,publicVideos:bucket?.totals.totalVideos??null,dailyRates:bucket?.profile?.growth.dailyRates??[],bands:bucket?.profile?.portfolio.bands??[]};
+  return {slug:seed.slug,name:seed.name,subscribers:bucket?.totals.subscribers??null,views:bucket?.totals.views??null,publicVideos:bucket?.totals.totalVideos??null,dailyRates:bucket?.profile?.channelGrowth?.dailyRates??[],bands:bucket?.profile?.portfolio.bands??[]};
  })):[];
  const a=p.analytics;
  // Allowlist public display fields before crossing the server/client boundary.
