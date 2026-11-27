@@ -1,0 +1,11 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const page=readFileSync(new URL('../src/app/broadcast/page.tsx',import.meta.url),'utf8');
+const css=readFileSync(new URL('../vendor/pci-ui/src/styles/broadcast.css',import.meta.url),'utf8');
+const imports=readFileSync(new URL('../vendor/pci-ui/src/styles.css',import.meta.url),'utf8');
+test('keeps role gate and durable API contract',()=>{assert.match(page,/RoleGate roles=\{\['owner','editor'\]\}/);assert.match(page,/api<Job>\('\/admin\/broadcast',\{method:'POST',csrf:identity.csrfToken/);assert.match(page,/requestId:pending.id/);assert.match(page,/api<Job>\(`\/admin\/broadcast\/\$\{jobId\}\/\$\{action\}`/);assert.match(page,/if\(action==='confirm'&&!review\)return/);});
+test('public roadmap is not sent to live API',()=>{assert.match(page,/connected\.map\(ch=><label/);assert.match(page,/publicChannels\.map\(ch=><div/);assert.match(page,/destinations:\[\.\.\.targets\]\.sort\(\)/);assert.match(page,/These channels cannot be selected for live jobs/);});
+test('review requires saved draft and no unsaved composer',()=>{assert.match(page,/disabled=\{!selected\|\|selected.state!=='draft'\|\|busy\|\|editing\}/);assert.match(page,/review&&selected\?\.state==='draft'&&!editing/);assert.match(page,/bc-exact-body.*selected.body/);});
+test('analytics use actual engine records; unknown quotas not fabricated',()=>{assert.match(page,/jobs\.filter\(j=>j.state==='confirmed'\)\.flatMap/);assert.match(page,/Provider quotas unavailable/);assert.match(page,/Quota unavailable/);assert.match(page,/No geographic metrics available/);});
+test('centralized styles and scoped special navigation',()=>{assert.equal((imports.match(/styles\/broadcast\.css/g)||[]).length,1);assert.match(css,/\.admin-sidebar \.admin-nav a\.nav-link\[href='\/broadcast'\]/);assert.match(css,/prefers-reduced-motion/);assert.match(css,/\.bc-live-engine/);assert.doesNotMatch(page,/style=\{/);});
