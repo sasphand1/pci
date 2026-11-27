@@ -1,13 +1,15 @@
 import {query} from '../../lib/db.js';
 import {missingPublicCounts} from './public-count.js';
 import {fixedVideoCohort} from './cohort.mjs';
-import {profileAnalytics,safeChannelBanner,channelGrowth} from './profile-analytics.mjs';
+import {profileAnalytics,safeChannelBanner,channelGrowth,observedPortfolio,pktPublishedCount} from './profile-analytics.mjs';
 import {videoMilestones,velocityPerHour,breakoutFactor} from '../creator-analytics/engine.js';
 import {series,daily,gain,average,engagement,likeRate,periodRates,DAY,type Point} from './logic.mjs';
 
 type Account={id:string;handle:string;external_id:string};
 type Observation={accountId:string;metric:string;value:string;at:string|Date};
 type Content={videoId:string;title:string|null;publishedAt:Date|string|null;thumbnailUrl:string|null;observedAt:Date|string};
+type CatalogueRow={accountId:string;videoId:string;title:string;publishedAt:Date|string|null;observedAt:Date|string;views:string|null;likes:string|null;comments:string|null};
+type ScanRow={accountId:string;completedAt:Date|string|null;scanStartedAt:Date|string|null;lastError:string|null};
 type VideoObservation={videoId:string;metric:string;value:string;at:string|Date};
 const iso=(v:Date|string)=>new Date(v).toISOString();
 const fresh=(p:Point|undefined,now:number,days=7)=>p&&now-Date.parse(p.at)<=days*DAY?p:null;
@@ -63,7 +65,19 @@ export async function creatorsBucket(personId:string,now=new Date()){
  const known=videos.filter(v=>v.currentViews!==null),topVideos=[...known].sort((a,b)=>b.currentViews!-a.currentViews!).slice(0,10).map(v=>({videoId:v.videoId,title:v.title,views:v.currentViews!,publishedAt:v.publishedAt}));
  const posts30d=sumMetric('posts');
  const cohort=fixedVideoCohort(readings,content,n);
- const profile={...profileAnalytics(videos,cohort,subscribers),channelGrowth:channelGrowth(primary.views)};
+ const [catalogueResult,scanResult]=await Promise.all([
+  query<CatalogueRow>(`SELECT account_id AS "accountId",video_id AS "videoId",title,published_at AS "publishedAt",last_observed_at AS "observedAt",view_count::text AS views,like_count::text AS likes,comment_count::text AS comments
+   FROM creator_video_catalogue WHERE account_id=ANY($1::uuid[]) AND catalogue_public=true AND last_observed_at BETWEEN $2::timestamptz-interval '7 days' AND $2::timestamptz AND (published_at IS NULL OR published_at<=$2::timestamptz)`,[ids,stamp]),
+  query<ScanRow>(`SELECT account_id AS "accountId",completed_at AS "completedAt",scan_started_at AS "scanStartedAt",last_error AS "lastError" FROM creator_catalogue_scan WHERE account_id=ANY($1::uuid[])`,[ids])
+ ]);
+ const validCount=(x:string|null)=>x!==null&&Number.isSafeInteger(Number(x))&&Number(x)>=0?Number(x):null;
+ const catalogue=catalogueResult.rows.map(v=>({...v,publishedAt:v.publishedAt?iso(v.publishedAt):null,observedAt:iso(v.observedAt),currentViews:validCount(v.views),likes:validCount(v.likes),comments:validCount(v.comments),likesAt:iso(v.observedAt),commentsAt:iso(v.observedAt)}));
+ const full=observedPortfolio(catalogue);
+ const officialCount=sumMetric('totalVideos');
+ const scanComplete=scanResult.rows.length===ids.length&&scanResult.rows.every(s=>s.completedAt!==null&&s.scanStartedAt===null&&s.lastError===null&&n-Date.parse(iso(s.completedAt))<=7*DAY);
+ const catalogueComplete=scanComplete&&officialCount!==null&&catalogue.length===officialCount&&snapshots.every(a=>{const official=fresh(a.totalVideos.at(-1),n);return official!==null&&catalogue.filter(v=>v.accountId===a.id).length===official.value;});
+ const cataloguePublished30d=catalogueComplete?pktPublishedCount(catalogue,n):null;
+ const profile={...profileAnalytics(videos,cohort,subscribers),portfolio:{...full,known:full.known.slice(0,10),observedCount:full.known.length,catalogueCount:catalogue.length,catalogueComplete,cataloguePublished30d,topFiveViews:full.known.length?full.known.slice(0,5).reduce((s,v)=>s+v.currentViews!,0):null},channelGrowth:channelGrowth(primary.views)};
  return {source:'PCI Hub / Creators Bucket',asOf:stamp,primaryHandle:primary.handle,bannerUrl,accountStats,historyAccountCount:accounts.length,history:{views,subscribers,ranks},growth:{views:growth(primary.views),subscribers:growth(primary.subscribers,true)},weeklyViews:periodRates(views,7,n),monthlyViews:periodRates(views,30,n),totals:{subscribers:sumMetric('subscribers'),views:sumMetric('views'),totalVideos:sumMetric('totalVideos'),posts30d,publishingFrequency:posts30d===null?null:posts30d/30},profile,video:{cohort,sampledVideos:known.length,averageViews:average(videos.map(v=>v.currentViews)),averageLikes:average(videos.map(v=>v.likes)),averageComments:average(videos.map(v=>v.comments)),averageEngagement:average(videos.map(v=>v.engagementRate)),averageLikeRate:average(videos.map(v=>v.likeRate)),likesCoverage:videos.filter(v=>v.likes!==null).length,commentsCoverage:videos.filter(v=>v.comments!==null).length,engagementCoverage:videos.filter(v=>v.engagementRate!==null).length,topVideos,videos}};
 }
 

@@ -75,8 +75,8 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
      // when the entire catalogue is empty. Keeps partial failures visible/retryable.
      const pending=await query<{missing:number}>(`SELECT count(*)::int AS missing FROM accounts a
        WHERE a.platform='youtube' AND a.external_id ~ '^UC[A-Za-z0-9_-]{22}$'
-         AND NOT EXISTS(SELECT 1 FROM creator_video_catalogue v WHERE v.account_id=a.id
-           AND v.last_observed_at>now()-interval '20 hours')`);
+         AND NOT EXISTS(SELECT 1 FROM creator_catalogue_scan s WHERE s.account_id=a.id
+           AND s.scan_started_at IS NULL AND s.completed_at>now()-interval '20 hours')`);
      if(!(Number(pending.rows[0]?.missing)>0)){
        // Existing retained records may need their first Hub projection after an upgrade.
        try{await mirrorVideoSamples();}catch(err){logger.warn({err},'Creators Bucket Hub projection unavailable');}

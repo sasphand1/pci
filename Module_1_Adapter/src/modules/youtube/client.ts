@@ -11,7 +11,7 @@ export type YoutubeChannel={
 };
 export type YoutubeVideo={
  id:string; snippet?:{channelId?:string,title?:string,description?:string,publishedAt?:string,thumbnails?:Record<string,{url:string}>};
- contentDetails?:{duration?:string}; statistics?:{viewCount?:string,likeCount?:string,commentCount?:string};
+ contentDetails?:{duration?:string}; status?:{privacyStatus?:string}; statistics?:{viewCount?:string,likeCount?:string,commentCount?:string};
 };
 export class YoutubeClient {
   calls=0;
@@ -56,6 +56,20 @@ export class YoutubeClient {
     if(pageToken)params.pageToken=pageToken;
     const d=await this.get<{items?:Array<{contentDetails?:{videoPublishedAt?:string}}>;nextPageToken?:string}>('playlistItems',params);
     return {published:(d.items??[]).map(x=>x.contentDetails?.videoPublishedAt).filter((s):s is string=>typeof s==='string'),next:d.nextPageToken};
+  }
+  async cataloguePage(playlistId:string,pageToken?:string):Promise<{ids:string[];next?:string}>{
+    if(!/^[A-Za-z0-9_-]{10,60}$/.test(playlistId))throw new Error('INVALID_PLAYLIST');
+    const params:Record<string,string>={part:'contentDetails',playlistId,maxResults:'50'};
+    if(pageToken)params.pageToken=pageToken;
+    const d=await this.get<{items?:Array<{contentDetails?:{videoId?:string}}>;nextPageToken?:string}>('playlistItems',params);
+    const ids=[...new Set((d.items??[]).map(x=>x.contentDetails?.videoId).filter((s):s is string=>typeof s==='string'&&/^[A-Za-z0-9_-]{11}$/.test(s)))];
+    return {ids,next:d.nextPageToken};
+  }
+  async catalogueVideos(ids:string[]):Promise<YoutubeVideo[]>{
+    if(!ids.length)return [];
+    if(ids.length>50)throw new Error('videos batch exceeds 50');
+    const d=await this.get<{items?:YoutubeVideo[]}>('videos',{part:'snippet,contentDetails,statistics,status',id:ids.join(',')});
+    return d.items??[];
   }
   async uploads(playlistId:string,limit:number):Promise<string[]>{
     const d=await this.get<{items?:Array<{contentDetails?:{videoId?:string}}>}>( 'playlistItems',{part:'contentDetails',playlistId,maxResults:String(limit)});

@@ -1,4 +1,6 @@
 const DAY=86400000;
+const PKT=5*3600000;
+const dayKey=t=>new Date(t+PKT).toISOString().slice(0,10);
 export const VIEW_BANDS=['<10K','10–25K','25–50K','50–100K','100–250K','250K–1M','1M+'];
 export function observedPortfolio(videos){
  const seen=new Set();
@@ -10,7 +12,10 @@ export function observedPortfolio(videos){
   if(v.observedAt&&v.publishedAt&&Number.isFinite(days)&&days>=0)age.push({videoId:v.videoId,title:v.title,days,value:views});
  }
  const median=n?(known[Math.floor((n-1)/2)].currentViews+known[Math.floor(n/2)].currentViews)/2:null;
- return {known,total,median,topShare:total>0?100*known[0].currentViews/total:null,topFiveShare:total>0?100*known.slice(0,5).reduce((s,v)=>s+v.currentViews,0)/total:null,age,bands:n?bands:[],dated:age.length};
+ const eligible=known.filter(v=>v.currentViews>0&&Number.isSafeInteger(v.likes)&&v.likes>=0&&Number.isSafeInteger(v.comments)&&v.comments>=0&&v.observedAt&&v.likesAt===v.observedAt&&v.commentsAt===v.observedAt);
+ const interactions=eligible.length?eligible.reduce((s,v)=>s+v.likes+v.comments,0):null;
+ const eligibleViews=eligible.reduce((s,v)=>s+v.currentViews,0);
+ return {known,total,median,engagementRate:eligibleViews>0?100*interactions/eligibleViews:null,interactions,engagementCoverage:eligible.length,topShare:total>0?100*known[0].currentViews/total:null,topFiveShare:total>0?100*known.slice(0,5).reduce((s,v)=>s+v.currentViews,0)/total:null,age,bands:n?bands:[],dated:age.length};
 }
 /** Use only verified fixed-cohort aggregates, never channel totals as a substitute. */
 export function cohortSeries(cohort){
@@ -20,20 +25,20 @@ export function cohortSeries(cohort){
  const duration=rates.reduce((s,r)=>s+r.hours/24,0),pace=duration?rates.reduce((s,r)=>s+r.gain,0)/duration:null;
  return {points:points.map(({time,value})=>({time,value})),medians:points.map(({time,median})=>({time,value:median})),cumulative:baseline?points.map(p=>({time:p.time,value:p.value-baseline.value})):[],rates,pace,delta:baseline&&last&&points.length>1?last.value-baseline.value:null,change:baseline&&last&&baseline.value>0&&points.length>1?100*(last.value-baseline.value)/baseline.value:null};
 }
-/** Daily comparison: actual interval ending UTC day, weighted by observed elapsed time. Missing days stay null. */
+/** Daily comparison: actual interval ending PKT day, weighted by observed elapsed time. Missing days stay null. */
 export function groupedDaily(peers){
- const maps=peers.map(peer=>{const days=new Map();for(const r of cohortSeries(peer.cohort).rates){const key=new Date(r.time).toISOString().slice(0,10),p=days.get(key)??{gain:0,hours:0};p.gain+=r.gain;p.hours+=r.hours;days.set(key,p);}return days;});
+ const maps=peers.map(peer=>{const days=new Map();for(const r of cohortSeries(peer.cohort).rates){const key=dayKey(r.time),p=days.get(key)??{gain:0,hours:0};p.gain+=r.gain;p.hours+=r.hours;days.set(key,p);}return days;});
  const days=[...new Set(maps.flatMap(m=>[...m.keys()]))].sort().slice(-14);
  return days.map(day=>({day,values:maps.map(m=>{const p=m.get(day);return p&&p.hours>0?p.gain*24/p.hours:null;})}));
 }
 
 /** Keep at least the three lower ranges; trim only unused upper ranges on the individual chart. */
 export function localBands(rows){let last=rows.findLastIndex(r=>r.value>0);return rows.slice(0,Math.max(3,last+1));}
-const utcDay=t=>Math.floor(t/DAY)*DAY;
-/** One latest real observation per UTC day, no interpolated observations. */
-export function dailyTotals(points){const m=new Map();for(const p of [...points].sort((a,b)=>a.time-b.time))m.set(utcDay(p.time),{time:utcDay(p.time),value:p.value});return [...m.values()];}
-/** Same weighted daily rate as grouped comparison, using interval-ending UTC dates. */
-export function dailyRates(rates){const m=new Map();for(const r of rates){const t=utcDay(r.time),p=m.get(t)??{gain:0,hours:0};p.gain+=r.gain;p.hours+=r.hours;m.set(t,p);}return [...m].sort((a,b)=>a[0]-b[0]).filter(([,p])=>p.hours>0).map(([time,p])=>({time,value:24*p.gain/p.hours}));}
+const pktDay=t=>Math.floor((t+PKT)/DAY)*DAY-PKT;
+/** One latest real observation per PKT day, no interpolated observations. */
+export function dailyTotals(points){const m=new Map();for(const p of [...points].sort((a,b)=>a.time-b.time))m.set(pktDay(p.time),{time:pktDay(p.time),value:p.value});return [...m.values()];}
+/** Same weighted daily rate as grouped comparison, using interval-ending PKT dates. */
+export function dailyRates(rates){const m=new Map();for(const r of rates){const t=pktDay(r.time),p=m.get(t)??{gain:0,hours:0};p.gain+=r.gain;p.hours+=r.hours;m.set(t,p);}return [...m].sort((a,b)=>a[0]-b[0]).filter(([,p])=>p.hours>0).map(([time,p])=>({time,value:24*p.gain/p.hours}));}
 
 export const PLATFORMS=['YouTube','Instagram','TikTok'];
 export function platformAudience(accounts){return PLATFORMS.map(platform=>{const rows=accounts.filter(a=>a.platform.toLowerCase()===platform.toLowerCase());const known=rows.length>0&&rows.every(a=>Number.isSafeInteger(a.followersCount)&&a.followersCount>=0);return {platform,linked:rows.length>0,count:known?rows.reduce((n,a)=>n+a.followersCount,0):null};});}
@@ -63,5 +68,12 @@ export function safeChannelBanner(value){
 /** Primary channel history, independent of the sampled-video cohort. */
 export function channelGrowth(history){
  const g=cohortSeries({points:history.map(p=>({at:p.at,total:p.value,median:0}))});
- return {...g,dailyTotals:dailyTotals(g.points),dailyRates:dailyRates(g.rates)};
+ const totals=dailyTotals(g.points),base=totals[0]?.value;
+ return {...g,dailyTotals:totals,dailyCumulative:totals.map(p=>({time:p.time,value:p.value-base})),dailyDelta:totals.length>1?totals.at(-1).value-base:null,dailyRates:dailyRates(g.rates)};
+}
+/** Today plus the previous 29 PKT calendar dates, only up to the actual observation time. */
+export function pktPublishedCount(videos,now){
+ if(videos.some(v=>!v.publishedAt||!Number.isFinite(Date.parse(v.publishedAt))))return null;
+ const start=pktDay(now)-29*DAY;
+ return videos.filter(v=>Date.parse(v.publishedAt)>=start&&Date.parse(v.publishedAt)<=now).length;
 }

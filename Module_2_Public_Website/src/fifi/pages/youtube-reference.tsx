@@ -6,9 +6,9 @@ const fmt=(v:number|null|undefined,digits=2)=>v==null?'—':Intl.NumberFormat('e
 const exact=(v:number|null|undefined)=>v==null?'Not available':Intl.NumberFormat('en-US',{maximumFractionDigits:2}).format(v);
 const pct=(v:number|null)=>v==null?'—':v.toFixed(1)+'%';
 const signed=(v:number|null,compact=false)=>v==null?'—':(v>=0?'+':'')+(compact?fmt(v):exact(v));
-const date=(v:string|number|null|undefined)=>v==null||!Number.isFinite(new Date(v).getTime())?'Not available':new Date(v).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
-const time=(v:number|string)=>new Date(v).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'UTC'}).replace(',','');
-const shortDate=(v:string|number)=>new Date(v).toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'});
+const date=(v:string|number|null|undefined)=>v==null||!Number.isFinite(new Date(v).getTime())?'Not available':new Date(v).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'Asia/Karachi'});
+const time=(v:number|string)=>new Date(v).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Karachi'}).replace(',','');
+const shortDate=(v:string|number)=>new Date(v).toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'Asia/Karachi'});
 const videoUrl=(id:string)=>'https://www.youtube.com/watch?v='+encodeURIComponent(id);
 const color=(i:number)=>`yr-color-${i%6}`;
 function Empty({children='Not enough recorded observations yet.'}:{children?:ReactNode}){return <div className="yr-empty">{children}</div>}
@@ -16,7 +16,7 @@ export function LineChart({points,label}:{points:Point[];label:string}){
  const [focus,setFocus]=useState<string|null>(null);const p=points;
  if(!p.length)return <Empty/>;
  const min=Math.min(...p.map(x=>x.value)),max=Math.max(...p.map(x=>x.value)),range=max-min||Math.max(Math.abs(max)*.1,1);
- const low=Math.max(0,min-range*.25),high=Math.max(low+1,max+range*.2);
+ const low=label==="Cumulative views gained"?Math.min(0,min):Math.max(0,min-range*.25),high=Math.max(low+1,max+range*.2);
  const start=p[0].time,end=p.at(-1)!.time,days=Math.round((end-start)/86400000)+1,width=Math.max(535,90+days*49),right=width-20;
  const x=(v:number)=>end===start?(60+right)/2:60+(v-start)/(end-start)*(right-60);
  const y=(v:number)=>174-(v-low)/(high-low)*150;
@@ -24,22 +24,29 @@ export function LineChart({points,label}:{points:Point[];label:string}){
  return <><div className="yr-daily-scroll"><svg className="yr-line-plot" viewBox={`0 0 ${width} 207`} width={width} height={207} role="img" aria-label={label}>
  {Array.from({length:4},(_,i)=>low+(high-low)*i/3).map((v,i)=><g key={i}><line x1="60" x2={right} y1={y(v)} y2={y(v)} className="yr-gridline"/><text x="51" y={y(v)+4} textAnchor="end">{fmt(v,3)}</text></g>)}
  {p.length>1?<g><polygon className="yr-area" points={`${x(p[0].time)},174 ${line} ${x(p.at(-1)!.time)},174`}/><polyline className="yr-line" points={line}/></g>:null}
- {p.map(q=>{const desc=`${date(q.time)} UTC: ${exact(q.value)}${label.includes('gain')?' views/day':' views'}`;return <g key={q.time} tabIndex={0} aria-label={desc} onFocus={()=>setFocus(desc)} onBlur={()=>setFocus(null)} onPointerEnter={()=>setFocus(desc)} onPointerLeave={()=>setFocus(null)}><title>{desc}</title><circle cx={x(q.time)} cy={y(q.value)} r="9" fill="transparent"/><circle className="yr-dot" cx={x(q.time)} cy={y(q.value)} r="4"/></g>})}
- {Array.from({length:days},(_,i)=>start+i*86400000).map(t=><text key={t} x={x(t)} y="195" textAnchor="middle">{shortDate(t)}</text>)}</svg></div><p className="yr-daily-readout" aria-live="polite">{focus??'Select a point to see its recorded value.'}</p></>;
+ {p.map(q=>{const desc=`${date(q.time)} PKT: ${exact(q.value)}${label==='Daily view-gain rate'?' views/day':' views'}`;return <g key={q.time} tabIndex={0} aria-label={desc} onFocus={()=>setFocus(desc)} onBlur={()=>setFocus(null)} onPointerEnter={()=>setFocus(desc)} onPointerLeave={()=>setFocus(null)}><title>{desc}</title><circle cx={x(q.time)} cy={y(q.value)} r="9" fill="transparent"/><circle className="yr-dot" cx={x(q.time)} cy={y(q.value)} r="4"/></g>})}
+ {Array.from({length:days},(_,i)=>start+i*86400000).map(t=><text key={t} x={x(t)} y="195" textAnchor="middle">{shortDate(t)}</text>)}</svg></div><p className="yr-daily-readout" aria-live="polite">{focus??''}</p></>;
 }
 export function HorizontalBars({rows,compact=false,displayExact=false,rounded=false}:{displayExact?:boolean;rounded?:boolean;rows:{label:string;value:number|null;color:number;href?:string;key:string}[];compact?:boolean}){
  if(!rows.length)return <Empty>No comparable recorded values available.</Empty>;
  const max=Math.max(1,...rows.flatMap(r=>r.value===null?[]:[r.value]));return <div className={'yr-bars'+(compact?' yr-bars-compact':'')}>{rows.map((r,i)=>{const label=`${r.label}: ${rounded?fmt(r.value):exact(r.value)}${rounded&&r.value!==null?' (rounded public count)':''}`;const content=<>{compact&&<span className="yr-index">{i+1}</span>}<span className="yr-row-label" title={r.label}>{r.label}</span><svg viewBox="0 0 100 10" preserveAspectRatio="none" role="img" aria-label={label}><title>{label}</title><rect className="yr-track" width="100" height="10" rx="5"/>{r.value!==null&&<rect className={color(r.color)} width={100*r.value/max} height="10" rx="5"/>}</svg><strong>{displayExact&&r.value!==null?exact(r.value):fmt(r.value,2)}</strong></>;return r.href?<a key={r.key} className="yr-bar-row" href={r.href} target="_blank" rel="noopener noreferrer" aria-label={label}>{content}</a>:<div key={r.key} className="yr-bar-row">{content}</div>})}</div>;
 }
 export function Scatter({points}:{points:AgePoint[]}){
- if(!points.length)return <Empty/>;const maxAge=Math.max(1,...points.map(p=>p.days)),maxViews=Math.max(1,...points.map(p=>p.value));
+ if(!points.length)return <Empty/>;const maxAge=points.reduce((m,p)=>Math.max(m,p.days),1),maxViews=points.reduce((m,p)=>Math.max(m,p.value),1);
  const x=(d:number)=>58+455*d/maxAge,y=(v:number)=>265-230*Math.sqrt(v/maxViews); // square-root axis expands dense low-view region, labels match actual scale
  return <svg className="yr-plot yr-scatter" viewBox="0 0 535 300" role="img" aria-label="Views by actual video age; square-root view axis">
  {[0,.25,.5,.75,1].map(t=>{const v=t*t*maxViews;return <g key={t}><line x1="58" x2="513" y1={y(v)} y2={y(v)} className="yr-gridline"/><text x="50" y={y(v)+4} textAnchor="end">{fmt(v)}</text></g>})}
  {points.map(p=><a key={p.videoId} href={videoUrl(p.videoId)} target="_blank" rel="noopener noreferrer" aria-label={`${p.title}: ${exact(p.value)} views, ${p.days.toFixed(1)} days old`}><title>{p.title}: {exact(p.value)} views · {p.days.toFixed(1)} days</title><circle className="yr-scatter-dot" cx={x(p.days)} cy={y(p.value)} r="4.4"/></a>)}
- <text x="58" y="289">Newer</text><text x="513" y="289" textAnchor="end">Older · {Math.ceil(maxAge)} days</text></svg>;
+ {[0,.25,.5,.75,1].map(t=><text key={t} x={x(maxAge*t)} y="285" textAnchor="middle">{Math.round(maxAge*t)}</text>)}<text x="285" y="298" textAnchor="middle">Video age (days)</text></svg>;
 }
-export function BandChart({rows}:{rows:Band[]}){if(!rows.length)return <Empty/>;const shown=localBands(rows),max=Math.max(1,...shown.map(r=>r.value)),step=525/shown.length;return <svg className="yr-plot yr-band-plot" viewBox="0 0 535 300" role="img" aria-label="Number of tracked videos within each view range">{[.25,.5,.75].map(t=><line key={t} x1="5" x2="530" y1={253-t*190} y2={253-t*190} className="yr-gridline"/>)}{shown.map((r,i)=>{const cx=5+(i+.5)*step,h=r.value/max*190,w=Math.min(44,step*.48);return <g key={r.label} tabIndex={0} aria-label={`${r.label}: ${r.value} videos`}><title>{r.label}: {r.value} videos</title>{r.value>0?<rect className={color(i)} x={cx-w/2} y={253-h} width={w} height={h} rx="4"/>:<circle className={color(i)} cx={cx} cy="253" r="2.5"/>}<text className="yr-band-number" x={cx} y="56" textAnchor="middle">{r.value}</text><text x={cx} y="272" textAnchor="middle">{r.label}</text></g>})}<line x1="5" x2="530" y1="284" y2="284" className="yr-gridline"/></svg>}
+export function BandChart({rows}:{rows:Band[]}){
+ if(!rows.length)return <Empty/>;
+ const shown=localBands(rows),max=Math.max(1,...shown.map(r=>r.value)),step=475/shown.length;
+ return <svg className="yr-plot yr-band-plot" viewBox="0 0 535 300" role="img" aria-label="Number of tracked videos within each view range">
+ {[...new Set([0,.25,.5,.75,1].map(t=>Math.round(max*t)))].map(n=><g key={n}><line x1="50" x2="525" y1={253-n/max*190} y2={253-n/max*190} className="yr-gridline"/><text x="43" y={257-n/max*190} textAnchor="end">{fmt(n)}</text></g>)}
+ {shown.map((r,i)=>{const cx=50+(i+.5)*step,h=r.value/max*190,w=Math.min(44,step*.48);return <g key={r.label} tabIndex={0} aria-label={`${r.label}: ${r.value} videos`}><title>{r.label}: {r.value} videos</title>{r.value>0?<rect className={color(i)} x={cx-w/2} y={253-h} width={w} height={h} rx="4"/>:<circle className={color(i)} cx={cx} cy="253" r="2.5"/>}<text className="yr-band-number" x={cx} y={Math.max(14,245-h)} textAnchor="middle">{fmt(r.value)}</text><text x={cx} y="272" textAnchor="middle">{r.label}</text></g>})}
+ <text x="287" y="292" textAnchor="middle">Video views</text></svg>;
+}
 export function GroupedBars({peers,groups,distribution=false}:{peers:Peer[];groups:{label:string;values:(number|null)[]}[];distribution?:boolean}){
  const [active,setActive]=useState<string|null>(null),[selected,setSelected]=useState<{group:string;slug:string}|null>(null);
  const visible=peers.map((p,i)=>({p,i})).filter(({p})=>active===null||p.slug===active);

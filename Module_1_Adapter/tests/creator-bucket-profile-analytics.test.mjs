@@ -7,7 +7,7 @@ test('individual video age scatter and exact reference view bands',()=>{const p=
 test('cohort velocity includes actual short intervals and weighted average, not channel lifetime',()=>{const c=cohort([['2026-11-22T12:00:00Z',100],['2026-11-22T14:00:00Z',120],['2026-11-23T12:00:00Z',160]]);const s=cohortSeries(c);assert.equal(s.rates.length,2);assert.equal(s.rates[0].value,240);assert.equal(s.pace,60);assert.equal(s.delta,60);assert.equal(s.change,60);assert.deepEqual(s.cumulative.map(x=>x.value),[0,20,60]);assert.equal(cohortSeries(null).pace,null);});
 test('comparison daily groups preserve peer ordering, missing days and true zero',()=>{const a=cohort([['2026-11-22T00:00:00Z',100],['2026-11-23T00:00:00Z',120],['2026-11-24T00:00:00Z',120]]),b=cohort([['2026-11-23T00:00:00Z',40],['2026-11-24T00:00:00Z',70]]);assert.deepEqual(groupedDaily([{cohort:a},{cohort:b},{cohort:null}]),[{day:'2026-11-23',values:[20,null,null]},{day:'2026-11-24',values:[0,30,null]}]);});
 test('counter resets and long gaps are not fabricated as daily gains',()=>{const s=cohortSeries(cohort([['2026-11-20T00:00:00Z',100],['2026-11-21T00:00:00Z',80],['2026-11-24T00:00:00Z',200]]));assert.deepEqual(s.rates,[]);assert.equal(s.pace,null);});
-test('daily totals retain only the latest observation per UTC date, and daily rates are time-weighted',()=>{
+test('daily totals retain only the latest observation per PKT date, and daily rates are time-weighted',()=>{
  const c=cohort([['2026-11-22T12:00Z',100],['2026-11-22T14:00Z',120],['2026-11-23T12:00Z',160],['2026-11-23T14:00Z',180]]),s=cohortSeries(c);
  assert.deepEqual(dailyTotals(s.points).map(p=>p.value),[120,180]);assert.deepEqual(dailyRates(s.rates).map(p=>p.value),[240,60]);assert.deepEqual(dailyRates(s.rates).map(p=>p.value),groupedDaily([{cohort:c}]).map(p=>p.values[0]));
 });
@@ -26,3 +26,10 @@ test('banner reuses existing channel request and canonical Hub text storage',()=
 
 import {channelGrowth} from '../src/modules/creators-bucket/profile-analytics.mjs';
 test('primary channel growth uses real channel history and elapsed time',()=>{const g=channelGrowth([{at:'2026-11-22T00:00Z',value:1000000},{at:'2026-11-23T00:00Z',value:1000200},{at:'2026-11-23T12:00Z',value:1000300}]);assert.equal(g.pace,200);assert.equal(g.delta,300);assert.deepEqual(g.dailyTotals.map(p=>p.value),[1000000,1000300]);assert.equal(channelGrowth([]).pace,null);});
+
+test('weighted ER uses only matched observations and excludes missing metrics',()=>{const a=v('a',1000000),b=v('b',10000),c=v('c',100000),d=v('d',100);const p=observedPortfolio([[a,20000,0],[b,800,0],[c,4000,0],[d,null,0]].map(([x,likes,comments])=>({...x,likes,comments,likesAt:x.observedAt,commentsAt:x.observedAt})));assert.equal(p.interactions,24800);assert.equal(p.engagementCoverage,3);assert.equal(p.engagementRate,100*24800/1110000);});
+test('PKT midnight separates observations at 19:00 UTC; gains remain real',()=>{const g=channelGrowth([{at:'2026-11-22T18:59Z',value:100},{at:'2026-11-22T19:00Z',value:105}]);assert.deepEqual(g.dailyCumulative.map(p=>p.value),[0,5]);assert.equal(g.dailyTotals[1].time,Date.parse('2026-11-22T19:00Z'));});
+
+import {pktPublishedCount} from '../src/modules/creators-bucket/profile-analytics.mjs';
+test('publication count uses today and preceding 29 PKT dates',()=>{const now=Date.parse('2026-11-27T01:00:00+05:00');const rows=[{publishedAt:'2026-10-28T23:59:59+05:00'},{publishedAt:'2026-10-29T00:00:00+05:00'},{publishedAt:'2026-11-27T01:00:00+05:00'},{publishedAt:'2026-11-27T01:00:01+05:00'}];assert.equal(pktPublishedCount(rows,now),2);assert.equal(pktPublishedCount([{publishedAt:null}],now),null);});
+test('daily cumulative baseline is first displayed daily observation',()=>{const g=channelGrowth([{at:'2026-11-22T01:00Z',value:10},{at:'2026-11-22T02:00Z',value:20},{at:'2026-11-23T01:00Z',value:30}]);assert.deepEqual(g.dailyCumulative.map(p=>p.value),[0,10]);assert.equal(g.dailyDelta,10);});

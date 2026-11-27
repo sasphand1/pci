@@ -7,90 +7,100 @@ import {recordObservation} from '../ingest/store.js';
 import {safeChannelBanner} from '../creators-bucket/profile-analytics.mjs';
 
 const MAX_CHANNELS=150;
-const VIDEOS_PER_CHANNEL=50;
-type ChannelAccount={id:string;external_id:string};
-type Sample={videoId:string;accountId:string;title:string;description:string;publishedAt:string|null;thumbnailUrl:string|null;durationIso:string|null;views:string|null;likes:string|null;comments:string|null};
+// Each page costs at most two requests; global soft quota still enforced by YoutubeClient.
+// This is a per-run budget, NOT a per-channel or per-catalogue limit.
+const MAX_PAGES_PER_RUN=400;
+type ChannelAccount={id:string;external_id:string;playlist_id:string|null;page_token:string|null;scan_started_at:Date|string|null};
+type ScanTask={account:ChannelAccount;playlist:string;token:string|undefined;startedAt:string;count:string|null};
 
-/** Read-only video observation collector; does not modify any rankings or legacy video records.
- * Runs after the daily pipeline; only real YouTube Data API cumulative counts are stored.
+/** Read-only public catalogue collector. Persist the cursor in the same transaction as the page.
+ * Round-robin pages, resume after quota/errors; never delete a catalogue based on a partial scan.
  */
 export async function collectCreatorVideoSnapshots():Promise<{channels:number;videos:number;failed:number}> {
-  const lockClient=await pool.connect();
-  let locked=false;
-  try {
+ const lockClient=await pool.connect();let locked=false;
+ try{
   const gate=await lockClient.query('SELECT pg_try_advisory_lock(712325) AS locked');
   if(!gate.rows[0]?.locked)return {channels:0,videos:0,failed:0};
   locked=true;
-  const accounts=(await query<ChannelAccount>(`SELECT id,external_id FROM accounts
-    WHERE platform='youtube' AND external_id ~ '^UC[A-Za-z0-9_-]{22}$'
-    ORDER BY (SELECT max(v.last_observed_at) FROM creator_video_catalogue v WHERE v.account_id=accounts.id) NULLS FIRST,id LIMIT $1`,[MAX_CHANNELS])).rows;
-  const yt=new YoutubeClient();
-  let failed=0,seen=0;
-  const observedAt=new Date().toISOString();
-  for(const channelGroup of chunks(accounts,50)) {
-    let channelDetails;
-    try{channelDetails=await yt.channels(channelGroup.map(c=>c.external_id));}
-    catch(err){failed+=channelGroup.length;logger.warn({err},'Creator video channel batch unavailable');continue;}
-    const byId=new Map(channelDetails.map(c=>[c.id,c]));
-    for(const account of channelGroup) {
-      try {
-        const channel=byId.get(account.external_id);
-        // Reuse the already-fetched channels.list response: zero additional upstream calls.
-        const rawCount=countOrNull(channel?.statistics?.videoCount);
-        if(rawCount!==null&&Number.isSafeInteger(Number(rawCount))&&Number(rawCount)>=0){
-          try{await recordObservation({sourceId:'youtube.api',sourceRunRef:'channel-video-count:'+observedAt,accountId:account.id,entityKind:'account',entityId:'youtube:'+account.external_id,metric:'video_count',valueNumeric:Number(rawCount),valueText:null,accuracy:'exact',observedAt,metadata:{origin:'youtube-channel-statistics'}});}
-          catch(err){logger.warn({err,accountId:account.id},'Creators Bucket channel video count unavailable');}
-        }
-        if(channel&&/^UC[A-Za-z0-9_-]{22}$/.test(account.external_id)){
-          try{await recordObservation({sourceId:'youtube.api',sourceRunRef:'video-worker-banner:'+observedAt,accountId:account.id,entityKind:'account',entityId:'youtube:'+account.external_id,metric:'channel_banner_url',valueNumeric:null,valueText:safeChannelBanner(channel.brandingSettings?.image?.bannerExternalUrl)??'unavailable',accuracy:'exact',observedAt,metadata:{origin:'youtube-branding-settings'}});}
-          catch{logger.warn({accountId:account.id},'Creators Bucket channel banner unavailable');}
-        }
-        const uploads=channel?.contentDetails?.relatedPlaylists?.uploads;
-        if(!uploads){failed++;continue;}
-        const ids=await yt.uploads(uploads,VIDEOS_PER_CHANNEL);
-        const samples:Sample[]=[];
-        for(const videoIds of chunks(ids,50)) {
-          for(const video of await yt.videos(videoIds)) {
-            if(video.snippet?.channelId!==account.external_id)continue;
-            samples.push({videoId:video.id,accountId:account.id,
-              title:(video.snippet?.title??'Untitled video').slice(0,500),
-              description:(video.snippet?.description??'').slice(0,10000),
-              publishedAt:dateOrNull(video.snippet?.publishedAt),
-              thumbnailUrl:thumbUrl(video.snippet),durationIso:video.contentDetails?.duration??null,
-              views:countOrNull(video.statistics?.viewCount),likes:countOrNull(video.statistics?.likeCount),
-              comments:countOrNull(video.statistics?.commentCount)});
-          }
-        }
-        if(!samples.length)continue;
-        await transaction(async tx=>{
-          for(const s of samples) {
-            await tx.query(`INSERT INTO creator_video_catalogue
-              (video_id,account_id,title,description,published_at,thumbnail_url,duration_iso,view_count,like_count,comment_count,last_observed_at)
-              VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-              ON CONFLICT(video_id) DO UPDATE SET account_id=EXCLUDED.account_id,title=EXCLUDED.title,
-              description=EXCLUDED.description,published_at=EXCLUDED.published_at,thumbnail_url=EXCLUDED.thumbnail_url,
-              duration_iso=EXCLUDED.duration_iso,view_count=EXCLUDED.view_count,
-              like_count=EXCLUDED.like_count,
-              comment_count=EXCLUDED.comment_count,
-              last_observed_at=EXCLUDED.last_observed_at`,
-              [s.videoId,s.accountId,s.title,s.description,s.publishedAt,s.thumbnailUrl,s.durationIso,
-                s.views,s.likes,s.comments,observedAt]);
-            if(s.views!==null)await tx.query(`INSERT INTO creator_video_view_observations(video_id,observed_at,view_count)
-              VALUES($1,$2,$3) ON CONFLICT(video_id,observed_at) DO NOTHING`,[s.videoId,observedAt,s.views]);
-          }
-        });
-        seen+=samples.length;
-      }catch(err){failed++;logger.warn({err,accountId:account.id},'Creator video sample skipped; previously collected observations preserved');}
+  const accounts=(await query<ChannelAccount>(`SELECT a.id,a.external_id,s.playlist_id,s.page_token,s.scan_started_at FROM accounts a
+   LEFT JOIN creator_catalogue_scan s ON s.account_id=a.id
+   WHERE a.platform='youtube' AND a.external_id ~ '^UC[A-Za-z0-9_-]{22}$'
+   AND (s.completed_at IS NULL OR s.scan_started_at IS NOT NULL OR s.completed_at<now()-interval '20 hours')
+   ORDER BY s.last_attempt_at NULLS FIRST,a.id LIMIT $1`,[MAX_CHANNELS])).rows;
+  const yt=new YoutubeClient();let failed=0,seen=0,pages=0;const tasks:ScanTask[]=[];
+  for(const channelGroup of chunks(accounts,50)){
+   let channelDetails;
+   try{channelDetails=await yt.channels(channelGroup.map(c=>c.external_id));}
+   catch(err){failed+=channelGroup.length;logger.warn({err},'Creator video channel batch unavailable');continue;}
+   const byId=new Map(channelDetails.map(c=>[c.id,c]));
+   for(const account of channelGroup){
+    const channel=byId.get(account.external_id),observedAt=new Date().toISOString();
+    const rawCount=countOrNull(channel?.statistics?.videoCount);
+    if(rawCount!==null&&Number.isSafeInteger(Number(rawCount))&&Number(rawCount)>=0){
+     try{await recordObservation({sourceId:'youtube.api',sourceRunRef:'channel-video-count:'+observedAt,accountId:account.id,entityKind:'account',entityId:'youtube:'+account.external_id,metric:'video_count',valueNumeric:Number(rawCount),valueText:null,accuracy:'exact',observedAt,metadata:{origin:'youtube-channel-statistics'}});}
+     catch(err){logger.warn({err,accountId:account.id},'Creators Bucket channel video count unavailable');}
     }
+    if(channel&&/^UC[A-Za-z0-9_-]{22}$/.test(account.external_id)){
+     try{await recordObservation({sourceId:'youtube.api',sourceRunRef:'video-worker-banner:'+observedAt,accountId:account.id,entityKind:'account',entityId:'youtube:'+account.external_id,metric:'channel_banner_url',valueNumeric:null,valueText:safeChannelBanner(channel.brandingSettings?.image?.bannerExternalUrl)??'unavailable',accuracy:'exact',observedAt,metadata:{origin:'youtube-branding-settings'}});}
+     catch{logger.warn({accountId:account.id},'Creators Bucket channel banner unavailable');}
+    }
+    const uploads=channel?.contentDetails?.relatedPlaylists?.uploads;
+    if(!uploads){failed++;continue;}
+    const resume=account.playlist_id===uploads&&account.scan_started_at!==null&&account.page_token!==null;
+    tasks.push({account,playlist:uploads,token:resume?account.page_token!:undefined,startedAt:resume?new Date(account.scan_started_at!).toISOString():observedAt,count:rawCount});
+   }
   }
-  // Safe default: keep no more than 30 days of public YouTube video samples.
+  while(tasks.length&&pages<MAX_PAGES_PER_RUN){
+   const task=tasks.shift()!;const {account,playlist,startedAt}=task;pages++;
+   try{
+    // Record the attempt even if the provider rejects a page, for fair rotation.
+    await query(`INSERT INTO creator_catalogue_scan(account_id,last_attempt_at) VALUES($1,now())
+      ON CONFLICT(account_id) DO UPDATE SET last_attempt_at=EXCLUDED.last_attempt_at`,[account.id]);
+    const page=await yt.cataloguePage(playlist,task.token);
+    if(page.next&&page.next===task.token)throw new Error('YOUTUBE_REPEATED_PAGE_TOKEN');
+    const details=await yt.catalogueVideos(page.ids);
+    const wanted=new Set(page.ids),unique=new Map(details.filter(v=>wanted.has(v.id)&&v.snippet?.channelId===account.external_id&&v.status?.privacyStatus==='public').map(v=>[v.id,v]));
+    const observedAt=new Date().toISOString();
+    await transaction(async tx=>{
+     for(const video of unique.values()){
+      const views=countOrNull(video.statistics?.viewCount),likes=countOrNull(video.statistics?.likeCount),comments=countOrNull(video.statistics?.commentCount);
+      await tx.query(`INSERT INTO creator_video_catalogue
+       (video_id,account_id,title,description,published_at,thumbnail_url,duration_iso,view_count,like_count,comment_count,last_observed_at,catalogue_scan_at,catalogue_public)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,true)
+       ON CONFLICT(video_id) DO UPDATE SET account_id=EXCLUDED.account_id,title=EXCLUDED.title,description=EXCLUDED.description,
+       published_at=EXCLUDED.published_at,thumbnail_url=EXCLUDED.thumbnail_url,duration_iso=EXCLUDED.duration_iso,
+       view_count=EXCLUDED.view_count,like_count=EXCLUDED.like_count,comment_count=EXCLUDED.comment_count,
+       last_observed_at=EXCLUDED.last_observed_at,catalogue_scan_at=EXCLUDED.catalogue_scan_at,catalogue_public=true`,
+       [video.id,account.id,(video.snippet?.title??'Untitled video').slice(0,500),(video.snippet?.description??'').slice(0,10000),dateOrNull(video.snippet?.publishedAt),thumbUrl(video.snippet),video.contentDetails?.duration??null,views,likes,comments,observedAt,startedAt]);
+      if(views!==null)await tx.query(`INSERT INTO creator_video_view_observations(video_id,observed_at,view_count) VALUES($1,$2,$3) ON CONFLICT(video_id,observed_at) DO NOTHING`,[video.id,observedAt,views]);
+     }
+     // Only after the last page may absent entries leave the current public catalogue.
+     // Historical observations remain subject to the existing retention policy.
+     if(!page.next)await tx.query(`UPDATE creator_video_catalogue SET catalogue_public=false WHERE account_id=$1 AND catalogue_scan_at IS DISTINCT FROM $2::timestamptz`,[account.id,startedAt]);
+     await tx.query(`INSERT INTO creator_catalogue_scan(account_id,playlist_id,page_token,scan_started_at,completed_at,last_attempt_at,public_video_count,last_error)
+      VALUES($1,$2,$3,$4,$5,now(),$6,NULL)
+      ON CONFLICT(account_id) DO UPDATE SET playlist_id=EXCLUDED.playlist_id,page_token=EXCLUDED.page_token,
+      scan_started_at=EXCLUDED.scan_started_at,completed_at=COALESCE(EXCLUDED.completed_at,creator_catalogue_scan.completed_at),
+      last_attempt_at=EXCLUDED.last_attempt_at,public_video_count=EXCLUDED.public_video_count,last_error=NULL`,
+      [account.id,playlist,page.next??null,page.next?startedAt:null,page.next?null:observedAt,task.count]);
+    });
+    seen+=unique.size;
+    if(page.next){task.token=page.next;tasks.push(task);}
+   }catch(err){
+    failed++;const code=err instanceof Error?err.message:'CATALOGUE_ERROR';
+    // A changed playlist can invalidate a cursor; restart that scan next round.
+    if(/invalidPageToken|pageTokenInvalid|REPEATED_PAGE_TOKEN/i.test(code))await query(`UPDATE creator_catalogue_scan SET page_token=NULL,scan_started_at=NULL,completed_at=NULL,last_error=$2 WHERE account_id=$1`,[account.id,code.slice(0,120)]);
+    else await query('UPDATE creator_catalogue_scan SET last_error=$2 WHERE account_id=$1',[account.id,code.slice(0,120)]);
+    logger.warn({accountId:account.id,code},'Creator catalogue page unavailable; committed pages preserved');
+    if(/SOFT_QUOTA|quotaExceeded|dailyLimitExceeded/i.test(code))break;
+   }
+  }
   await query("DELETE FROM creator_video_view_observations WHERE observed_at < now() - interval '29 days'");
   await query("DELETE FROM creator_video_catalogue WHERE last_observed_at < now() - interval '29 days'");
   return {channels:accounts.length,videos:seen,failed};
-  } finally {
-    try{if(locked)await lockClient.query('SELECT pg_advisory_unlock(712325)');}
-    finally{lockClient.release();}
-  }
+ }finally{
+  try{if(locked)await lockClient.query('SELECT pg_advisory_unlock(712325)');}finally{lockClient.release();}
+ }
 }
 
 type VideoRow={videoId:string;title:string;publishedAt:Date|string|null;thumbnailUrl:string|null;durationIso:string|null;viewCount:string|null;lastObservedAt:Date|string};
