@@ -16,6 +16,7 @@ import { dirname, extname, resolve } from 'node:path';
 // Native .mjs dependencies are not emitted by TypeScript (tsconfig includes .ts only).
 // Every production runtime asset imported by compiled files must be copied explicitly.
 const runtimeModules=[
+  'modules/tiktok/core.mjs',
   'modules/creators-bucket/logic.mjs',
   'modules/creators-bucket/cohort.mjs',
   'modules/creators-bucket/profile-analytics.mjs',
