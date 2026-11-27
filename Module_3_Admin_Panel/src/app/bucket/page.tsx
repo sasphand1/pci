@@ -1,6 +1,7 @@
 'use client';
 import {applyDefaultNiche,togglePage} from '@/lib/bulk';
 import {useState} from 'react';
+import ScrappaPeople from './ScrappaPeople';
 import {Card,Badge,Notice} from '@pci/ui';
 import {AdminPage,DataBlock,Status,TableWrap,useData,RoleGate} from '@/components/Shared';
 import {api,errorText,fmtDate} from '@/lib/api';
@@ -23,7 +24,7 @@ const STATUS:Record<RowStatus,{label:string;tone:'normal'|'muted'|'danger'}>={
 
 export default function BucketPage(){
  const {identity}=useAuth();
- const [platform,setPlatform]=useState<Platform>('youtube');
+ const [platform,setPlatform]=useState<Platform|'tiktok'>('youtube');
  const [mode,setMode]=useState<'single'|'bulk'>('single');
  const [single,setSingle]=useState({account:'',person:'',niche:''});
  const [bulk,setBulk]=useState(''),[bulkNiche,setBulkNiche]=useState('');
@@ -51,6 +52,7 @@ export default function BucketPage(){
  const canSubmit=text().trim().length>0&&!busy;
 
  async function run(kind:'preview'|'add'){
+  if(platform==='tiktok')return;
   setBusy(true);setError('');setOk('');
   try{
    const body={platform,text:text()};
@@ -105,9 +107,11 @@ export default function BucketPage(){
    <div className="admin-toolbar"><h2>Add to the bucket</h2>
     <div className="seg" role="group" aria-label="Platform">
      <button type="button" className={`seg-btn${platform==='youtube'?' is-on':''}`} aria-pressed={platform==='youtube'} onClick={()=>{setPlatform('youtube');setResult(null);}}>YouTube</button>
+     <button type="button" className={`seg-btn${platform==='tiktok'?' is-on':''}`} aria-pressed={platform==='tiktok'} onClick={()=>{setPlatform('tiktok');setResult(null);}}>TikTok</button>
      <button type="button" className={`seg-btn${platform==='instagram'?' is-on':''}`} aria-pressed={platform==='instagram'} onClick={()=>{setPlatform('instagram');setResult(null);}}>Instagram</button>
     </div>
    </div>
+   {platform==='tiktok'?<ScrappaPeople owner={isOwner} csrf={identity?.csrfToken} categories={activeCategories}/>:<>
    <div className="seg" role="group" aria-label="How many accounts">
     <button type="button" className={`seg-btn${mode==='single'?' is-on':''}`} aria-pressed={mode==='single'} onClick={()=>setMode('single')}>Single</button>
     <button type="button" className={`seg-btn${mode==='bulk'?' is-on':''}`} aria-pressed={mode==='bulk'} onClick={()=>setMode('bulk')}>Bulk</button>
@@ -127,6 +131,7 @@ export default function BucketPage(){
     <TableWrap><thead><tr><th>Line</th><th>Input</th><th>Account</th><th>Person</th><th>Niche</th><th>Result</th></tr></thead><tbody>{result.rows.map(r=><tr key={r.index}>
      <td>{r.line}</td><td>{r.input}</td><td>{r.handle??'—'}</td><td>{r.person??'—'}</td><td>{r.niche??'—'}</td>
      <td><Badge variant={STATUS[r.status]?.tone??'muted'}>{STATUS[r.status]?.label??r.status}</Badge>{r.hint&&<div className="fineprint">{r.hint}</div>}</td></tr>)}</tbody></TableWrap></>}
+  </>}
   </Card>
 
   <Card>

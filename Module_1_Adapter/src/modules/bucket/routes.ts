@@ -1,3 +1,4 @@
+import { mountScrappaAdmin } from '../scrappa/admin.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { handler, HttpError } from '../../lib/errors.js';
@@ -6,6 +7,7 @@ import { commitBatch, deletePerson, listBucket, previewBatch, setCategories } fr
 
 export const bucketAdminRoutes = Router();
 bucketAdminRoutes.use('/bucket', requireAdmin);
+mountScrappaAdmin(bucketAdminRoutes);
 
 const actor = (res: { locals: Record<string, unknown> }) => (res.locals.admin as AdminIdentity | undefined)?.id ?? null;
 const batch = z.object({ platform: z.enum(['youtube', 'instagram']), text: z.string().min(1).max(20000) }).strict();

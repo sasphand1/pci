@@ -41,8 +41,7 @@ export function summarize(posts: ReturnType<typeof parsePosts>) {
   return {sampleSize: posts.length, averageViews:mean('views'), averageLikes:mean('likes'), averageComments:mean('comments'), averageShares:mean('shares')};
 }
 /** Reserve against a durable caller-owned quota BEFORE each request, including failures. No automatic retries. */
-export async function collect(handle: string, apiKey: string, reserve: ReserveCredit, fetcher: typeof fetch = fetch) {
-  const name = username(handle);
+function requester(apiKey: string, reserve: ReserveCredit, fetcher: typeof fetch) {
   if (!apiKey.trim()) throw new Error('scrappa_key_missing');
   async function request(endpoint: 'profile'|'posts', params: Record<string,string>) {
     if (!await reserve()) throw new Error('quota_exhausted');
@@ -57,6 +56,15 @@ export async function collect(handle: string, apiKey: string, reserve: ReserveCr
     finally {reader.releaseLock();}
     try {return JSON.parse(text) as unknown;} catch {throw new Error('scrappa_invalid_json');}
   }
+  return request;
+}
+export async function collectProfile(handle: string, apiKey: string, reserve: ReserveCredit, fetcher: typeof fetch = fetch) {
+  const name = username(handle);
+  return parseProfile(await requester(apiKey,reserve,fetcher)('profile',{unique_id:name}),name);
+}
+export async function collect(handle: string, apiKey: string, reserve: ReserveCredit, fetcher: typeof fetch = fetch) {
+  const name = username(handle);
+  const request = requester(apiKey,reserve,fetcher);
   const profile = parseProfile(await request('profile',{unique_id:name}),name);
   const posts = parsePosts(await request('posts',{user_id:profile.accountId,count:'10',cursor:'0'}),profile.accountId);
   return {source:'scrappa.api',observedAt:new Date().toISOString(),profile,posts,analytics:summarize(posts)};

@@ -15,9 +15,12 @@ test('the old creator, Instagram, unified, cross-platform, ranking and sync scre
  for(const href of ['/creators','/unified','/instagram','/cross-platform','/sync','/rankings'])assert.ok(!nav.includes(`href:'${href}'`),href);
  for(const route of ['creators','unified','instagram','cross-platform','sync','rankings'])assert.ok(existsSync(join(root,`src/app/${route}/page.tsx`)),`${route} page must still exist`);
 });
-test('bucket page: existing bulk platforms on People (no TikTok creator linking), Check before Add',()=>{
+test('bucket page: existing bulk platforms and staged Scrappa TikTok registration, Check before Add',()=>{
  const s=read('src/app/bucket/page.tsx');
- assert.match(s,/YouTube/);assert.match(s,/Instagram/);assert.doesNotMatch(s,/tiktok/i);
+ assert.match(s,/YouTube/);assert.match(s,/Instagram/);assert.match(s,/TikTok/);
+ assert.match(s,/ScrappaPeople/);
+ assert.match(s,/setPlatform\('tiktok'\)/);
+ assert.match(s,/if\(platform==='tiktok'\)return;/);
  assert.match(s,/'single'\|'bulk'/);assert.match(s,/\/admin\/bucket\/preview/);assert.match(s,/\/admin\/bucket\/people/);
  for(const status of ['resolved','invalid_format','not_found','duplicate_in_bucket','duplicate_in_batch','unknown_niche','person_already_has_platform'])assert.ok(s.includes(status),status);
 });
