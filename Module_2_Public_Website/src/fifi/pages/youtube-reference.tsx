@@ -20,10 +20,10 @@ export function LineChart({points,label}:{points:Point[];label:string}){
  const start=p[0].time,end=p.at(-1)!.time,days=Math.round((end-start)/86400000)+1,width=Math.max(535,90+days*49),right=width-20;
  const x=(v:number)=>end===start?(60+right)/2:60+(v-start)/(end-start)*(right-60);
  const y=(v:number)=>174-(v-low)/(high-low)*150;
- const segments:Point[][]=[];for(const q of p){const seg=segments.at(-1);if(!seg||q.time-seg.at(-1)!.time>86400000)segments.push([q]);else seg.push(q);}
+ const line=p.map(q=>`${x(q.time)},${y(q.value)}`).join(' ');
  return <><div className="yr-daily-scroll"><svg className="yr-line-plot" viewBox={`0 0 ${width} 207`} width={width} height={207} role="img" aria-label={label}>
  {Array.from({length:4},(_,i)=>low+(high-low)*i/3).map((v,i)=><g key={i}><line x1="60" x2={right} y1={y(v)} y2={y(v)} className="yr-gridline"/><text x="51" y={y(v)+4} textAnchor="end">{fmt(v,3)}</text></g>)}
- {segments.map((seg,i)=>{const line=seg.map(q=>`${x(q.time)},${y(q.value)}`).join(' ');return seg.length>1?<g key={i}><polygon className="yr-area" points={`${x(seg[0].time)},174 ${line} ${x(seg.at(-1)!.time)},174`}/><polyline className="yr-line" points={line}/></g>:null})}
+ {p.length>1?<g><polygon className="yr-area" points={`${x(p[0].time)},174 ${line} ${x(p.at(-1)!.time)},174`}/><polyline className="yr-line" points={line}/></g>:null}
  {p.map(q=>{const desc=`${date(q.time)} UTC: ${exact(q.value)}${label.includes('gain')?' views/day':' views'}`;return <g key={q.time} tabIndex={0} aria-label={desc} onFocus={()=>setFocus(desc)} onBlur={()=>setFocus(null)} onPointerEnter={()=>setFocus(desc)} onPointerLeave={()=>setFocus(null)}><title>{desc}</title><circle cx={x(q.time)} cy={y(q.value)} r="9" fill="transparent"/><circle className="yr-dot" cx={x(q.time)} cy={y(q.value)} r="4"/></g>})}
  {Array.from({length:days},(_,i)=>start+i*86400000).map(t=><text key={t} x={x(t)} y="195" textAnchor="middle">{shortDate(t)}</text>)}</svg></div><p className="yr-daily-readout" aria-live="polite">{focus??'Select a point to see its recorded value.'}</p></>;
 }
