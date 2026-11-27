@@ -18,7 +18,14 @@ test('boards may be framed by the panel only, and are never indexed',()=>{
  const c=read('next.config.ts');
  assert.match(c,/source:'\/progress-board\/:path\*'/);assert.match(c,/X-Frame-Options',value:'SAMEORIGIN'/);
  assert.match(c,/frame-ancestors 'self'/);assert.match(c,/X-Robots-Tag',value:'noindex, nofollow'/);
- assert.match(read('src/app/progress/page.tsx'),/index\.html\?view=1/);
+});
+test('shared state is saved through Module 1 with CSRF, versioning and role checks',()=>{
+ const p=read('src/app/progress/page.tsx');
+ assert.match(p,/api<Board>\(`\/admin\/progress\/\$\{b\.slug\}`,\{method:'PUT',csrf,body:\{version:b\.version,state\}\}\)/);
+ assert.match(p,/status===409/);assert.match(p,/canEdit\?'':'&view=1'/);
+ assert.match(p,/e\.origin!==window\.location\.origin\|\|e\.source!==frame\.current\?\.contentWindow/);
+ const board=read('public/progress-board/creator-index/index.html');
+ assert.match(board,/e\.source!==window\.parent\|\|e\.origin!==location\.origin/);assert.match(board,/showSaveFilePicker/);assert.match(board,/id="pngdl"/);assert.match(board,/id="undo"/);
 });
 test('progress styles are centralized',()=>{
  assert.equal((read('vendor/pci-ui/src/styles.css').match(/styles\/progress\.css/g)||[]).length,1);

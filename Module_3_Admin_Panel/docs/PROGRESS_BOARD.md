@@ -1,36 +1,43 @@
 # Progress tab — project boards
 
-The **Progress** tab (under Overview, visible to all admin roles) shows one visual board per project,
-so every software contributor can see what is built, in progress, missing or not verifiable.
+The **Progress** tab (under Overview) shows one visual board per project.
+
+- **Everyone** (owner, editor, moderator) sees the same live board.
+- **Owners and editors** can change it directly in the tab, and every change saves automatically for the whole team.
+
+## Tools on the board
+
+| Tool | What it does |
+| --- | --- |
+| Select | Click a shape, arrow or card, then set its status (Implemented, In progress, Missing, Not verifiable) and a note |
+| Edit text | Click any text to rename it |
+| + Text | Click the canvas to add a note; drag it to move |
+| + Arrow | Click start, then end; give it a label and status |
+| Undo | Revert the last change (Ctrl+Z) |
+| Backup | Save the board state as a JSON file |
+| Import | Load a backup |
+| PNG / SVG | Save a picture of the board; Chrome/Edge ask where to save (e.g. Desktop) |
+| Reset | Back to the original statuses (can be undone) |
+
+If two people save at the same moment, the second is told and the board reloads with the latest version. Changes from teammates appear within 30 seconds.
 
 ## Hierarchy
 
 ```
 public/progress-board/
-  projects.json              list of projects (tabs on the Progress page)
-  creator-index/             one folder per project (slug = folder name)
-    index.html               interactive board (read-only in the panel via ?view=1)
-    status.json              shared progress: statuses, notes, edited text, added notes/arrows
-    diagram.svg / .png       static copies
+  projects.json              projects shown as cards on the Progress page
+  <slug>/index.html          the board (one folder per project)
+  <slug>/status.json         default statuses (used until someone edits the board)
+Module 1: progress_boards    saved team state per slug (GET/PUT /api/v1/admin/progress/:slug)
 ```
-
-## Update a board
-
-1. Progress → choose the project → **Open editor** (owner/editor).
-2. Click shapes, arrows or cards to set status and notes. Use **Edit text**, **+ Text** and **+ Arrow** as needed.
-3. Click **Export**. This downloads `status.json`.
-4. Replace `public/progress-board/<slug>/status.json` in the repo, commit to main and deploy.
-
-Edits made in the editor stay in your browser until you export and deploy. Collaborators only see deployed `status.json`.
 
 ## Add a new project
 
-1. Create the board files (index.html + status.json) in `public/progress-board/<new-slug>/`.
-   Boards are generated per project. Ask Claude to build the next one from the same template.
+1. Add a board folder `public/progress-board/<new-slug>/` (index.html + status.json). Ask Claude to build it from the same template.
 2. Add `{ "slug": "<new-slug>", "title": "...", "description": "..." }` to `projects.json`.
-3. `npm test` checks that every listed project has its files.
 
-## Security note
+## Security
 
-Boards are static files: framing is limited to this admin origin, and the boards are never indexed by search engines.
-They do not require a login to fetch if someone knows the exact URL, so keep secrets, keys and credentials out of board text and notes.
+- Saving requires an admin session, CSRF token and owner/editor role. It is validated, size-limited and audited.
+- Board files are static and can only be framed by this admin site, never indexed.
+- Keep keys, passwords and secrets out of board text and notes.

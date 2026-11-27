@@ -45,6 +45,7 @@ textarea{min-height:80px;resize:vertical}
 #modal .row{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
 .hint{font-size:12px;color:var(--mut);padding:4px 12px;background:#f8fafc;border-bottom:1px solid var(--line)}
 .view .edit-only{display:none!important}
+.embed header h1{display:none}.embed #banner{display:none!important}
 .el.sel .frame,.el.sel .line{filter:drop-shadow(0 0 10px var(--st))}
 @media (max-width:820px){main{flex-direction:column}aside{width:100%;height:42%;border-left:0;border-top:1px solid var(--line)}header h1{font-size:14px}.bar{width:100px}}
 </style>
@@ -61,10 +62,13 @@ textarea{min-height:80px;resize:vertical}
       <button data-m="addtext" title="Click on the canvas to place a note">+ Text</button>
       <button data-m="arrow" title="Click start, then end">+ Arrow</button>
     </div>
-    <button class="edit-only" id="exp" title="Download status.json to upload to your server">Export</button>
+    <button class="edit-only" id="ttl" title="Change the diagram title and subtitle">Title</button>
+    <button class="edit-only" id="undo" title="Undo last change (Ctrl+Z)" disabled>Undo</button>
+    <button class="edit-only" id="exp" title="Save a backup copy of the board (status.json)">Backup</button>
     <label class="btn edit-only" style="margin:0;font-size:13px;color:var(--ink)">Import<input type="file" id="imp" accept=".json" hidden></label>
-    <button id="svgdl" title="Download the current diagram as SVG">SVG</button>
-    <button class="edit-only" id="reset" title="Discard local changes, reload server status.json">Reset</button>
+    <button id="pngdl" title="Save the diagram as a PNG image">PNG</button>
+    <button id="svgdl" title="Save the diagram as an SVG (scalable) file">SVG</button>
+    <button class="edit-only" id="reset" title="Reset the board to its original statuses">Reset</button>
   </div>
 </header>
 <div class="banner" id="banner">You have local changes that collaborators can't see yet. Click <b>Export</b>, then upload <b>status.json</b> next to this file on your server.</div>
@@ -1150,10 +1154,12 @@ const COL={g:'#15803d',a:'#d97706',r:'#dc2626',x:'#64748b'};
 const DASH={g:'none',a:'none',r:'12 7',x:'4 7'};
 const NAME={g:'Implemented',a:'In progress',r:'Missing',x:'Not verifiable'};
 const params=new URLSearchParams(location.search);
+const EMBED=params.has('embed');
 const VIEW=params.has('view')||params.get('mode')==='view';
 const SRC=params.get('status')||'status.json';
 const KEY='pci-progress:'+location.pathname;
 if(VIEW)document.body.classList.add('view');
+if(EMBED)document.body.classList.add('embed');
 const svg=document.getElementById('diagram');const NS='http://www.w3.org/2000/svg';
 const stage=document.getElementById('stage');
 const byId=Object.fromEntries(REG.map(r=>[r.id,r]));
@@ -1163,7 +1169,17 @@ let state={items:{},texts:{},notes:[],arrows:[]};
 let mode='select',sel=null,dirty=false;
 const userLayer=document.createElementNS(NS,'g');userLayer.id='user';svg.appendChild(userLayer);
 
-function store(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}dirty=true;document.getElementById('banner').classList.toggle('show',!VIEW)}
+const history=[];let lastSnap=null;const undoBtn=()=>document.getElementById('undo');
+function snap(){lastSnap=JSON.stringify(state);history.length=0;undoBtn().disabled=true}
+function store(){
+  if(lastSnap!==null){const cur=JSON.stringify(state);if(cur===lastSnap)return;history.push(lastSnap);if(history.length>100)history.shift();lastSnap=cur;undoBtn().disabled=false}
+  dirty=true;
+  if(EMBED){if(!VIEW)parent.postMessage({type:'pci-board-change',state},location.origin);return}
+  try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}
+  document.getElementById('banner').classList.toggle('show',!VIEW)}
+function undo(){if(!history.length)return;const prev=history.pop();state=JSON.parse(prev);lastSnap=prev;undoBtn().disabled=!history.length;applyAll();
+  if(EMBED&&!VIEW)parent.postMessage({type:'pci-board-change',state},location.origin);else{try{localStorage.setItem(KEY,prev)}catch(e){}}
+  document.getElementById('details').innerHTML='<p>Undone.</p>'}
 function setStatus(id,st){
   const el=document.getElementById(id);if(!el)return;
   el.dataset.st=st;el.style.setProperty('--st',COL[st]);el.style.setProperty('--dash',DASH[st]);
@@ -1213,8 +1229,8 @@ function select(id){
    <label>Size</label><input type="text" id="ns" value="${un.size||22}"><label>Colour</label><select id="nc">${Object.entries({'#1e293b':'Dark','#15803d':'Green','#d97706':'Amber','#dc2626':'Red','#2563eb':'Blue','#64748b':'Grey'}).map(([v,k])=>`<option value="${v}" ${un.color===v?'selected':''}>${k}</option>`).join('')}</select>
    <p style="margin-top:10px">Drag the note on the diagram to move it.</p><button class="edit-only" id="del">Delete note</button>`;
    if(VIEW){P.querySelectorAll('textarea,input,select').forEach(x=>x.disabled=true)}
-   P.querySelector('#nt').oninput=e=>{un.text=e.target.value;drawUser();store()};
-   P.querySelector('#ns').oninput=e=>{un.size=+e.target.value||22;drawUser();store()};
+   P.querySelector('#nt').oninput=e=>{un.text=e.target.value.slice(0,1000)||' ';drawUser();store()};
+   P.querySelector('#ns').oninput=e=>{un.size=Math.min(120,Math.max(8,Math.round(+e.target.value||22)));drawUser();store()};
    P.querySelector('#nc').onchange=e=>{un.color=e.target.value;drawUser();store()};
    P.querySelector('#del').onclick=()=>{state.notes=state.notes.filter(n=>n!==un);drawUser();store();P.innerHTML='<p>Note deleted.</p>'};return;}
   const r=ua?{title:'Your arrow',type:'connection',desc:ua.label||''}:byId[id];if(!r)return;
@@ -1227,8 +1243,8 @@ function select(id){
   P.querySelectorAll('.st button').forEach(b=>b.onclick=()=>{const s=b.dataset.s;
     if(ua){ua.st=s;drawUser()}else{state.items[id]={...(state.items[id]||{}),status:s};setStatus(id,s)}
     store();progress();list();select(id)});
-  P.querySelector('#note').oninput=e=>{if(ua)ua.note=e.target.value;else state.items[id]={status:statusOf(id),...(state.items[id]||{}),note:e.target.value};store()};
-  if(ua){P.querySelector('#al').oninput=e=>{ua.label=e.target.value;drawUser();document.getElementById(id)?.classList.add('sel');store()};
+  P.querySelector('#note').oninput=e=>{const v=e.target.value.slice(0,2000);if(ua)ua.note=v;else state.items[id]={status:statusOf(id),...(state.items[id]||{}),note:v};store()};
+  if(ua){P.querySelector('#al').oninput=e=>{ua.label=e.target.value.slice(0,200);drawUser();document.getElementById(id)?.classList.add('sel');store()};
     P.querySelector('#del').onclick=()=>{state.arrows=state.arrows.filter(a=>a!==ua);drawUser();store();progress();P.innerHTML='<p>Arrow deleted.</p>'}}
 }
 function list(){
@@ -1284,14 +1300,14 @@ async function clickAt(e){
   if(mode==='text'&&!VIEW){const t=target?.closest?.('text');if(!t)return;
     if(t.classList.contains('unote')){select(t.id);return}
     const i=+t.dataset.t;if(isNaN(i))return;const v=await ask('Change text',[{label:'Text',value:t.textContent}]);
-    if(v===null)return;state.texts[i]=v[0];if(v[0]===ORIG[i])delete state.texts[i];t.textContent=v[0];store();return}
+    if(v===null)return;v[0]=v[0].slice(0,300);state.texts[i]=v[0];if(v[0]===ORIG[i])delete state.texts[i];t.textContent=v[0];store();return}
   if(mode==='addtext'&&!VIEW){const p=toSvg(e);const v=await ask('Add text',[{label:'Text',value:'',big:true},{label:'Size',type:'select',options:[['22','Normal'],['30','Large'],['44','Heading'],['16','Small']]},{label:'Colour',type:'select',options:[['#1e293b','Dark'],['#15803d','Green'],['#d97706','Amber'],['#dc2626','Red'],['#2563eb','Blue']]}]);
-    if(!v||!v[0].trim())return;const n={id:'n'+Date.now(),x:Math.round(p.x),y:Math.round(p.y),text:v[0],size:+v[1],color:v[2]};state.notes.push(n);drawUser();store();setMode('select');select(n.id);return}
+    if(!v||!v[0].trim())return;const n={id:'n'+Date.now(),x:Math.round(p.x),y:Math.round(p.y),text:v[0].slice(0,1000),size:+v[1],color:v[2]};state.notes.push(n);drawUser();store();setMode('select');select(n.id);return}
   if(mode==='arrow'&&!VIEW){const p=toSvg(e);
     if(!arrowStart){arrowStart=p;tmp=document.createElementNS(NS,'line');tmp.setAttribute('x1',p.x);tmp.setAttribute('y1',p.y);tmp.setAttribute('x2',p.x);tmp.setAttribute('y2',p.y);tmp.setAttribute('stroke','#2563eb');tmp.setAttribute('stroke-width','4');tmp.setAttribute('stroke-dasharray','8 6');userLayer.appendChild(tmp);hint('Now click where the arrow should end.');return}
     tmp.remove();tmp=null;const a={id:'a'+Date.now(),x1:Math.round(arrowStart.x),y1:Math.round(arrowStart.y),x2:Math.round(p.x),y2:Math.round(p.y),st:'r',label:''};arrowStart=null;
     const v=await ask('Arrow label (optional)',[{label:'Label',value:''},{label:'Status',type:'select',options:[['r','Missing'],['a','In progress'],['g','Implemented'],['x','Not verifiable']]}]);
-    if(v){a.label=v[0];a.st=v[1]}state.arrows.push(a);drawUser();store();progress();list();setMode('select');select(a.id);return}
+    if(v){a.label=v[0].slice(0,200);a.st=v[1]}state.arrows.push(a);drawUser();store();progress();list();setMode('select');select(a.id);return}
   const el=target?.closest?.('.el, .unote');if(el)select(el.id);
 }
 function hint(t){document.getElementById('hint').textContent=t}
@@ -1300,16 +1316,71 @@ function setMode(m){mode=m;arrowStart=null;tmp?.remove();tmp=null;stage.classNam
 document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
 // ---------- load / save ----------
 function merge(src){if(!src)return;state.items={...state.items,...(src.items||{})};state.texts={...(src.texts||{})};state.notes=src.notes||[];state.arrows=src.arrows||[]}
-function download(name,data,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function download(name,data,type){return saveFile(name,data instanceof Blob?data:new Blob([data],{type}),type)}
+async function saveFile(name,blob,type){
+  const ext=name.slice(name.lastIndexOf('.'));
+  if(window.showSaveFilePicker){
+    try{const h=await window.showSaveFilePicker({suggestedName:name,startIn:'desktop',types:[{description:ext.slice(1).toUpperCase()+' file',accept:{[type]:[ext]}}]});
+      const w=await h.createWritable();await w.write(blob);await w.close();return}
+    catch(e){if(e&&e.name==='AbortError')return}
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
+function cleanSvg(){const c=svg.cloneNode(true);c.removeAttribute('style');c.setAttribute('width',VB.width);c.setAttribute('height',VB.height);
+  c.querySelectorAll('.sel').forEach(x=>x.classList.remove('sel'));return '<?xml version="1.0" encoding="UTF-8"?>\n'+new XMLSerializer().serializeToString(c)}
+function docCode(d=new Date()){
+  const slug=(location.pathname.split('/').filter(Boolean).slice(-2,-1)[0]||'board');
+  const abbr=slug.split('-').map(w=>w[0]).join('').toUpperCase();const p=n=>String(n).padStart(2,'0');
+  return `PCI-ARC-${abbr}-${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`}
+function drawTitleBlock(ctx,k,y0,w,h){
+  const F='Inter, "Segoe UI", Arial, sans-serif',now=new Date();
+  ctx.fillStyle='#0f172a';ctx.fillRect(0,y0,w,h);
+  ctx.fillStyle='#0f766e';ctx.fillRect(0,y0,w,6*k);
+  ctx.fillStyle='#ffffff';ctx.font=`800 ${46*k}px ${F}`;ctx.textBaseline='middle';
+  ctx.fillText('RACKELTO TECHNOLOGIES LTD.',70*k,y0+h/2-14*k);
+  ctx.fillStyle='#94a3b8';ctx.font=`500 ${20*k}px ${F}`;
+  ctx.fillText('Pakistan Creator Index — engineering documentation · confidential',72*k,y0+h/2+32*k);
+  const bw=920*k,bh=150*k,bx=w-bw-60*k,by=y0+(h-bh)/2;
+  ctx.fillStyle='#ffffff';ctx.fillRect(bx,by,bw,bh);ctx.strokeStyle='#0f766e';ctx.lineWidth=4*k;ctx.strokeRect(bx,by,bw,bh);
+  ctx.fillStyle='#0f766e';ctx.fillRect(bx,by,14*k,bh);
+  const title=(document.querySelector('#diagram text')?.textContent||'System Architecture').slice(0,70);
+  ctx.fillStyle='#64748b';ctx.font=`700 ${16*k}px ${F}`;ctx.fillText('DOCUMENT CODE',bx+40*k,by+32*k);
+  ctx.fillStyle='#0f172a';ctx.font=`800 ${38*k}px Consolas, "JetBrains Mono", monospace`;ctx.fillText(docCode(now),bx+40*k,by+72*k);
+  ctx.fillStyle='#334155';ctx.font=`600 ${19*k}px ${F}`;ctx.fillText(`${title}`,bx+40*k,by+110*k);
+  ctx.fillStyle='#64748b';ctx.font=`500 ${16*k}px ${F}`;
+  ctx.fillText(`Exported ${now.toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}`,bx+40*k,by+134*k)}
+function stamp(){return new Date().toISOString().slice(0,16).replace(/[-:T]/g,'')}
 document.getElementById('exp').onclick=()=>{download('status.json',JSON.stringify({version:1,updated:new Date().toISOString(),...state},null,1),'application/json');};
 document.getElementById('imp').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{state={items:{},texts:{},notes:[],arrows:[]};merge(JSON.parse(await f.text()));applyAll();store()}catch(err){alert('That file is not a valid status.json')}e.target.value=''};
-document.getElementById('reset').onclick=async()=>{if(!confirm('Discard your local changes and reload the shared status?'))return;try{localStorage.removeItem(KEY)}catch(e){}state={items:{},texts:{},notes:[],arrows:[]};await loadServer();applyAll();document.getElementById('banner').classList.remove('show')};
-document.getElementById('svgdl').onclick=()=>{const c=svg.cloneNode(true);c.removeAttribute('style');c.querySelectorAll('.sel').forEach(x=>x.classList.remove('sel'));download('pci-architecture.svg','<?xml version="1.0" encoding="UTF-8"?>\n'+new XMLSerializer().serializeToString(c),'image/svg+xml')};
+document.getElementById('reset').onclick=async()=>{
+  if(EMBED){if(!confirm('Reset the whole board to its original statuses for everyone? (Undo is available right after.)'))return;state=JSON.parse(JSON.stringify(DEFAULTS));applyAll();store();return}
+  if(!confirm('Discard your local changes and reload the shared status?'))return;try{localStorage.removeItem(KEY)}catch(e){}state={items:{},texts:{},notes:[],arrows:[]};await loadServer();applyAll();document.getElementById('banner').classList.remove('show')};
+document.getElementById('svgdl').onclick=()=>download(`pci-architecture-${stamp()}.svg`,cleanSvg(),'image/svg+xml');
+document.getElementById('pngdl').onclick=async()=>{const b=document.getElementById('pngdl');b.disabled=true;b.textContent='…';
+  try{const url=URL.createObjectURL(new Blob([cleanSvg()],{type:'image/svg+xml'}));const img=new Image();
+    await new Promise((ok,bad)=>{img.onload=ok;img.onerror=bad;img.src=url});
+    const k=1.5,cv=document.createElement('canvas');cv.width=Math.round(VB.width*k);cv.height=Math.round(VB.height*k);
+    const band=200,cv2=document.createElement('canvas');cv.height=Math.round(VB.height*k)+band*k;
+    const ctx=cv.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,cv.width,cv.height);ctx.drawImage(img,0,0,Math.round(VB.width*k),Math.round(VB.height*k));URL.revokeObjectURL(url);
+    drawTitleBlock(ctx,k,Math.round(VB.height*k),cv.width,band*k);
+    const code=docCode();const blob=await new Promise(r=>cv.toBlob(r,'image/png'));await saveFile(`${code}.png`,blob,'image/png')}
+  catch(e){alert('PNG export failed in this browser. Try SVG instead.')}
+  finally{b.disabled=false;b.textContent='PNG'}};
+document.getElementById('undo').onclick=undo;
+document.getElementById('ttl').onclick=async()=>{const v=await ask('Diagram title',[{label:'Title',value:texts[0].textContent},{label:'Subtitle',value:texts[1].textContent}]);
+  if(!v)return;[0,1].forEach(i=>{const s=v[i].slice(0,300);if(s===ORIG[i])delete state.texts[i];else state.texts[i]=s;texts[i].textContent=s});store()};
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||'')){e.preventDefault();undo()}});
+let DEFAULTS={items:{},texts:{},notes:[],arrows:[]};
 async function loadServer(){try{const r=await fetch(SRC,{cache:'no-store'});if(r.ok)merge(await r.json())}catch(e){/* opened as a local file: built-in defaults */}}
+// Embedded in the admin panel: the panel loads and saves the shared state; the board only talks to its parent page.
+window.addEventListener('message',e=>{
+  if(!EMBED||e.source!==window.parent||e.origin!==location.origin)return;const m=e.data||{};
+  if(m.type==='pci-board-load'){state=JSON.parse(JSON.stringify(DEFAULTS));if(m.state)merge(m.state);applyAll();snap()}
+});
 (async()=>{
-  await loadServer();
-  if(!VIEW){try{const l=localStorage.getItem(KEY);if(l){merge(JSON.parse(l));document.getElementById('banner').classList.add('show')}}catch(e){}}
-  applyAll();fit();setMode('select');
+  await loadServer();DEFAULTS=JSON.parse(JSON.stringify(state));
+  if(!VIEW&&!EMBED){try{const l=localStorage.getItem(KEY);if(l){merge(JSON.parse(l));document.getElementById('banner').classList.add('show')}}catch(e){}}
+  applyAll();fit();setMode('select');snap();
+  if(EMBED)parent.postMessage({type:'pci-board-ready'},location.origin);
   if(VIEW)hint('');
 })();
 </script>

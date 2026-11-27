@@ -14,3 +14,7 @@
 .progress-board-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
 .progress-board-head h2{font-size:1.12rem}
 @media(max-width:760px){.progress-frame{height:76vh}.progress-projects{grid-template-columns:1fr}}
+.progress-save{font-size:.8rem;color:var(--ink-muted)}
+.progress-save-pending{color:#b45309;font-weight:700}
+.progress-save-saving{color:var(--ink-soft)}
+.progress-save-saved{color:#15803d}

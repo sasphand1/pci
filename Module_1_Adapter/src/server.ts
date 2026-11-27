@@ -1,4 +1,6 @@
 import {ensureBroadcastSchema} from './lib/broadcast-schema.js';
+import {ensureProgressSchema} from './lib/progress-schema.js';
+import {progressAdminRoutes} from './modules/progress/routes.js';
 import {broadcastAdminRoutes,broadcastDispatchRoutes} from './modules/broadcast/routes.js';
 import {ensureSatelliteSchema} from './lib/satellite-schema.js';
 import {ensureSatifySchema} from './lib/satify-schema.js';
@@ -147,6 +149,7 @@ export function makeApp() {
   app.use('/api/v1/wall/auth',wallAuthRoutes);
   app.use('/api/v1/wall',wallRoutes);
   app.use('/api/v1/admin/auth',adminAuthRoutes);
+  app.use('/api/v1/admin',progressAdminRoutes);
   app.use('/api/v1/admin/broadcast',broadcastAdminRoutes);
   app.use('/api/v1/broadcast/dispatch',broadcastDispatchRoutes);
   app.use('/api/v1/admin',adminRoutes);
@@ -235,6 +238,8 @@ async function main(){
         catch(err){logger.error({err},'Satellite schema unavailable; satellite endpoints may fail until migration is applied');}
         try{await ensureSatifySchema();logger.info('Satify Hub schema verified');}
         catch(err){logger.error({err},'Satify Hub schema unavailable; Satify endpoints may fail until it is applied');}
+        try{await ensureProgressSchema();logger.info('Progress boards schema verified');}
+        catch(err){logger.error({err},'Progress boards schema unavailable; Progress tab saving disabled until it is applied');}
         try{await ensureBroadcastSchema();logger.info('Broadcast schema verified');}
         catch(err){logger.error({err},'Broadcast schema unavailable; broadcast endpoints may fail until migration is applied');}
         pciStartupReady=true;
