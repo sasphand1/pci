@@ -33,6 +33,7 @@ export default function OverviewPage(){
 
  return <AdminPage title="Overview" description="What is in the index, how fresh it is, and what needs a person." action={action}>
   {ok&&<Notice>{ok}</Notice>}{fail&&<Notice tone="danger">{fail}</Notice>}
+  <Link href="/progress" className="progress-overview-link"><span className="progress-overview-title">Progress board</span><span className="progress-overview-text">Architecture and build progress for every project, shared with the whole team.</span><span className="progress-overview-cta">Open Progress →</span></Link>
   {loading&&!data&&<p role="status" className="muted">Loading the overview…</p>}
   {error&&!data&&<Notice tone="danger">{error} <button type="button" className="btn btn-secondary" onClick={reload}>Try again</button></Notice>}
   {error&&data&&<Notice tone="warning">Could not refresh just now. These numbers are from the last successful load.</Notice>}

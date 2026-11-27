@@ -15,3 +15,14 @@ test('progress routes: admin session, owner/editor writes, stale writes refused,
  assert.match(r,/\.strict\(\)/);
  assert.match(s,/app\.use\('\/api\/v1\/admin',progressAdminRoutes\)/);assert.match(s,/ensureProgressSchema\(\)/);
 });
+test('Satify mirror reports its health to the Hub Monitor (no permanent "no successful collection" alert)',async()=>{
+ const s=await read('src/modules/satify/service.ts');
+ assert.match(s,/await writeHubReadings\('satify\.api',hub\);if\(hub\.length\)await reportSourceResult\('satify\.api',true\)/);
+ assert.match(s,/reportSourceResult\('satify\.api',false/);
+});
+test('air quality and Satify use realistic rhythms, applied at start-up without overriding admin edits',async()=>{
+ const sql=await read('database/migrations/126_hub_source_cadence.sql');
+ assert.match(sql,/expected_hours=12 WHERE id='sat_airquality\.api' AND expected_hours=2/);
+ assert.match(sql,/expected_hours=6 WHERE id='satify\.api' AND expected_hours=2/);
+ assert.match(await read('src/server.ts'),/ensureHubCadence\(\)/);
+});

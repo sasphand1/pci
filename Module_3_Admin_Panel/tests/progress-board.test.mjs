@@ -31,3 +31,7 @@ test('progress styles are centralized',()=>{
  assert.equal((read('vendor/pci-ui/src/styles.css').match(/styles\/progress\.css/g)||[]).length,1);
  assert.doesNotMatch(read('src/app/progress/page.tsx'),/\bstyle\s*=|<style\b|localStorage|dangerouslySetInnerHTML/);
 });
+test('Overview links to the Progress tab',()=>{
+ assert.match(read('src/app/page.tsx'),/<Link href="\/progress" className="progress-overview-link">/);
+ assert.match(read('vendor/pci-ui/src/styles/progress.css'),/\.progress-overview-link\{/);
+});

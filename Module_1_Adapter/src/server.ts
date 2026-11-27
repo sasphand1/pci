@@ -1,5 +1,5 @@
 import {ensureBroadcastSchema} from './lib/broadcast-schema.js';
-import {ensureProgressSchema} from './lib/progress-schema.js';
+import {ensureHubCadence,ensureProgressSchema} from './lib/progress-schema.js';
 import {progressAdminRoutes} from './modules/progress/routes.js';
 import {broadcastAdminRoutes,broadcastDispatchRoutes} from './modules/broadcast/routes.js';
 import {ensureSatelliteSchema} from './lib/satellite-schema.js';
@@ -238,6 +238,8 @@ async function main(){
         catch(err){logger.error({err},'Satellite schema unavailable; satellite endpoints may fail until migration is applied');}
         try{await ensureSatifySchema();logger.info('Satify Hub schema verified');}
         catch(err){logger.error({err},'Satify Hub schema unavailable; Satify endpoints may fail until it is applied');}
+        try{await ensureHubCadence();logger.info('Hub source rhythms verified');}
+        catch(err){logger.warn({err},'Hub source rhythms not updated');}
         try{await ensureProgressSchema();logger.info('Progress boards schema verified');}
         catch(err){logger.error({err},'Progress boards schema unavailable; Progress tab saving disabled until it is applied');}
         try{await ensureBroadcastSchema();logger.info('Broadcast schema verified');}

@@ -3,6 +3,7 @@
 import {query} from '../../lib/db.js';
 import {logger} from '../../lib/errors.js';
 import {writeHubReadings} from '../satellite/hub.js';
+import {reportSourceResult} from '../ingest/monitor.js';
 import {SIGNALS,SATIFY_CITIES,ROUTES} from './catalog.mjs';
 import {metarUrl,parseMetar,FX_SBP_URL,FX_ERAPI_URL,parseFrankfurter,parseErApi,GOLD_XAUS_URL,parseXaus,type SatifyReading} from './sources.mjs';
 import {deriveCity,deriveRoutes,type SignalValue,type DerivedReading} from './derive.mjs';
@@ -45,7 +46,9 @@ export async function storeReadings(rows:(SatifyReading|(DerivedReading&{observe
   SELECT * FROM unnest($1::text[],$2::text[],$3::float8[],$4::text[],$5::text[],$6::text[],$7::timestamptz[])
   ON CONFLICT (signal_id,scope,observed_at,source) DO NOTHING`,[cols.sig,cols.scope,cols.val,cols.txt,cols.badge,cols.src,cols.at]);
  const hub=valid.filter(r=>r.value!==null).map(r=>({entityKind:'satify_scope',entityId:r.scope,metric:r.signal,value:r.value,scale:2,text:null,observedAt:r.observedAt??now,meta:{badge:r.badge,source:r.source}}));
- await writeHubReadings('satify.api',hub).catch(err=>logger.warn({err},'Satify readings not mirrored into the main hub'));
+ // Tell the Hub Monitor how the mirror went, so the Data Hub page shows real health (not "no successful collection").
+ try{await writeHubReadings('satify.api',hub);if(hub.length)await reportSourceResult('satify.api',true);}
+ catch(err){logger.warn({err},'Satify readings not mirrored into the main hub');await reportSourceResult('satify.api',false,'UNAVAILABLE');}
  return valid.length;
 }
 
