@@ -2,9 +2,8 @@
 const BASE = 'https://scrappa.co/api/tiktok/user/';
 const MAX_BYTES = 4_000_000;
 export const MAX_COLLECTION_CREDITS = 4;
-export const MONTHLY_CREDIT_LIMIT = 500;
-export const SCHEDULED_CREDIT_CEILING = 400;
-export type ReserveCredit = () => Promise<boolean>;
+export type CreditReservation={finish:(httpStatus:number|null,transportFailure?:boolean)=>Promise<void>};
+export type ReserveCredit = (endpoint:'profile'|'posts',handle:string) => Promise<boolean|CreditReservation>;
 const count = (v: unknown): number | null => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? v : null;
 const obj = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
 const str = (v: unknown): string | null => typeof v === 'string' && v.length ? v : null;
@@ -44,30 +43,36 @@ export function summarize(posts: ReturnType<typeof parsePosts>) {
   return {sampleSize: posts.length, averageViews:mean('views'), averageLikes:mean('likes'), averageComments:mean('comments'), averageShares:mean('shares')};
 }
 /** Reserve against a durable caller-owned quota BEFORE each request, including failures. No automatic retries. */
-function requester(apiKey: string, reserve: ReserveCredit, fetcher: typeof fetch) {
+function requester(apiKey: string, reserve: ReserveCredit, fetcher: typeof fetch, handle:string) {
   if (!apiKey.trim()) throw new Error('scrappa_key_missing');
   async function request(endpoint: 'profile'|'posts', params: Record<string,string>) {
-    if (!await reserve()) throw new Error('quota_exhausted');
     const url = new URL(BASE+endpoint); url.search = new URLSearchParams(params).toString();
+    const reservation=await reserve(endpoint,handle);
+    if (!reservation) throw new Error('quota_exhausted');
+    const finish=async(status:number|null,transportFailure=false)=>{if(typeof reservation==='object')await reservation.finish(status,transportFailure);};
     let response: Response;
     try { response = await fetcher(url,{headers:{'x-api-key':apiKey},redirect:'error',signal:AbortSignal.timeout(20000)}); }
-    catch { throw new Error('scrappa_network_error'); }
-    if (!response.ok) { await response.body?.cancel(); throw new Error(`scrappa_http_${response.status}`); }
-    const reader = response.body?.getReader(); if (!reader) throw new Error('scrappa_empty_body');
-    const decoder = new TextDecoder(); let bytes=0, text='';
-    try { for (;;) { const next=await reader.read(); if(next.done) break; bytes+=next.value.byteLength; if(bytes>MAX_BYTES){await reader.cancel();throw new Error('scrappa_body_limit');} text+=decoder.decode(next.value,{stream:true}); } text+=decoder.decode(); }
-    finally {reader.releaseLock();}
-    try {return JSON.parse(text) as unknown;} catch {throw new Error('scrappa_invalid_json');}
+    catch { await finish(null); throw new Error('scrappa_network_error'); }
+    let transportFailure=false;
+    try {
+      if (!response.ok) { await response.body?.cancel().catch(()=>{}); throw new Error(`scrappa_http_${response.status}`); }
+      const reader = response.body?.getReader(); if (!reader) throw new Error('scrappa_empty_body');
+      const decoder = new TextDecoder(); let bytes=0, text='';
+      try { for (;;) { const next=await reader.read(); if(next.done) break; bytes+=next.value.byteLength; if(bytes>MAX_BYTES){await reader.cancel();throw new Error('scrappa_body_limit');} text+=decoder.decode(next.value,{stream:true}); } text+=decoder.decode(); }
+      catch(e){if(e instanceof Error&&e.message==='scrappa_body_limit')throw e;transportFailure=true;throw new Error('scrappa_network_error');}
+      finally {reader.releaseLock();}
+      try {return JSON.parse(text) as unknown;} catch {throw new Error('scrappa_invalid_json');}
+    } finally {await finish(response.status,transportFailure);}
   }
   return request;
 }
 export async function collectProfile(handle: string, apiKey: string, reserve: ReserveCredit, fetcher: typeof fetch = fetch) {
   const name = username(handle);
-  return parseProfile(await requester(apiKey,reserve,fetcher)('profile',{unique_id:name}),name);
+  return parseProfile(await requester(apiKey,reserve,fetcher,name)('profile',{unique_id:name}),name);
 }
 export async function collect(handle: string, apiKey: string, reserve: ReserveCredit, fetcher: typeof fetch = fetch, expectedAccountId?: string) {
   const name = username(handle);
-  const request = requester(apiKey,reserve,fetcher);
+  const request = requester(apiKey,reserve,fetcher,name);
   const profile = parseProfile(await request('profile',{unique_id:name}),name);
   if(expectedAccountId!==undefined&&profile.accountId!==expectedAccountId)throw new Error('candidate_identity_changed');
   const byId = new Map<string, ReturnType<typeof parsePosts>[number]>();

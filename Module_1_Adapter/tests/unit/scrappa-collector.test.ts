@@ -53,3 +53,12 @@ test('identity mismatch on continuation invalidates full collection',async()=>{
 test('changed staged identity stops before the posts request',async()=>{
  let calls=0;await assert.rejects(collect('tiktok','test',async()=>true,async()=>{calls++;return Response.json(profile);},'999'),/candidate_identity_changed/);assert.equal(calls,1);
 });
+
+test('ledger hooks reserve exact endpoint and normalized handle, then count each HTTP response',async()=>{
+ const events:string[]=[];await collect('@TikTok','test',async(endpoint,handle)=>{events.push(`reserve:${endpoint}:${handle}`);return {finish:async(status)=>{events.push(`finish:${status}`);}};},async u=>Response.json(String(u).includes('/profile')?profile:posts));
+ assert.deepEqual(events,['reserve:profile:tiktok','finish:200','reserve:posts:tiktok','finish:200']);
+});
+test('network ambiguity retains reservation and reports null status',async()=>{let count=0;let status:number|null|undefined;await assert.rejects(collect('tiktok','test',async()=>{count++;return {finish:async(s)=>{status=s;}};},async()=>{throw Error('connection reset');}),/scrappa_network_error/);assert.equal(count,1);assert.equal(status,null);});
+test('invalid local handle spends no credits',async()=>{let count=0;await assert.rejects(collect('invalid handle','test',async()=>{count++;return true;},async()=>{throw Error('unexpected network');}),/invalid_username/);assert.equal(count,0);});
+test('provider quota or auth rejection finishes the ledger and does not retry',async()=>{for(const code of [401,402,403,429,503]){let count=0;let status:number|null|undefined;await assert.rejects(collect('tiktok','test',async()=>{count++;return {finish:async(s)=>{status=s;}};},async()=>new Response(null,{status:code})),new RegExp(`scrappa_http_${code}`));assert.equal(count,1);assert.equal(status,code);}});
+test('stream failure after headers retains HTTP status and marks transport failure',async()=>{let outcome:unknown;const body=new ReadableStream<Uint8Array>({pull(controller){controller.error(Error('stream reset'));}});await assert.rejects(collect('tiktok','test',async()=>({finish:async(status,transport)=>{outcome=[status,transport];}}),async()=>new Response(body,{status:200})),/scrappa_network_error/);assert.deepEqual(outcome,[200,true]);});

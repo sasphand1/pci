@@ -9,6 +9,8 @@ test('Scrappa routes require owner for publishing controls and keep candidate ob
  const store=read('src/modules/creators-bucket/tiktok-staging.ts');assert.match(store,/accountId:null/);assert.match(store,/tiktok_candidate:/);assert.doesNotMatch(admin,/INSERT INTO accounts/);
 });
 test('scheduled refresh is gated by environment and owner-controlled source',()=>{
- assert.match(admin,/PCI_SCRAPPA_AUTO_REFRESH!=='true'/);assert.match(admin,/SCHEDULED_CREDIT_CEILING/);assert.match(admin,/s.enabled=true/);
+ assert.match(admin,/PCI_SCRAPPA_AUTO_REFRESH!=='true'/);assert.match(admin,/remainingCredits\(key.id,true\)/);assert.match(admin,/s.enabled=true/);
  assert.match(read('src/modules/sync/scheduler.ts'),/refreshScrappaCandidates\(\)/);
 });
+
+test('credit intelligence migration is additive and matches locked bootstrap',()=>{assert.ok(admin.includes(read('database/migrations/132_scrappa_credit_intelligence.sql')));const c=read('src/modules/scrappa/credits.ts');assert.match(c,/pg_advisory_xact_lock\(710329\)/);assert.match(c,/scrappa_key_credit_month.used<\$2/);assert.match(c,/INSERT INTO scrappa_credit_ledger/);assert.match(c,/scrappa_credit_month.used\+1/);});

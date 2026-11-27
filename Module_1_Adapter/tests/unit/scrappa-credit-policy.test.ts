@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {monthlyCap,scheduledCeiling,breakerReason,type CreditEvent} from '../../src/modules/scrappa/credit-policy.ts';
+const now=1700000000000;
+const event=(status:number|null,ms=1000,outcome:CreditEvent['outcome']='response',transport_failure=false):CreditEvent=>({http_status:status,outcome,reserved_at:new Date(now-ms),transport_failure});
+test('default 499 and strict authorized cap bounds',()=>{assert.equal(monthlyCap(),499);assert.equal(monthlyCap('1000'),1000);assert.equal(monthlyCap(1),1);assert.equal(monthlyCap(100000),100000);for(const value of [0,100001,2.5,'','499.0','foo'])assert.throws(()=>monthlyCap(value),/invalid_scrappa_monthly_cap/);});
+test('scheduled ceiling reserves at least 20 percent for manual requests',()=>{assert.equal(scheduledCeiling(499),399);assert.equal(scheduledCeiling(500),400);assert.equal(scheduledCeiling(1),0);});
+test('immediate provider breaker persists for 24 hours',()=>{for(const code of [401,402,403,429]){assert.equal(breakerReason([event(code)],now),'provider_stop');assert.equal(breakerReason([event(code,86400001)],now),null);}});
+test('three consecutive transport or 5xx failures stop requests',()=>{const failures=[event(503,1000),event(null,2000,'ambiguous'),event(200,3000,'response',true)];assert.equal(breakerReason(failures,now),'consecutive_failures');assert.equal(breakerReason(failures.slice(0,2),now),null);assert.equal(breakerReason([event(200,500),...failures],now),null);assert.equal(breakerReason(failures,now+21600000),null);});
+test('live reservation blocks concurrent provider requests; expired remains chargeable and counts as failure',()=>{assert.equal(breakerReason([event(null,1000,'reserved')],now),'request_in_flight');assert.equal(breakerReason([event(null,120001,'reserved')],now),null);assert.equal(breakerReason([event(null,120001,'reserved'),event(503,130000),event(null,140000,'ambiguous')],now),'consecutive_failures');});

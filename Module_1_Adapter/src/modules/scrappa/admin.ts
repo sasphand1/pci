@@ -5,7 +5,10 @@ import { handler, HttpError } from '../../lib/errors.js';
 import { roles, type AdminIdentity } from '../auth/auth.js';
 import type { Router } from 'express';
 import { ensureTikTokSource, storeTikTokCandidate } from '../creators-bucket/tiktok-staging.js';
-import { collect, collectProfile, username, MAX_COLLECTION_CREDITS, MONTHLY_CREDIT_LIMIT, SCHEDULED_CREDIT_CEILING } from './collector.js';
+import { collect, MAX_COLLECTION_CREDITS } from './collector.js';
+import {monthlyCap} from './credit-policy.js';
+import {activeKey,keyUsage,remainingCredits,reserveFor,creditMonitor} from './credits.js';
+import {checkProfile,stageVerifiedCandidate,collectionError} from './checks.js';
 const SQL = `CREATE TABLE IF NOT EXISTS scrappa_admin_keys (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), label text NOT NULL, fingerprint text NOT NULL UNIQUE, ciphertext text NOT NULL, active boolean NOT NULL DEFAULT false);
 CREATE UNIQUE INDEX IF NOT EXISTS scrappa_one_active_key ON scrappa_admin_keys(active) WHERE active;
@@ -29,18 +32,49 @@ CREATE INDEX IF NOT EXISTS scrappa_snapshot_latest_idx ON scrappa_snapshots(exte
 -- Explicit owner approval of third-party data publication; private by default.
 ALTER TABLE scrappa_candidates ADD COLUMN IF NOT EXISTS published_at timestamptz;
 
+-- Scrappa credit accounting v2. Never discard the unallocated legacy total.
+ALTER TABLE scrappa_admin_keys ADD COLUMN IF NOT EXISTS monthly_cap integer NOT NULL DEFAULT 499 CHECK(monthly_cap BETWEEN 1 AND 100000);
+ALTER TABLE scrappa_admin_keys ADD COLUMN IF NOT EXISTS retired_at timestamptz;
+DO $$ BEGIN
+ IF to_regclass('scrappa_key_credit_month') IS NULL THEN
+  CREATE TABLE scrappa_key_credit_month (
+   key_id uuid NOT NULL REFERENCES scrappa_admin_keys(id) ON DELETE RESTRICT,
+   month date NOT NULL, used integer NOT NULL CHECK(used>=0), legacy_used integer NOT NULL DEFAULT 0 CHECK(legacy_used>=0 AND legacy_used<=used),
+   PRIMARY KEY(key_id,month));
+  -- Old usage has no key attribution. Charge the full shared total to each existing key conservatively.
+  INSERT INTO scrappa_key_credit_month(key_id,month,used,legacy_used)
+   SELECT k.id,m.month,m.used,m.used FROM scrappa_admin_keys k CROSS JOIN scrappa_credit_month m;
+ END IF;
+END $$;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='scrappa_credit_month'::regclass AND conname='scrappa_legacy_credit_nonnegative') THEN
+  ALTER TABLE scrappa_credit_month DROP CONSTRAINT IF EXISTS scrappa_credit_month_used_check;
+  ALTER TABLE scrappa_credit_month ADD CONSTRAINT scrappa_legacy_credit_nonnegative CHECK(used>=0);
+ END IF;
+END $$;
+CREATE TABLE IF NOT EXISTS scrappa_credit_ledger (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(), key_id uuid NOT NULL REFERENCES scrappa_admin_keys(id) ON DELETE RESTRICT,
+ run_id uuid REFERENCES ingest_jobs(id) ON DELETE SET NULL,
+ month date NOT NULL, endpoint text NOT NULL CHECK(endpoint IN ('profile','posts')), handle text NOT NULL,
+ outcome text NOT NULL DEFAULT 'reserved' CHECK(outcome IN ('reserved','response','ambiguous')),
+ http_status integer CHECK(http_status BETWEEN 100 AND 599),
+ reserved_at timestamptz NOT NULL DEFAULT now(), finished_at timestamptz, transport_failure boolean NOT NULL DEFAULT false,
+ CHECK((outcome='reserved' AND finished_at IS NULL AND http_status IS NULL) OR (outcome='response' AND finished_at IS NOT NULL AND http_status IS NOT NULL) OR (outcome='ambiguous' AND finished_at IS NOT NULL AND http_status IS NULL)));
+CREATE INDEX IF NOT EXISTS scrappa_credit_ledger_key_time_idx ON scrappa_credit_ledger(key_id,reserved_at DESC,id);
+CREATE INDEX IF NOT EXISTS scrappa_credit_ledger_run_idx ON scrappa_credit_ledger(run_id);
+CREATE TABLE IF NOT EXISTS scrappa_profile_checks (
+ handle text PRIMARY KEY, attempt_id uuid NOT NULL, attempted_at timestamptz NOT NULL,
+ completed_at timestamptz, checked_at timestamptz, profile jsonb, last_error text,
+ CHECK((profile IS NULL)=(checked_at IS NULL)));
+
 `;
 let ready: Promise<unknown>|undefined;
-export function ensureScrappaSchema(){return ready??=(transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock(710323)');await c.query(SQL);}).then(()=>ensureTikTokSource()).catch(e=>{ready=undefined;throw e;}));}
+export async function ensureScrappaSchema(){monthlyCap(process.env.SCRAPPA_MONTHLY_CREDIT_CAP);return ready??=(transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock(710323)');await c.query(SQL);}).then(()=>ensureTikTokSource()).catch(e=>{ready=undefined;throw e;}));}
 const ensure=ensureScrappaSchema;
-const month = "date_trunc('month',now() AT TIME ZONE 'UTC')::date";
-async function reserve(limit=MONTHLY_CREDIT_LIMIT){const r=await query(`INSERT INTO scrappa_credit_month(month,used) VALUES(${month},1) ON CONFLICT(month) DO UPDATE SET used=scrappa_credit_month.used+1 WHERE scrappa_credit_month.used<$1 RETURNING used`,[limit]);return Boolean(r.rowCount);}
-async function remaining(limit:number){return limit-Number((await query(`SELECT used FROM scrappa_credit_month WHERE month=${month}`)).rows[0]?.used??0);}
-async function keys(){return (await query('SELECT id,label,active FROM scrappa_admin_keys ORDER BY label,id')).rows;}
-function handle(raw:string){let v=raw.trim();if(v.includes('/')){const u=new URL(v.startsWith('https://')?v:'https://'+v);if(!['tiktok.com','www.tiktok.com','m.tiktok.com'].includes(u.hostname)||u.username||u.password||u.port||!/^\/@[^/]+\/?$/.test(u.pathname))throw Error('invalid_username');v=u.pathname.split('/')[1];}return username(v);}
-async function lookup(raw:string){let name:string;try{name=handle(raw);}catch{throw new HttpError(400,'INVALID_HANDLE','Enter a TikTok username or profile URL');}const key=(await query<{ciphertext:string}>('SELECT ciphertext FROM scrappa_admin_keys WHERE active')).rows[0];if(!key)throw new HttpError(409,'SCRAPPA_KEY_MISSING','Owner must activate a Scrappa key');try{return await collectProfile(name,decryptSecret(key.ciphertext),reserve);}catch(e){const msg=e instanceof Error?e.message:'';throw new HttpError(msg==='quota_exhausted'?429:422,'SCRAPPA_LOOKUP',msg==='quota_exhausted'?'Monthly PCI credit limit reached':'Profile lookup failed or account is not public');}}
+const keys=keyUsage;
+const defaultCap=()=>monthlyCap(process.env.SCRAPPA_MONTHLY_CREDIT_CAP);
 export function mountScrappaAdmin(router:Router){
- router.get('/bucket/scrappa/keys',roles('owner'),handler(async(_req,res)=>{await ensure();res.json({data:{keys:await keys(),used:Number((await query(`SELECT used FROM scrappa_credit_month WHERE month=${month}`)).rows[0]?.used??0),limit:500}});}));
+ router.get('/bucket/scrappa/keys',roles('owner'),handler(async(_req,res)=>{await ensure();const rows=await keys(),active=rows.find(k=>k.active);res.json({data:{keys:rows,used:active?.used??0,limit:active?.cap??0,defaultCap:defaultCap()}});}));
  router.get('/bucket/scrappa/status',roles('owner','editor'),handler(async(_req,res)=>{
   await ensure();
   const summary=(await query(`SELECT count(*)::int AS staged,count(*) FILTER(WHERE s.person_id IS NOT NULL)::int AS linked,
@@ -50,7 +84,7 @@ export function mountScrappaAdmin(router:Router){
    max(x.observed_at) AS latest_at FROM scrappa_candidates s
    LEFT JOIN LATERAL (SELECT observed_at,analytics FROM scrappa_snapshots WHERE external_id=s.external_id ORDER BY observed_at DESC LIMIT 1) x ON true`)).rows[0];
   const enabled=(await query<{enabled:boolean}>("SELECT enabled FROM ingest_sources WHERE id='scrappa.api'")).rows[0]?.enabled??false;
-  res.json({data:{...summary,enabled,autoConfigured:process.env.PCI_SCRAPPA_AUTO_REFRESH==='true',used:MONTHLY_CREDIT_LIMIT-await remaining(MONTHLY_CREDIT_LIMIT),limit:MONTHLY_CREDIT_LIMIT,scheduledLimit:SCHEDULED_CREDIT_CEILING}});
+  res.json({data:{...summary,enabled,autoConfigured:process.env.PCI_SCRAPPA_AUTO_REFRESH==='true',...await creditMonitor((res.locals.admin as AdminIdentity).role==='owner')}});
  }));
  router.post('/bucket/scrappa/refresh-settings',roles('owner'),handler(async(req,res)=>{
   await ensure();
@@ -62,15 +96,19 @@ export function mountScrappaAdmin(router:Router){
   });
   res.json({data:{enabled}});
  }));
- router.post('/bucket/scrappa/keys',roles('owner'),handler(async(req,res)=>{await ensure();const b=z.object({label:z.string().trim().min(1).max(80),apiKey:z.string().trim().min(8).max(512)}).strict().parse(req.body);await transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock(710329)');await c.query('INSERT INTO scrappa_admin_keys(label,fingerprint,ciphertext) VALUES($1,$2,$3) ON CONFLICT(fingerprint) DO NOTHING',[b.label,sha256(b.apiKey),encryptSecret(b.apiKey)]);await c.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[(res.locals.admin as AdminIdentity).id,'scrappa.key.save','scrappa','{}']);});res.json({data:await keys()});}));
- router.post('/bucket/scrappa/keys/:id/activate',roles('owner'),handler(async(req,res)=>{await ensure();const id=z.string().uuid().parse(req.params.id);await transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock(710329)');if(!(await c.query('SELECT 1 FROM scrappa_admin_keys WHERE id=$1',[id])).rowCount)throw new HttpError(404,'NOT_FOUND','Key not found');await c.query('UPDATE scrappa_admin_keys SET active=false WHERE active');await c.query('UPDATE scrappa_admin_keys SET active=true WHERE id=$1',[id]);});res.json({data:await keys()});}));
+ router.post('/bucket/scrappa/keys',roles('owner'),handler(async(req,res)=>{await ensure();const b=z.object({label:z.string().trim().min(1).max(80),apiKey:z.string().trim().min(8).max(512),cap:z.number().int().min(1).max(100000).optional()}).strict().parse(req.body);await transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock(710329)');await c.query('INSERT INTO scrappa_admin_keys(label,fingerprint,ciphertext,monthly_cap) VALUES($1,$2,$3,$4) ON CONFLICT(fingerprint) DO UPDATE SET label=excluded.label,ciphertext=excluded.ciphertext,monthly_cap=excluded.monthly_cap,retired_at=NULL WHERE scrappa_admin_keys.retired_at IS NOT NULL',[b.label,sha256(b.apiKey),encryptSecret(b.apiKey),b.cap??defaultCap()]);await c.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[(res.locals.admin as AdminIdentity).id,'scrappa.key.save','scrappa','{}']);});res.json({data:await keys()});}));
+ router.post('/bucket/scrappa/keys/:id/activate',roles('owner'),handler(async(req,res)=>{await ensure();const id=z.string().uuid().parse(req.params.id);await transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock(710329)');if(!(await c.query('SELECT 1 FROM scrappa_admin_keys WHERE id=$1 AND retired_at IS NULL',[id])).rowCount)throw new HttpError(404,'NOT_FOUND','Key not found');if((await c.query("SELECT 1 FROM scrappa_credit_ledger WHERE outcome='reserved' AND reserved_at>now()-interval '2 minutes' LIMIT 1")).rowCount)throw new HttpError(409,'SCRAPPA_BUSY','Wait for the current request before switching keys');await c.query('UPDATE scrappa_admin_keys SET active=false WHERE active');await c.query('UPDATE scrappa_admin_keys SET active=true WHERE id=$1 AND retired_at IS NULL',[id]);await c.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[(res.locals.admin as AdminIdentity).id,'scrappa.key.activate',id,'{}']);});res.json({data:await keys()});}));
  router.post('/bucket/scrappa/keys/:id/rename',roles('owner'),handler(async(req,res)=>{
   await ensure();const id=z.string().uuid().parse(req.params.id);const {label}=z.object({label:z.string().trim().min(1).max(80)}).strict().parse(req.body);
-  await transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock(710329)');if(!(await c.query('UPDATE scrappa_admin_keys SET label=$2 WHERE id=$1',[id,label])).rowCount)throw new HttpError(404,'NOT_FOUND','Key not found');await c.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[(res.locals.admin as AdminIdentity).id,'scrappa.key.rename',id,'{}']);});res.json({data:await keys()});
+  await transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock(710329)');if(!(await c.query('UPDATE scrappa_admin_keys SET label=$2 WHERE id=$1 AND retired_at IS NULL',[id,label])).rowCount)throw new HttpError(404,'NOT_FOUND','Key not found');await c.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[(res.locals.admin as AdminIdentity).id,'scrappa.key.rename',id,'{}']);});res.json({data:await keys()});
+ }));
+ router.post('/bucket/scrappa/keys/:id/cap',roles('owner'),handler(async(req,res)=>{
+  await ensure();const id=z.string().uuid().parse(req.params.id);const {cap}=z.object({cap:z.number().int().min(1).max(100000),confirm:z.literal(true)}).strict().parse(req.body);
+  await transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock(710329)');if(!(await c.query('UPDATE scrappa_admin_keys SET monthly_cap=$2 WHERE id=$1 AND retired_at IS NULL',[id,cap])).rowCount)throw new HttpError(404,'NOT_FOUND','Key not found');await c.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[(res.locals.admin as AdminIdentity).id,'scrappa.key.cap',id,JSON.stringify({cap})]);});res.json({data:await keys()});
  }));
  router.post('/bucket/scrappa/keys/:id/delete',roles('owner'),handler(async(req,res)=>{
   await ensure();const id=z.string().uuid().parse(req.params.id);z.object({confirm:z.literal(true)}).strict().parse(req.body);
-  await transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock(710329)');const key=(await c.query<{active:boolean}>('SELECT active FROM scrappa_admin_keys WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!key)throw new HttpError(404,'NOT_FOUND','Key not found');if(key.active)throw new HttpError(409,'SCRAPPA_ACTIVE_KEY','Activate another key before deleting this key');await c.query('DELETE FROM scrappa_admin_keys WHERE id=$1',[id]);await c.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[(res.locals.admin as AdminIdentity).id,'scrappa.key.delete',id,'{}']);});res.json({data:await keys()});
+  await transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock(710329)');const key=(await c.query<{active:boolean}>('SELECT active FROM scrappa_admin_keys WHERE id=$1 AND retired_at IS NULL FOR UPDATE',[id])).rows[0];if(!key)throw new HttpError(404,'NOT_FOUND','Key not found');if(key.active)throw new HttpError(409,'SCRAPPA_ACTIVE_KEY','Activate another key before deleting this key');await c.query("UPDATE scrappa_admin_keys SET retired_at=now(),ciphertext='' WHERE id=$1",[id]);await c.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[(res.locals.admin as AdminIdentity).id,'scrappa.key.delete',id,'{}']);});res.json({data:await keys()});
  }));
  router.post('/bucket/scrappa/candidates/:id/collect',roles('owner'),handler(async(req,res)=>{
   const id=z.string().regex(/^\d{1,30}$/).parse(req.params.id);
@@ -127,16 +165,20 @@ export function mountScrappaAdmin(router:Router){
   });
   res.json({data:{removed:true}});
  }));
- router.post('/bucket/scrappa/check',roles('owner','editor'),handler(async(req,res)=>{await ensure();const b=z.object({account:z.string().min(1).max(200)}).strict().parse(req.body);res.json({data:await lookup(b.account)});}));
- router.post('/bucket/scrappa/candidates',roles('owner','editor'),handler(async(req,res)=>{await ensure();const b=z.object({account:z.string().min(1).max(200),person:z.string().max(120).optional(),niche:z.string().max(60).optional()}).strict().parse(req.body);const p=await lookup(b.account);await query('INSERT INTO scrappa_candidates(external_id,handle,display_name,person_name,niche) VALUES($1,$2,$3,$4,$5) ON CONFLICT(external_id) DO UPDATE SET handle=excluded.handle,display_name=excluded.display_name,person_name=excluded.person_name,niche=excluded.niche,checked_at=now(),published_at=NULL',[p.accountId,p.handle,p.name,b.person||null,b.niche||null]);res.json({data:{handle:p.handle}});}));
+ router.post('/bucket/scrappa/check',roles('owner','editor'),handler(async(req,res)=>{
+  await ensure();const b=z.object({account:z.string().min(1).max(200),force:z.boolean().optional()}).strict().parse(req.body);const actor=res.locals.admin as AdminIdentity;
+  if(b.force){if(actor.role!=='owner')throw new HttpError(403,'FORBIDDEN','Only the Owner can force a paid recheck');await query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[actor.id,'scrappa.check.force','scrappa','{}']);}
+  res.json({data:await checkProfile(b.account,b.force??false)});
+ }));
+ router.post('/bucket/scrappa/candidates',roles('owner','editor'),handler(async(req,res)=>{
+  await ensure();const b=z.object({account:z.string().min(1).max(200),person:z.string().max(120).optional(),niche:z.string().max(60).optional()}).strict().parse(req.body);res.json({data:await stageVerifiedCandidate(b.account,b.person,b.niche)});
+ }));
 }
 
 /** Shared manual/scheduled collector. The database lease serializes all workers. */
 export async function collectCandidate(id:string,trigger:'manual'|'scheduled',actorId:string|null,fetcher:typeof fetch=fetch){
  await ensure();
- const limit=trigger==='scheduled'?SCHEDULED_CREDIT_CEILING:MONTHLY_CREDIT_LIMIT;
- const key=(await query<{ciphertext:string}>('SELECT ciphertext FROM scrappa_admin_keys WHERE active')).rows[0];
- if(!key)throw new HttpError(409,'SCRAPPA_KEY_MISSING','Activate a Scrappa key first');
+ const key=await activeKey();
  const run=await transaction(async c=>{
   await c.query('SELECT pg_advisory_xact_lock(710330)');
   await c.query(`UPDATE ingest_jobs SET status='failed',finished_at=now(),error_code='expired' WHERE source_id='scrappa.api' AND status='running' AND started_at<now()-interval '5 minutes'`);
@@ -148,22 +190,20 @@ export async function collectCandidate(id:string,trigger:'manual'|'scheduled',ac
    if(!eligible.rowCount)throw new HttpError(409,'SCRAPPA_NOT_DUE','Candidate is not due');
    if(!(await c.query("SELECT 1 FROM ingest_sources WHERE id='scrappa.api' AND enabled=true")).rowCount)throw new HttpError(409,'SCRAPPA_DISABLED','Source is disabled');
   }
-  const used=Number((await c.query(`SELECT used FROM scrappa_credit_month WHERE month=${month}`)).rows[0]?.used??0);
-  if(limit-used<MAX_COLLECTION_CREDITS)throw new HttpError(429,'SCRAPPA_QUOTA','Insufficient credit budget for a bounded collection');
+  if(await remainingCredits(key.id,trigger==='scheduled',c)<MAX_COLLECTION_CREDITS)throw new HttpError(429,'SCRAPPA_QUOTA','Insufficient credit budget for a bounded collection');
   const runId=(await c.query<{id:string}>(`INSERT INTO ingest_jobs(source_id,trigger,status,requested_by,started_at) VALUES('scrappa.api',$1,'running',$2,now()) RETURNING id`,[trigger,actorId])).rows[0].id;
   await c.query('UPDATE scrappa_candidates SET last_attempt_at=now() WHERE external_id=$1',[id]);
   await c.query("UPDATE ingest_sources SET last_attempt_at=now() WHERE id='scrappa.api'");
   return {runId,handle:candidate.handle};
  });
  try{
-  const result=await collect(run.handle,decryptSecret(key.ciphertext),()=>reserve(limit),fetcher,id);
+  const result=await collect(run.handle,decryptSecret(key.ciphertext),reserveFor(key.id,trigger==='scheduled',run.runId),fetcher,id);
   if(result.profile.accountId!==id)throw Error('candidate_identity_changed');
   const stored=await storeTikTokCandidate(run.runId,result);
   return {runId:run.runId,stored,profile:result.profile,analytics:result.analytics};
  }catch(e){
-  const quota=e instanceof Error&&e.message==='quota_exhausted';
-  const detail=e instanceof Error?e.message:'';
-  const code=quota?'quota_exhausted':detail==='scrappa_http_429'?'provider_rate_limited':detail==='scrappa_http_401'||detail==='scrappa_http_403'?'provider_auth':'collection_failed';
+  const err=collectionError(e);
+  const code=err.code==='SCRAPPA_QUOTA'?'quota_exhausted':err.code==='SCRAPPA_PROVIDER_STOP'?'provider_auth':err.code==='SCRAPPA_CIRCUIT_OPEN'?'circuit_open':err.code==='SCRAPPA_BUSY'?'request_busy':'collection_failed';
   await transaction(async c=>{
    const changed=await c.query(`UPDATE ingest_jobs SET status='failed',finished_at=now(),error_code=$2 WHERE id=$1 AND status='running'`,[run.runId,code]);
    if(changed.rowCount){
@@ -172,10 +212,10 @@ export async function collectCandidate(id:string,trigger:'manual'|'scheduled',ac
     await c.query(`INSERT INTO hub_source_health(source_id,status,consecutive_failures,last_error_code,checked_at) VALUES('scrappa.api','degraded',1,$1,now()) ON CONFLICT(source_id) DO UPDATE SET consecutive_failures=hub_source_health.consecutive_failures+1,last_error_code=EXCLUDED.last_error_code,checked_at=now()`,[code]);
    }
   });
-  throw new HttpError(quota?429:422,'SCRAPPA_COLLECTION',quota?'Monthly PCI credit limit reached':'Collection failed; no successful snapshot was published');
+  throw err;
  }
 }
-/** At most one candidate per hourly tick; opt-in and a 100-credit manual reserve. */
+/** At most one candidate per hourly tick; opt-in and a 20% manual reserve per key. */
 export async function refreshScrappaCandidates(fetcher:typeof fetch=fetch){
  if(process.env.PCI_SCRAPPA_AUTO_REFRESH!=='true')return;
  await ensure();await ensureTikTokSource();
@@ -183,8 +223,8 @@ export async function refreshScrappaCandidates(fetcher:typeof fetch=fetch){
   WHERE s.id='scrappa.api' AND s.enabled=true
     AND NOT (COALESCE(s.last_error IN ('provider_auth','provider_rate_limited'),false) AND COALESCE(s.last_attempt_at>now()-interval '24 hours',false))
     AND NOT (COALESCE(h.consecutive_failures,0)>=3 AND COALESCE(s.last_attempt_at>now()-interval '6 hours',false))`)).rowCount)return;
- if(await remaining(SCHEDULED_CREDIT_CEILING)<MAX_COLLECTION_CREDITS)return;
- if(!(await query('SELECT 1 FROM scrappa_admin_keys WHERE active')).rowCount)return;
+ const key=await activeKey().catch(e=>{if(e instanceof HttpError&&e.code==='SCRAPPA_KEY_MISSING')return null;throw e;});
+ if(!key||await remainingCredits(key.id,true)<MAX_COLLECTION_CREDITS)return;
  const candidate=(await query<{external_id:string}>(`SELECT external_id FROM scrappa_candidates
   WHERE (last_success_at IS NULL OR last_success_at<now()-interval '15 days') AND (last_attempt_at IS NULL OR last_attempt_at<now()-interval '24 hours')
   ORDER BY last_success_at NULLS FIRST,last_attempt_at NULLS FIRST,external_id LIMIT 1`)).rows[0];

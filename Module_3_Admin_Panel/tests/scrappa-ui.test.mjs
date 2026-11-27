@@ -12,3 +12,13 @@ test('Data Hub shows private TikTok coverage and distinguishes third-party sourc
 test('owner can approve or revoke TikTok publication explicitly',()=>{const s=read('src/app/bucket/ScrappaPeople.tsx');assert.match(s,/Publish to PCI/);assert.match(s,/Unpublish/);assert.match(s,/permission to republish/);assert.match(s,/publish:!r.published_at,confirm:true/);});
 
 test('credential manager shows titled keys with masked secrets and guarded actions',()=>{const s=read('src/app/bucket/ScrappaPeople.tsx');for(const v of ['scrappa-key-grid','Saved API keys','Key title','/rename','/delete','disabled={busy||k.active}','confirm:true','••••••••'])assert.ok(s.includes(v),v);assert.doesNotMatch(s,/k\.ciphertext|k\.apiKey/);const p=read('src/app/bucket/page.tsx');assert.equal((p.match(/className="scrappa-platform-mark"/g)||[]).length,3);});
+
+test('per-key allowance, separate result lists and credit monitor are wired',()=>{const s=read('src/app/bucket/ScrappaPeople.tsx');for(const v of ['k.used','k.remaining','/cap','prepareRegistration','Force recheck','batchResult.success','batchResult.failed','batchResult.skipped','SCRAPPA_CIRCUIT_OPEN'])assert.ok(s.includes(v),v);const hub=read('src/app/hub/page.tsx');for(const v of ['Credential balances','Recent request ledger','Recent collection runs','Creator refresh state','lastRequestAt'])assert.ok(hub.includes(v),v);});
+
+test('bulk registration normalizes profile URLs, validates format, and deduplicates before paid calls',async()=>{
+ const {createRequire}=await import('node:module');const ts=createRequire(import.meta.url)('typescript');
+ const source=ts.transpileModule(read('src/lib/scrappa-input.ts'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+ const {prepareRegistration}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+ const result=prepareRegistration([{account:'@Alpha',person:'First'},{account:'https://www.tiktok.com/@alpha?lang=en',person:'Second'},{account:'beta'},{account:'https://evil.example/@beta'},{account:'@bad user'},{account:''}]);
+ assert.deepEqual(result.valid,[{account:'alpha',person:'First'},{account:'beta'}]);assert.deepEqual(result.duplicates,['alpha']);assert.deepEqual(result.invalid,['https://evil.example/@beta','@bad user','(empty account)']);
+});
