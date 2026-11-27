@@ -4,7 +4,8 @@ import { encryptSecret, decryptSecret, sha256 } from '../../lib/security.js';
 import { handler, HttpError } from '../../lib/errors.js';
 import { roles, type AdminIdentity } from '../auth/auth.js';
 import type { Router } from 'express';
-import { collectProfile, username } from './collector.js';
+import { ensureTikTokSource, storeTikTokCandidate } from '../creators-bucket/tiktok-staging.js';
+import { collect, collectProfile, username } from './collector.js';
 const SQL = `CREATE TABLE IF NOT EXISTS scrappa_admin_keys (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), label text NOT NULL, fingerprint text NOT NULL UNIQUE, ciphertext text NOT NULL, active boolean NOT NULL DEFAULT false);
 CREATE UNIQUE INDEX IF NOT EXISTS scrappa_one_active_key ON scrappa_admin_keys(active) WHERE active;
@@ -21,6 +22,30 @@ export function mountScrappaAdmin(router:Router){
  router.get('/bucket/scrappa/keys',roles('owner'),handler(async(_req,res)=>{await ensure();res.json({data:{keys:await keys(),used:Number((await query(`SELECT used FROM scrappa_credit_month WHERE month=${month}`)).rows[0]?.used??0),limit:500}});}));
  router.post('/bucket/scrappa/keys',roles('owner'),handler(async(req,res)=>{await ensure();const b=z.object({label:z.string().trim().min(1).max(80),apiKey:z.string().trim().min(8).max(512)}).strict().parse(req.body);await transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock(710329)');await c.query('INSERT INTO scrappa_admin_keys(label,fingerprint,ciphertext) VALUES($1,$2,$3) ON CONFLICT(fingerprint) DO NOTHING',[b.label,sha256(b.apiKey),encryptSecret(b.apiKey)]);await c.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[(res.locals.admin as AdminIdentity).id,'scrappa.key.save','scrappa','{}']);});res.json({data:await keys()});}));
  router.post('/bucket/scrappa/keys/:id/activate',roles('owner'),handler(async(req,res)=>{await ensure();const id=z.string().uuid().parse(req.params.id);await transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock(710329)');if(!(await c.query('SELECT 1 FROM scrappa_admin_keys WHERE id=$1',[id])).rowCount)throw new HttpError(404,'NOT_FOUND','Key not found');await c.query('UPDATE scrappa_admin_keys SET active=false WHERE active');await c.query('UPDATE scrappa_admin_keys SET active=true WHERE id=$1',[id]);});res.json({data:await keys()});}));
+ router.post('/bucket/scrappa/candidates/:id/collect',roles('owner'),handler(async(req,res)=>{
+  await ensure();await ensureTikTokSource();
+  const id=z.string().regex(/^\d{1,30}$/).parse(req.params.id);
+  const candidate=(await query<{handle:string}>('SELECT handle FROM scrappa_candidates WHERE external_id=$1',[id])).rows[0];
+  if(!candidate)throw new HttpError(404,'NOT_FOUND','Stage a verified creator first');
+  const key=(await query<{ciphertext:string}>('SELECT ciphertext FROM scrappa_admin_keys WHERE active')).rows[0];
+  if(!key)throw new HttpError(409,'SCRAPPA_KEY_MISSING','Activate a Scrappa key first');
+  const runId=await transaction(async c=>{
+   await c.query('SELECT pg_advisory_xact_lock(710330)');
+   await c.query(`UPDATE ingest_jobs SET status='failed',finished_at=now(),error_code='expired' WHERE source_id='scrappa.api' AND status='running' AND started_at<now()-interval '5 minutes'`);
+   if((await c.query(`SELECT 1 FROM ingest_jobs WHERE source_id='scrappa.api' AND status='running'`)).rowCount)throw new HttpError(409,'SCRAPPA_BUSY','Another collection is running');
+   return (await c.query<{id:string}>(`INSERT INTO ingest_jobs(source_id,trigger,status,requested_by,started_at) VALUES('scrappa.api','manual','running',$1,now()) RETURNING id`,[(res.locals.admin as AdminIdentity).id])).rows[0].id;
+  });
+  try{
+   const result=await collect(candidate.handle,decryptSecret(key.ciphertext),reserve);
+   if(result.profile.accountId!==id)throw Error('candidate_identity_changed');
+   const stored=await storeTikTokCandidate(runId,result);
+   res.json({data:{runId,stored,profile:result.profile,analytics:result.analytics}});
+  }catch(e){
+   const quota=e instanceof Error&&e.message==='quota_exhausted';
+   await query(`UPDATE ingest_jobs SET status='failed',finished_at=now(),error_code=$2 WHERE id=$1 AND status='running'`,[runId,quota?'quota_exhausted':'collection_failed']);
+   throw new HttpError(quota?429:422,'SCRAPPA_COLLECTION',quota?'Monthly PCI credit limit reached':'Collection failed; no successful snapshot was published');
+  }
+ }));
  router.get('/bucket/scrappa/candidates',roles('owner','editor'),handler(async(_req,res)=>{await ensure();res.json({data:(await query('SELECT external_id,handle,display_name,person_name,niche,checked_at FROM scrappa_candidates ORDER BY checked_at DESC LIMIT 200')).rows});}));
  router.post('/bucket/scrappa/check',roles('owner','editor'),handler(async(req,res)=>{await ensure();const b=z.object({account:z.string().min(1).max(200)}).strict().parse(req.body);res.json({data:await lookup(b.account)});}));
  router.post('/bucket/scrappa/candidates',roles('owner','editor'),handler(async(req,res)=>{await ensure();const b=z.object({account:z.string().min(1).max(200),person:z.string().max(120).optional(),niche:z.string().max(60).optional()}).strict().parse(req.body);const p=await lookup(b.account);await query('INSERT INTO scrappa_candidates(external_id,handle,display_name,person_name,niche) VALUES($1,$2,$3,$4,$5) ON CONFLICT(external_id) DO UPDATE SET handle=excluded.handle,display_name=excluded.display_name,person_name=excluded.person_name,niche=excluded.niche,checked_at=now()',[p.accountId,p.handle,p.name,b.person||null,b.niche||null]);res.json({data:{handle:p.handle}});}));
