@@ -49,7 +49,7 @@ function Shell({children}:{children:ReactNode}){
    <div className="admin-logo"><span className="brand-mark">PCI</span><span><strong>Creator Index</strong><small>Management</small></span></div>
    <nav className="admin-nav">{groups.map((g,i)=><div className="nav-group" key={g.label??`g${i}`}>
     {g.label&&<p className="nav-label">{g.label}</p>}
-    {g.items.map(item=><Link className="nav-link" onClick={()=>setMenu(false)} aria-current={path===item.href||(item.href!=='/'&&path.startsWith(item.href+'/'))?'page':undefined} href={item.href} key={item.href}><Icon name={item.icon}/>{item.title}</Link>)}
+    {g.items.map(item=><Link className="nav-link" title={item.title} onClick={()=>setMenu(false)} aria-current={path===item.href||(item.href!=='/'&&path.startsWith(item.href+'/'))?'page':undefined} href={item.href} key={item.href}><Icon name={item.icon}/>{item.title}</Link>)}
    </div>)}</nav>
    <div className="admin-sidebar-bottom"><span className="badge badge-muted">{identity.role}</span><p className="fineprint">{identity.email}</p><a className="admin-public-link" href={process.env.NEXT_PUBLIC_SITE_URL||'http://localhost:3000'} target="_blank" rel="noreferrer">Open public site</a></div>
   </aside>
