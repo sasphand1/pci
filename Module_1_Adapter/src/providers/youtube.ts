@@ -1,7 +1,7 @@
 import type { YoutubeChannel, YoutubeClient } from '../modules/youtube/client.js';
 import { pickAvatar } from './avatar.js';
 import { safeChannelBanner } from '../modules/creators-bucket/profile-analytics.mjs';
-import { classifyProviderError, mapYoutubeStatistics, windowCount, toCount } from './map.js';
+import { classifyProviderError, mapYoutubeStatistics, toCount } from './map.js';
 import type { AccountRef, FetchResult, Provider } from './types.js';
 
 const MAX_UPLOAD_PAGES = 4; // 200 videos; the cap is recorded when it is hit
@@ -11,13 +11,20 @@ type Client = Pick<YoutubeClient, 'channels' | 'uploadsPage'>;
 async function postsLast30Days(client: Client, ch: YoutubeChannel, nowMs: number): Promise<{ value: number; capped: boolean }> {
   const playlist = ch.contentDetails?.relatedPlaylists?.uploads;
   if (!playlist) throw new Error('NO_UPLOADS_PLAYLIST');
+  const day = 86_400_000, pkt = 5 * 3_600_000;
+  const cutoff = Math.floor((nowMs + pkt) / day) * day - pkt - 29 * day;
   let count = 0, token: string | undefined, pages = 0;
   for (;;) {
     const page = await client.uploadsPage(playlist, token);
     pages++;
-    const w = windowCount(page.published, nowMs, 30);
-    count += w.count;
-    if (w.sawOlder || !page.next) return { value: count, capped: false };
+    let sawOlder = false;
+    for (const timestamp of page.published) {
+      const ms = Date.parse(timestamp);
+      if (!Number.isFinite(ms) || ms > nowMs) continue;
+      if (ms < cutoff) { sawOlder = true; break; }
+      count++;
+    }
+    if (sawOlder || !page.next) return { value: count, capped: false };
     if (pages >= MAX_UPLOAD_PAGES) return { value: count, capped: true };
     token = page.next;
   }

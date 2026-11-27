@@ -83,3 +83,10 @@ test('TikTok is a stub: unsupported for everyone', async () => {
   const out = await tiktokProvider.fetch([{ id: 't', platform: 'tiktok', externalId: 'x', handle: 'x' }]);
   assert.deepEqual(out, [{ accountId: 't', outcome: 'unsupported', metrics: [], detail: 'tiktok_not_enabled' }]);
 });
+
+test('YouTube: 30 PKT calendar dates include local midnight and exclude the previous date and future uploads', async () => {
+  const now = new Date('2026-11-26T20:00:00Z'); // 27 Nov, 01:00 PKT; cutoff 29 Oct, 00:00 PKT
+  const p = makeYoutubeProvider({ channels: async () => [chan(1)], uploadsPage: async () => ({ published: ['2026-11-26T20:00:01Z', '2026-11-26T19:00:00Z', '2026-10-28T19:00:00Z', '2026-10-28T18:59:59Z'] }) }, () => now);
+  const [r] = await p.fetch([yt(1)]);
+  assert.equal(r.metrics.find(m => m.metric === 'posts_30d')?.value, 2);
+});

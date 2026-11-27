@@ -40,7 +40,7 @@ export function CreatorProfilePage({creator,ytAccounts,creatorsBucket:bucket,com
  <KPI title="Public videos" value={exact(count)} note="Current public catalogue"/>
  <KPI title="Overall engagement rate" value={pct(portfolio.engagementRate)} note={<>{portfolio.interactions==null?"Not available":`${exact(portfolio.interactions)} total interactions`} <NoteMark n={2}/></>}/>
  <KPI title="Top-video share" value={pct(portfolio.topShare)} note={<>{portfolio.known[0]?.currentViews==null?"Not available":`${exact(portfolio.known[0].currentViews)} views`} <NoteMark n={3}/></>}/>
- <KPI title="Videos published" value={exact(portfolio.cataloguePublished30d)} note="Last 30 days"/>
+ <KPI title="Videos published" value={exact(bucket?.totals.posts30d)} note="Last 30 days"/>
  </div>
  <div className="cp-growth-heading"><div className="cp-eyebrow">Performance movement{first===undefined?'':` · Since ${date(iso(first))}`}</div><h2>Growth signals</h2></div>
  <div className="cp-two-grid cp-analytics-grid">
