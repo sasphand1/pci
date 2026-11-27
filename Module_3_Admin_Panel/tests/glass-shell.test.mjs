@@ -57,7 +57,7 @@ test('number formatting',async()=>{
 test('navigation is grouped, role-filtered, has no empty group, and no dead entries',async()=>{
  const nav=await load('src/lib/nav.ts');
  const titles=(r)=>nav.visibleGroups(r).flatMap(g=>g.items.map(i=>i.title));
- assert.deepEqual(titles('moderator'),['Overview','Live wall','My security','Settings']);
+ assert.deepEqual(titles('moderator'),['Overview','Progress','Live wall','My security','Settings']);
  assert.ok(titles('editor').includes('People')&&titles('editor').includes('Pipeline')&&!titles('editor').includes('Audit log')&&!titles('editor').includes('Team'));
  assert.equal(titles('owner').length,nav.NAV.length);
  for(const r of ['owner','editor','moderator'])for(const g of nav.visibleGroups(r))assert.ok(g.items.length>0);

@@ -8,6 +8,12 @@ const nextConfig:NextConfig={
     {key:'Referrer-Policy',value:'no-referrer'},
     {key:'Permissions-Policy',value:'camera=(), microphone=(), geolocation=()'},
     {key:'Content-Security-Policy',value:"default-src 'self'; img-src 'self' https://i.ytimg.com https://yt3.ggpht.com https://*.googleusercontent.com https://*.ggpht.com data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'" + (process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : '') + "; connect-src 'self' " + (process.env.NEXT_PUBLIC_ADAPTER_API_URL || 'http://localhost:8081') + "; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"}
+  ]},
+  // Progress boards (public/progress-board) are static pages shown inside the Progress tab: same-origin framing only, never indexed.
+  {source:'/progress-board/:path*',headers:[
+    {key:'X-Frame-Options',value:'SAMEORIGIN'},
+    {key:'X-Robots-Tag',value:'noindex, nofollow'},
+    {key:'Content-Security-Policy',value:"default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'"}
   ]}];}
 };
 export default nextConfig;

@@ -1,0 +1,562 @@
+{
+ "version": 1,
+ "updated": null,
+ "items": {
+  "e-trigger": {
+   "status": "g",
+   "note": ""
+  },
+  "e-youtube": {
+   "status": "g",
+   "note": ""
+  },
+  "e-instagram": {
+   "status": "a",
+   "note": ""
+  },
+  "e-tiktok": {
+   "status": "r",
+   "note": ""
+  },
+  "e-jobs": {
+   "status": "g",
+   "note": ""
+  },
+  "e-raw": {
+   "status": "g",
+   "note": ""
+  },
+  "e-store": {
+   "status": "g",
+   "note": ""
+  },
+  "e-rank": {
+   "status": "g",
+   "note": ""
+  },
+  "e-gates": {
+   "status": "g",
+   "note": ""
+  },
+  "e-publish": {
+   "status": "g",
+   "note": ""
+  },
+  "e-analytics": {
+   "status": "a",
+   "note": ""
+  },
+  "e-api": {
+   "status": "g",
+   "note": ""
+  },
+  "e-commands": {
+   "status": "g",
+   "note": ""
+  },
+  "e-bucket": {
+   "status": "g",
+   "note": ""
+  },
+  "e-admin-login": {
+   "status": "g",
+   "note": ""
+  },
+  "e-panel-api": {
+   "status": "g",
+   "note": ""
+  },
+  "e-web": {
+   "status": "g",
+   "note": ""
+  },
+  "e-visitor": {
+   "status": "g",
+   "note": ""
+  },
+  "e-dash-api": {
+   "status": "r",
+   "note": ""
+  },
+  "e-creator": {
+   "status": "r",
+   "note": ""
+  },
+  "e-agency": {
+   "status": "r",
+   "note": ""
+  },
+  "e-subs": {
+   "status": "r",
+   "note": ""
+  },
+  "e-pay": {
+   "status": "r",
+   "note": ""
+  },
+  "e-push": {
+   "status": "r",
+   "note": ""
+  },
+  "e-ci-host": {
+   "status": "x",
+   "note": ""
+  },
+  "e-host-neon": {
+   "status": "x",
+   "note": ""
+  },
+  "e-neon-rhost": {
+   "status": "x",
+   "note": ""
+  },
+  "src-youtube": {
+   "status": "g",
+   "note": ""
+  },
+  "src-instagram": {
+   "status": "a",
+   "note": ""
+  },
+  "src-tiktok": {
+   "status": "r",
+   "note": ""
+  },
+  "scheduler": {
+   "status": "g",
+   "note": ""
+  },
+  "collectors": {
+   "status": "g",
+   "note": ""
+  },
+  "jobruns": {
+   "status": "g",
+   "note": ""
+  },
+  "hub": {
+   "status": "g",
+   "note": ""
+  },
+  "hub-validate": {
+   "status": "g",
+   "note": ""
+  },
+  "hub-db": {
+   "status": "g",
+   "note": ""
+  },
+  "hub-rank": {
+   "status": "g",
+   "note": ""
+  },
+  "hub-gates": {
+   "status": "g",
+   "note": ""
+  },
+  "hub-published": {
+   "status": "g",
+   "note": ""
+  },
+  "hub-analytics": {
+   "status": "a",
+   "note": ""
+  },
+  "redis": {
+   "status": "a",
+   "note": ""
+  },
+  "postgres": {
+   "status": "g",
+   "note": ""
+  },
+  "api": {
+   "status": "g",
+   "note": ""
+  },
+  "admin-panel": {
+   "status": "g",
+   "note": ""
+  },
+  "admin-user": {
+   "status": "g",
+   "note": ""
+  },
+  "website": {
+   "status": "g",
+   "note": ""
+  },
+  "admin-page-fix": {
+   "status": "r",
+   "note": ""
+  },
+  "visitor": {
+   "status": "g",
+   "note": ""
+  },
+  "creator-dash": {
+   "status": "r",
+   "note": ""
+  },
+  "agency-dash": {
+   "status": "r",
+   "note": ""
+  },
+  "creator-user": {
+   "status": "r",
+   "note": ""
+  },
+  "agency-user": {
+   "status": "r",
+   "note": ""
+  },
+  "subscriptions": {
+   "status": "r",
+   "note": ""
+  },
+  "payments": {
+   "status": "r",
+   "note": ""
+  },
+  "push": {
+   "status": "r",
+   "note": ""
+  },
+  "f-yt-subs": {
+   "status": "g",
+   "note": ""
+  },
+  "f-yt-views": {
+   "status": "g",
+   "note": ""
+  },
+  "f-yt-posts": {
+   "status": "g",
+   "note": ""
+  },
+  "f-yt-videos": {
+   "status": "g",
+   "note": ""
+  },
+  "f-yt-avatar": {
+   "status": "g",
+   "note": ""
+  },
+  "f-yt-vstats": {
+   "status": "a",
+   "note": ""
+  },
+  "f-yt-html": {
+   "status": "r",
+   "note": ""
+  },
+  "f-ig-followers": {
+   "status": "a",
+   "note": ""
+  },
+  "f-ig-posts": {
+   "status": "a",
+   "note": ""
+  },
+  "f-ig-avatar": {
+   "status": "a",
+   "note": ""
+  },
+  "f-ig-id": {
+   "status": "g",
+   "note": ""
+  },
+  "f-ig-html-avatar": {
+   "status": "a",
+   "note": ""
+  },
+  "f-ig-html-cache": {
+   "status": "a",
+   "note": ""
+  },
+  "f-ig-html-counts": {
+   "status": "r",
+   "note": ""
+  },
+  "f-tt-api": {
+   "status": "r",
+   "note": ""
+  },
+  "f-tt-title": {
+   "status": "a",
+   "note": ""
+  },
+  "f-tt-thumb": {
+   "status": "a",
+   "note": ""
+  },
+  "f-tt-identity": {
+   "status": "a",
+   "note": ""
+  },
+  "f-tt-counts": {
+   "status": "r",
+   "note": ""
+  },
+  "merge": {
+   "status": "g",
+   "note": ""
+  },
+  "in-api": {
+   "status": "g",
+   "note": ""
+  },
+  "in-html": {
+   "status": "a",
+   "note": ""
+  },
+  "in-legacy": {
+   "status": "g",
+   "note": ""
+  },
+  "in-manual": {
+   "status": "x",
+   "note": ""
+  },
+  "hub-tables": {
+   "status": "g",
+   "note": ""
+  },
+  "e-in-0": {
+   "status": "g",
+   "note": ""
+  },
+  "e-in-1": {
+   "status": "a",
+   "note": ""
+  },
+  "e-in-2": {
+   "status": "g",
+   "note": ""
+  },
+  "e-in-3": {
+   "status": "x",
+   "note": ""
+  },
+  "e-bk-rank": {
+   "status": "g",
+   "note": ""
+  },
+  "e-bk-cb": {
+   "status": "a",
+   "note": ""
+  },
+  "e-bk-dir": {
+   "status": "g",
+   "note": ""
+  },
+  "e-bk-an": {
+   "status": "a",
+   "note": ""
+  },
+  "e-bk-hof": {
+   "status": "g",
+   "note": ""
+  },
+  "e-bk-mon": {
+   "status": "g",
+   "note": ""
+  },
+  "bk-rankings": {
+   "status": "g",
+   "note": ""
+  },
+  "bk-creators": {
+   "status": "a",
+   "note": ""
+  },
+  "bk-directory": {
+   "status": "g",
+   "note": ""
+  },
+  "bk-analytics": {
+   "status": "a",
+   "note": ""
+  },
+  "bk-hof": {
+   "status": "g",
+   "note": ""
+  },
+  "bk-monitor": {
+   "status": "g",
+   "note": ""
+  },
+  "bk-other": {
+   "status": "x",
+   "note": ""
+  },
+  "pr-mfa": {
+   "status": "g",
+   "note": ""
+  },
+  "pr-cors": {
+   "status": "g",
+   "note": ""
+  },
+  "pr-valid": {
+   "status": "g",
+   "note": ""
+  },
+  "pr-proxy": {
+   "status": "a",
+   "note": ""
+  },
+  "pr-mockadmin": {
+   "status": "r",
+   "note": ""
+  },
+  "pr-csp": {
+   "status": "a",
+   "note": ""
+  },
+  "pr-dbrole": {
+   "status": "r",
+   "note": ""
+  },
+  "pr-pipeline": {
+   "status": "g",
+   "note": ""
+  },
+  "pr-rollback": {
+   "status": "g",
+   "note": ""
+  },
+  "pr-scheduler": {
+   "status": "a",
+   "note": ""
+  },
+  "pr-earnings": {
+   "status": "a",
+   "note": ""
+  },
+  "pr-quota": {
+   "status": "a",
+   "note": ""
+  },
+  "pr-igtoken": {
+   "status": "a",
+   "note": ""
+  },
+  "pr-tiktok": {
+   "status": "r",
+   "note": ""
+  },
+  "pr-published": {
+   "status": "g",
+   "note": ""
+  },
+  "pr-legacy": {
+   "status": "g",
+   "note": ""
+  },
+  "pr-errors": {
+   "status": "g",
+   "note": ""
+  },
+  "pr-headers": {
+   "status": "g",
+   "note": ""
+  },
+  "pr-orphans": {
+   "status": "a",
+   "note": ""
+  },
+  "pr-cache": {
+   "status": "a",
+   "note": ""
+  },
+  "pr-health": {
+   "status": "g",
+   "note": ""
+  },
+  "pr-ci": {
+   "status": "g",
+   "note": ""
+  },
+  "pr-logs": {
+   "status": "g",
+   "note": ""
+  },
+  "pr-backup": {
+   "status": "x",
+   "note": ""
+  },
+  "pr-alerts": {
+   "status": "r",
+   "note": ""
+  },
+  "pr-pentest": {
+   "status": "r",
+   "note": ""
+  },
+  "pr-cigreen": {
+   "status": "x",
+   "note": ""
+  },
+  "pr-migrate": {
+   "status": "x",
+   "note": ""
+  },
+  "pr-smoke": {
+   "status": "x",
+   "note": ""
+  },
+  "pr-owner": {
+   "status": "x",
+   "note": ""
+  },
+  "pr-https": {
+   "status": "x",
+   "note": ""
+  },
+  "pr-revert": {
+   "status": "g",
+   "note": ""
+  },
+  "ci": {
+   "status": "g",
+   "note": ""
+  },
+  "host": {
+   "status": "x",
+   "note": ""
+  },
+  "neon": {
+   "status": "x",
+   "note": ""
+  },
+  "rhost": {
+   "status": "x",
+   "note": ""
+  },
+  "tls": {
+   "status": "x",
+   "note": ""
+  },
+  "secrets": {
+   "status": "a",
+   "note": ""
+  },
+  "e-api-lane": {
+   "status": "g",
+   "note": ""
+  },
+  "e-html-lane": {
+   "status": "a",
+   "note": ""
+  },
+  "e-merge-hub": {
+   "status": "g",
+   "note": ""
+  },
+  "e-merge-tables": {
+   "status": "g",
+   "note": ""
+  }
+ }
+}

@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>PCI — Progress Board</title><meta name="robots" content="noindex,nofollow">
+<style>
+:root{--ink:#1e293b;--mut:#64748b;--line:#e2e8f0;--g:#15803d;--a:#d97706;--r:#dc2626;--x:#64748b;--accent:#0f766e}
+*{box-sizing:border-box}html,body{margin:0;height:100%;font-family:Inter,Segoe UI,system-ui,Arial,sans-serif;color:var(--ink);background:#f8fafc}
+#app{display:flex;flex-direction:column;height:100%}
+header{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#fff;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:15px;margin:0 8px 0 0;font-weight:800;white-space:nowrap}
+.prog{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut)}
+.bar{width:160px;height:10px;border-radius:5px;background:#f1f5f9;overflow:hidden;display:flex}
+.bar i{display:block;height:100%}
+.tools{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+button,.btn{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer}
+button:hover{border-color:#94a3b8}button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.seg button{border:0;border-radius:0;border-right:1px solid var(--line)}.seg button:last-child{border-right:0}
+main{flex:1;display:flex;min-height:0;position:relative}
+#stage{flex:1;position:relative;overflow:hidden;touch-action:none;background:#fff;cursor:grab}
+#stage.drag{cursor:grabbing}#stage.mode-text,#stage.mode-addtext,#stage.mode-arrow{cursor:crosshair}
+#stage svg{position:absolute;left:0;top:0;transform-origin:0 0;user-select:none}
+#stage.mode-text svg text{cursor:text}#stage.mode-text svg text:hover{fill:#2563eb!important}
+aside{width:340px;background:#fff;border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+aside .tabs{display:flex;border-bottom:1px solid var(--line)}aside .tabs button{flex:1;border:0;border-radius:0;padding:10px}
+aside .tabs button.on{background:#fff;color:var(--ink);box-shadow:inset 0 -3px 0 var(--accent)}
+.pane{padding:14px;overflow:auto;flex:1}
+.pane h2{font-size:17px;margin:0 0 4px}.pane p{font-size:13px;color:var(--mut);margin:0 0 12px;line-height:1.45}
+.kind{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--mut);text-transform:uppercase}
+.st{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0}
+.st button{display:flex;align-items:center;gap:8px;justify-content:flex-start}
+.st button.cur{border-width:2px}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block;flex:none}
+label{font-size:12px;font-weight:700;color:var(--mut);display:block;margin:10px 0 4px}
+textarea,input[type=text],select{width:100%;font:inherit;font-size:13px;border:1px solid var(--line);border-radius:8px;padding:8px}
+textarea{min-height:80px;resize:vertical}
+.list .it{display:flex;align-items:center;gap:8px;padding:7px 6px;border-radius:6px;font-size:13px;cursor:pointer}
+.list .it:hover{background:#f1f5f9}.list h3{font-size:11px;letter-spacing:.08em;color:var(--mut);margin:14px 0 4px;text-transform:uppercase}
+.banner{display:none;background:#fffbeb;border-bottom:1px solid #fde68a;color:#92400e;font-size:12.5px;padding:6px 12px}
+.banner.show{display:block}
+.zoom{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:6px}.zoom button{width:38px;height:38px;font-size:18px;padding:0;box-shadow:0 2px 6px #0001}
+#modal{position:fixed;inset:0;background:#0f172a66;display:none;align-items:center;justify-content:center;z-index:9}
+#modal.show{display:flex}#modal .box{background:#fff;border-radius:14px;padding:18px;width:min(420px,92vw);box-shadow:0 20px 50px #0003}
+#modal .row{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
+.hint{font-size:12px;color:var(--mut);padding:4px 12px;background:#f8fafc;border-bottom:1px solid var(--line)}
+.view .edit-only{display:none!important}
+.el.sel .frame,.el.sel .line{filter:drop-shadow(0 0 10px var(--st))}
+@media (max-width:820px){main{flex-direction:column}aside{width:100%;height:42%;border-left:0;border-top:1px solid var(--line)}header h1{font-size:14px}.bar{width:100px}}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <h1>PCI · Architecture & Progress</h1>
+  <div class="prog"><div class="bar" id="bar"></div><span id="pct"></span></div>
+  <div class="tools">
+    <div class="seg edit-only" id="modes">
+      <button data-m="select" class="on" title="Select & change status">Select</button>
+      <button data-m="text" title="Click any text to change it">Edit text</button>
+      <button data-m="addtext" title="Click on the canvas to place a note">+ Text</button>
+      <button data-m="arrow" title="Click start, then end">+ Arrow</button>
+    </div>
+    <button class="edit-only" id="exp" title="Download status.json to upload to your server">Export</button>
+    <label class="btn edit-only" style="margin:0;font-size:13px;color:var(--ink)">Import<input type="file" id="imp" accept=".json" hidden></label>
+    <button id="svgdl" title="Download the current diagram as SVG">SVG</button>
+    <button class="edit-only" id="reset" title="Discard local changes, reload server status.json">Reset</button>
+  </div>
+</header>
+<div class="banner" id="banner">You have local changes that collaborators can't see yet. Click <b>Export</b>, then upload <b>status.json</b> next to this file on your server.</div>
+<div class="hint edit-only" id="hint">Click a shape or arrow to change its status. Drag to pan, scroll or pinch to zoom.</div>
+<main>
+  <div id="stage">
+<svg xmlns="http://www.w3.org/2000/svg" id="diagram" viewBox="0 0 3800 4260" width="3800" height="4260">
+<defs><marker id="mg" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L12,6 L0,12Z" fill="#15803d"/></marker><marker id="mgs" viewBox="0 0 12 12" refX="2" refY="6" markerWidth="7" markerHeight="7" orient="auto"><path d="M12,0 L0,6 L12,12Z" fill="#15803d"/></marker><marker id="ma" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L12,6 L0,12Z" fill="#d97706"/></marker><marker id="mas" viewBox="0 0 12 12" refX="2" refY="6" markerWidth="7" markerHeight="7" orient="auto"><path d="M12,0 L0,6 L12,12Z" fill="#d97706"/></marker><marker id="mr" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L12,6 L0,12Z" fill="#dc2626"/></marker><marker id="mrs" viewBox="0 0 12 12" refX="2" refY="6" markerWidth="7" markerHeight="7" orient="auto"><path d="M12,0 L0,6 L12,12Z" fill="#dc2626"/></marker><marker id="mx" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L12,6 L0,12Z" fill="#64748b"/></marker><marker id="mxs" viewBox="0 0 12 12" refX="2" refY="6" markerWidth="7" markerHeight="7" orient="auto"><path d="M12,0 L0,6 L12,12Z" fill="#64748b"/></marker><radialGradient id="hubg" cx=".5" cy=".45" r=".6"><stop offset="0" stop-color="#ecfdf5"/><stop offset="1" stop-color="#ccfbf1"/></radialGradient></defs>
+<style>.el{cursor:pointer}.el .frame{transition:stroke .2s}.edge:hover .line{stroke-width:7}.node:hover .frame{filter:drop-shadow(0 0 6px var(--st))}.el.sel .frame,.el.sel .line{filter:drop-shadow(0 0 10px var(--st))}</style>
+<rect width="3800" height="4260" fill="#fff"/>
+<text x="70" y="78" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="48" font-weight="800" fill="#1e293b" text-anchor="start" >Pakistan Creator Index — System Architecture &amp; Data Flow</text>
+<text x="72" y="118" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="23" font-weight="600" fill="#0f766e" text-anchor="start" >Creator Index Ecosystem | Implementation Assessment &amp; Production Rollout</text>
+<circle cx="2560" cy="56" r="11" fill="#15803d"/>
+<text x="2582" y="62" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="17" font-weight="600" fill="#1e293b" text-anchor="start" >Implemented</text>
+<circle cx="3120" cy="56" r="11" fill="#d97706"/>
+<text x="3142" y="62" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="17" font-weight="600" fill="#1e293b" text-anchor="start" >Partial / in progress</text>
+<circle cx="2560" cy="96" r="11" fill="#dc2626"/>
+<text x="2582" y="102" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="17" font-weight="600" fill="#1e293b" text-anchor="start" >Missing / not built</text>
+<circle cx="3120" cy="96" r="11" fill="#64748b"/>
+<text x="3142" y="102" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="17" font-weight="600" fill="#1e293b" text-anchor="start" >Not verifiable</text>
+<text x="2550" y="146" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="start" id="hint">Click any shape or arrow to change its status</text>
+<text x="150" y="250" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="17" font-weight="800" fill="#94a3b8" text-anchor="middle" letter-spacing="3">SOURCES</text>
+<text x="640" y="250" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="17" font-weight="800" fill="#94a3b8" text-anchor="middle" letter-spacing="3">COLLECTION</text>
+<text x="1560" y="250" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="17" font-weight="800" fill="#94a3b8" text-anchor="middle" letter-spacing="3">CENTRAL DATA HUB</text>
+<text x="2960" y="250" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="17" font-weight="800" fill="#94a3b8" text-anchor="middle" letter-spacing="3">APPS &amp; USERS</text>
+<g class="el edge" id="e-trigger" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M640,560 L640,655" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M640,560 L640,655" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+<circle cx="670" cy="610" r="19" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+<text x="670" y="617" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#fff" text-anchor="middle" >1</text>
+</g>
+<g class="el edge" id="e-youtube" data-st="g" data-bi="1" style="--st:#15803d;--dash:none">
+<path class="hit" d="M500,790 C380,790 300,520 215,500" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M500,790 C380,790 300,520 215,500" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)" marker-start="url(#mgs)"/>
+<rect x="274.2" y="585" width="141.60000000000002" height="28" rx="14" fill="#fff" stroke-width="2" style="stroke:var(--st)"/>
+<text x="345" y="605" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" text-anchor="middle" style="fill:var(--st)">API key ⇄ JSON</text>
+</g>
+<g class="el edge" id="e-instagram" data-st="a" data-bi="1" style="--st:#d97706;--dash:none">
+<path class="hit" d="M500,820 L220,770" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M500,820 L220,770" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#ma)" marker-start="url(#mas)"/>
+<rect x="292.6" y="805" width="124.80000000000001" height="28" rx="14" fill="#fff" stroke-width="2" style="stroke:var(--st)"/>
+<text x="355" y="825" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" text-anchor="middle" style="fill:var(--st)">token ⇄ JSON</text>
+</g>
+<g class="el edge" id="e-tiktok" data-st="r" data-bi="0" style="--st:#dc2626;--dash:12 7">
+<path class="hit" d="M505,860 C380,880 300,1040 222,1045" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M505,860 C380,880 300,1040 222,1045" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mr)"/>
+<rect x="310.2" y="960" width="99.60000000000001" height="28" rx="14" fill="#fff" stroke-width="2" style="stroke:var(--st)"/>
+<text x="360" y="980" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" text-anchor="middle" style="fill:var(--st)">not wired</text>
+</g>
+<g class="el edge" id="e-jobs" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M640,945 L640,990" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M640,945 L640,990" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+</g>
+<g class="el edge" id="e-raw" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M782,800 C900,800 1050,710 1185,710" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M782,800 C900,800 1050,710 1185,710" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+<rect x="904.0" y="690" width="192.00000000000003" height="28" rx="14" fill="#fff" stroke-width="2" style="stroke:var(--st)"/>
+<text x="1000" y="710" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" text-anchor="middle" style="fill:var(--st)">raw platform metrics</text>
+<circle cx="930" cy="770" r="19" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+<text x="930" y="777" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#fff" text-anchor="middle" >2</text>
+</g>
+<g class="el edge" id="e-store" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M1320,670 Q1338.0,616.4 1388,590" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M1320,670 Q1338.0,616.4 1388,590" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+<circle cx="1325.0" cy="605.0" r="19" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+<text x="1325.0" y="612.0" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#fff" text-anchor="middle" >3</text>
+</g>
+<g class="el edge" id="e-rank" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M1552,550 Q1628.6,561.96 1680,620" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M1552,550 Q1628.6,561.96 1680,620" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+<circle cx="1615.0" cy="535.0" r="19" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+<text x="1615.0" y="542.0" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#fff" text-anchor="middle" >4</text>
+</g>
+<g class="el edge" id="e-gates" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M1790,706 Q1847.4,777.0 1840,868" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M1790,706 Q1847.4,777.0 1840,868" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+<circle cx="1910" cy="760.0" r="19" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+<text x="1910" y="767.0" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#fff" text-anchor="middle" >5</text>
+</g>
+<g class="el edge" id="e-publish" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M1810,992 Q1757.1,1070.0 1665,1090" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M1810,992 Q1757.1,1070.0 1665,1090" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+<circle cx="1780.0" cy="1075.0" r="19" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+<text x="1780.0" y="1082.0" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#fff" text-anchor="middle" >6</text>
+</g>
+<g class="el edge" id="e-analytics" data-st="a" data-bi="0" style="--st:#d97706;--dash:none">
+<path class="hit" d="M1440,672 Q1318.5,804.5 1290,982" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M1440,672 Q1318.5,804.5 1290,982" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#ma)"/>
+</g>
+<g class="el edge" id="e-api" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M1670,1110 C1900,1110 2050,900 2242,900" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M1670,1110 C1900,1110 2050,900 2242,900" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+<rect x="1919.2" y="1025" width="141.60000000000002" height="28" rx="14" fill="#fff" stroke-width="2" style="stroke:var(--st)"/>
+<text x="1990" y="1045" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" text-anchor="middle" style="fill:var(--st)">published only</text>
+<circle cx="2050" cy="975" r="19" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+<text x="2050" y="982" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#fff" text-anchor="middle" >7</text>
+</g>
+<g class="el edge" id="e-commands" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M2242,820 C2100,820 2050,570 2020,570" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M2242,820 C2100,820 2050,570 2020,570" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+<rect x="2049.2" y="675" width="141.60000000000002" height="28" rx="14" fill="#fff" stroke-width="2" style="stroke:var(--st)"/>
+<text x="2120" y="695" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" text-anchor="middle" style="fill:var(--st)">admin commands</text>
+</g>
+<g class="el edge" id="e-bucket" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M1952,400 C1850,400 1800,330 1760,420" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M1952,400 C1850,400 1800,330 1760,420" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+<rect x="1699.8" y="315" width="200.4" height="28" rx="14" fill="#fff" stroke-width="2" style="stroke:var(--st)"/>
+<text x="1800" y="335" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" text-anchor="middle" style="fill:var(--st)">add / remove creators</text>
+</g>
+<g class="el edge" id="e-admin-login" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M2555,360 L2440,360" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M2555,360 L2440,360" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+</g>
+<g class="el edge" id="e-panel-api" data-st="g" data-bi="1" style="--st:#15803d;--dash:none">
+<path class="hit" d="M2290,642 C2290,600 2330,640 2330,752" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M2290,642 C2290,600 2330,640 2330,752" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)" marker-start="url(#mgs)"/>
+<rect x="2369.2" y="665" width="141.60000000000002" height="28" rx="14" fill="#fff" stroke-width="2" style="stroke:var(--st)"/>
+<text x="2440" y="685" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" text-anchor="middle" style="fill:var(--st)">session + CSRF</text>
+</g>
+<g class="el edge" id="e-web" data-st="g" data-bi="1" style="--st:#15803d;--dash:none">
+<path class="hit" d="M2418,880 L2690,800" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M2418,880 L2690,800" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)" marker-start="url(#mgs)"/>
+<rect x="2506.0" y="885" width="108.00000000000001" height="28" rx="14" fill="#fff" stroke-width="2" style="stroke:var(--st)"/>
+<text x="2560" y="905" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" text-anchor="middle" style="fill:var(--st)">HTTPS JSON</text>
+<circle cx="2540" cy="770" r="19" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+<text x="2540" y="777" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#fff" text-anchor="middle" >8</text>
+</g>
+<g class="el edge" id="e-visitor" data-st="g" data-bi="1" style="--st:#15803d;--dash:none">
+<path class="hit" d="M3370,760 L3250,760" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M3370,760 L3250,760" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)" marker-start="url(#mgs)"/>
+</g>
+<g class="el edge" id="e-dash-api" data-st="r" data-bi="0" style="--st:#dc2626;--dash:12 7">
+<path class="hit" d="M2410,960 C2550,1100 2600,1250 2692,1260" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M2410,960 C2550,1100 2600,1250 2692,1260" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mr)"/>
+<rect x="2452.4" y="1135" width="175.20000000000002" height="28" rx="14" fill="#fff" stroke-width="2" style="stroke:var(--st)"/>
+<text x="2540" y="1155" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" text-anchor="middle" style="fill:var(--st)">login + plan check</text>
+</g>
+<g class="el edge" id="e-creator" data-st="r" data-bi="0" style="--st:#dc2626;--dash:12 7">
+<path class="hit" d="M2805,1525 L2830,1418" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M2805,1525 L2830,1418" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mr)"/>
+</g>
+<g class="el edge" id="e-agency" data-st="r" data-bi="0" style="--st:#dc2626;--dash:12 7">
+<path class="hit" d="M3165,1525 L3170,1418" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M3165,1525 L3170,1418" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mr)"/>
+</g>
+<g class="el edge" id="e-subs" data-st="r" data-bi="1" style="--st:#dc2626;--dash:12 7">
+<path class="hit" d="M3370,1250 L3490,1110" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M3370,1250 L3490,1110" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mr)" marker-start="url(#mrs)"/>
+</g>
+<g class="el edge" id="e-pay" data-st="r" data-bi="1" style="--st:#dc2626;--dash:12 7">
+<path class="hit" d="M3560,1240 L3560,1350" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M3560,1240 L3560,1350" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mr)" marker-start="url(#mrs)"/>
+<rect x="3589.2" y="1285" width="141.60000000000002" height="28" rx="14" fill="#fff" stroke-width="2" style="stroke:var(--st)"/>
+<text x="3660" y="1305" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" text-anchor="middle" style="fill:var(--st)">signed webhook</text>
+</g>
+<g class="el edge" id="e-push" data-st="r" data-bi="0" style="--st:#dc2626;--dash:12 7">
+<path class="hit" d="M1650,1170 C2200,1700 3200,1760 3490,1745" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M1650,1170 C2200,1700 3200,1760 3490,1745" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mr)"/>
+<rect x="2412.4" y="1685" width="175.20000000000002" height="28" rx="14" fill="#fff" stroke-width="2" style="stroke:var(--st)"/>
+<text x="2500" y="1705" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" text-anchor="middle" style="fill:var(--st)">rank-change events</text>
+</g>
+<g class="el edge" id="e-ci-host" data-st="x" data-bi="0" style="--st:#64748b;--dash:4 7">
+<path class="hit" d="M400,4130 L545,4130" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M400,4130 L545,4130" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mx)"/>
+</g>
+<g class="el edge" id="e-host-neon" data-st="x" data-bi="0" style="--st:#64748b;--dash:4 7">
+<path class="hit" d="M810,4130 L955,4130" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M810,4130 L955,4130" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mx)"/>
+</g>
+<g class="el edge" id="e-neon-rhost" data-st="x" data-bi="0" style="--st:#64748b;--dash:4 7">
+<path class="hit" d="M1230,4130 L1375,4130" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M1230,4130 L1375,4130" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mx)"/>
+</g>
+<g class="el node" id="src-youtube" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="80" y="420" width="140" height="140" rx="30" fill="#fff" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="90" y="448.0" width="120" height="84.0" rx="21.599999999999998" fill="#ff0000"/><path d="M138.0,468.4 L171.60000000000002,490.0 L138.0,511.6Z" fill="#fff"/>
+<text x="150" y="590" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="21" font-weight="800" fill="#1e293b" text-anchor="middle" >YouTube</text>
+<text x="150" y="614" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >Data API v3</text>
+<circle class="sdot" cx="212" cy="428" r="12" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+</g>
+<g class="el node" id="src-instagram" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="80" y="690" width="140" height="140" rx="30" fill="#fff" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<defs><linearGradient id="ig90700" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#feda75"/><stop offset=".4" stop-color="#d62976"/><stop offset="1" stop-color="#4f5bd5"/></linearGradient></defs><rect x="90" y="700" width="120" height="120" rx="33.6" fill="url(#ig90700)"/><rect x="111.6" y="721.6" width="76.8" height="76.8" rx="24.0" fill="none" stroke="#fff" stroke-width="8.4"/><circle cx="150.0" cy="760.0" r="18.0" fill="none" stroke="#fff" stroke-width="8.4"/><circle cx="171.60000000000002" cy="738.4" r="4.8" fill="#fff"/>
+<text x="150" y="858" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="21" font-weight="800" fill="#1e293b" text-anchor="middle" >Instagram</text>
+<text x="150" y="882" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >Graph API</text>
+<circle class="sdot" cx="212" cy="698" r="12" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+</g>
+<g class="el node" id="src-tiktok" data-st="r" style="--st:#dc2626;--dash:12 7">
+<rect class="frame" x="80" y="970" width="140" height="140" rx="30" fill="#fff" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="90" y="980" width="120" height="120" rx="26.4" fill="#111"/>
+<path d="M150.4,1004.0 v50.4 a14.399999999999999,14.399999999999999 0 1 1 -12.0,-13.2" fill="none" stroke="#25F4EE" stroke-width="9.6"/><path d="M150.4,1004.0 q4.8,16.8 24.0,18.0" fill="none" stroke="#25F4EE" stroke-width="8.4"/>
+<path d="M154.4,1004.0 v50.4 a14.399999999999999,14.399999999999999 0 1 1 -12.0,-13.2" fill="none" stroke="#FE2C55" stroke-width="9.6"/><path d="M154.4,1004.0 q4.8,16.8 24.0,18.0" fill="none" stroke="#FE2C55" stroke-width="8.4"/>
+<path d="M152.4,1004.0 v50.4 a14.399999999999999,14.399999999999999 0 1 1 -12.0,-13.2" fill="none" stroke="#fff" stroke-width="9.6"/><path d="M152.4,1004.0 q4.8,16.8 24.0,18.0" fill="none" stroke="#fff" stroke-width="8.4"/>
+<text x="150" y="1138" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="21" font-weight="800" fill="#1e293b" text-anchor="middle" >TikTok</text>
+<text x="150" y="1162" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >stub only</text>
+<circle class="sdot" cx="212" cy="978" r="12" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+</g>
+<g class="el node" id="scheduler" data-st="g" style="--st:#15803d;--dash:none">
+<circle class="frame" cx="640" cy="420" r="70" fill="#fff" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="640.0" cy="420.0" r="42.0" fill="#f8fafc" stroke="#475569" stroke-width="3"/><path d="M640.0,392.0 V420.0 L660.0,432.0" fill="none" stroke="#475569" stroke-width="3" stroke-linecap="round"/>
+<text x="640" y="525" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="21" font-weight="800" fill="#1e293b" text-anchor="middle" >Scheduler</text>
+<text x="640" y="549" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >daily 09:00 PKT</text>
+<circle class="sdot" cx="690" cy="365" r="12" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+</g>
+<g class="el node" id="collectors" data-st="g" style="--st:#15803d;--dash:none">
+<polygon class="frame" points="761.2435565298214,870.0 640.0,940.0 518.7564434701786,870.0 518.7564434701785,730.0 640.0,660.0 761.2435565298215,730.0" fill="#f8fafc" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<polygon points="681.4,775.0 680.6045106086938,783.0767393314677 669.9336968533657,787.3989432086289 666.9396154386025,793.0004755498351 669.274220741123,804.274220741123 663.0006076470115,809.4228419493254 652.3989432086289,804.9336968533657 646.3209264333226,806.7774430850646 640.0,816.4 631.9232606685323,815.6045106086938 627.6010567913711,804.9336968533657 621.9995244501649,801.9396154386025 610.725779258877,804.274220741123 605.5771580506746,798.0006076470115 610.0663031466343,787.3989432086289 608.2225569149354,781.3209264333226 598.6,775.0 599.3954893913062,766.9232606685323 610.0663031466343,762.6010567913711 613.0603845613975,756.9995244501649 610.725779258877,745.725779258877 616.9993923529885,740.5771580506746 627.6010567913711,745.0663031466344 633.6790735666774,743.2225569149354 640.0,733.6 648.0767393314677,734.3954893913062 652.3989432086289,745.0663031466344 658.0004755498351,748.0603845613975 669.274220741123,745.725779258877 674.4228419493254,751.9993923529885 669.9336968533656,762.6010567913711 671.7774430850646,768.6790735666774" fill="#e2e8f0" stroke="#475569" stroke-width="2.5" stroke-linejoin="round"/><circle cx="640.0" cy="775.0" r="12.600000000000001" fill="#fff" stroke="#475569" stroke-width="2.5"/>
+<text x="640" y="875" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="800" fill="#1e293b" text-anchor="middle" >Collectors</text>
+<text x="640" y="900" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="500" fill="#475569" text-anchor="middle" >refresh + retries</text>
+<circle class="sdot" cx="760" cy="690" r="12" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+</g>
+<g class="el node" id="jobruns" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="560" y="1000" width="34" height="56" rx="5" fill="#e2e8f0" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect class="frame" x="602" y="1000" width="34" height="56" rx="5" fill="#e2e8f0" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect class="frame" x="644" y="1000" width="34" height="56" rx="5" fill="#e2e8f0" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect class="frame" x="686" y="1000" width="34" height="56" rx="5" fill="#fff" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<text x="640" y="1095" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="middle" >Job runs</text>
+<text x="640" y="1119" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >in PostgreSQL</text>
+</g>
+<g class="el node" id="hub" data-st="g" style="--st:#15803d;--dash:none">
+<circle cx="1560" cy="840" r="470" fill="url(#hubg)" class="frame" stroke-width="6" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="1310" y="344" width="500" height="52" rx="26" style="fill:var(--st)"/>
+<text x="1560" y="378" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="23" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="2">CREATOR INDEX DATA HUB</text>
+</g>
+<g class="el node" id="hub-validate" data-st="g" style="--st:#15803d;--dash:none">
+<circle class="frame" cx="1260" cy="710" r="70" fill="#fff" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<path d="M1222.2,678.08 H1297.8 L1268.4,714.2 V743.6 L1251.6,735.2 V714.2Z" fill="#e2e8f0" stroke="#475569" stroke-width="2.5" stroke-linejoin="round"/>
+<text x="1260" y="812" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="middle" >Validate</text>
+<text x="1260" y="836" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >clean &amp; check</text>
+<circle class="sdot" cx="1315" cy="655" r="12" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+</g>
+<g class="el node" id="hub-db" data-st="g" style="--st:#15803d;--dash:none">
+<path class="frame" d="M1390,519.2 V650.8 A80.0,19.2 0 0 0 1550,650.8 V519.2" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/><ellipse class="frame" cx="1470.0" cy="519.2" rx="80.0" ry="19.2" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<text x="1470" y="600" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="22" font-weight="800" fill="#0f766e" text-anchor="middle" >HUB</text>
+<text x="1470" y="702" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="middle" >Data Hub</text>
+<text x="1470" y="726" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >stored once</text>
+<circle class="sdot" cx="1540" cy="510" r="12" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+</g>
+<g class="el node" id="hub-rank" data-st="g" style="--st:#15803d;--dash:none">
+<circle class="frame" cx="1760" cy="630" r="78" fill="#fff" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<polygon points="1810.6,630.0 1809.6277351884034,639.8715702940161 1796.585629487447,645.1542639216575 1792.9261966471809,652.0005812275763 1795.7796031280393,665.7796031280393 1788.1118537907919,672.0723623825088 1775.1542639216575,666.5856294874469 1767.7255767518386,668.8390971039679 1760.0,680.6 1750.128429705984,679.6277351884034 1744.8457360783425,666.5856294874469 1737.9994187724237,662.9261966471809 1724.2203968719607,665.7796031280393 1717.9276376174912,658.1118537907919 1723.414370512553,645.1542639216575 1721.160902896032,637.7255767518387 1709.4,630.0 1710.3722648115966,620.1284297059839 1723.414370512553,614.8457360783425 1727.0738033528191,607.9994187724237 1724.2203968719607,594.2203968719607 1731.8881462092081,587.9276376174912 1744.8457360783425,593.4143705125531 1752.2744232481614,591.1609028960321 1760.0,579.4 1769.871570294016,580.3722648115966 1775.1542639216575,593.4143705125531 1782.0005812275763,597.0738033528193 1795.7796031280393,594.2203968719607 1802.0723623825088,601.8881462092081 1796.585629487447,614.8457360783424 1798.839097103968,622.2744232481613" fill="#e2e8f0" stroke="#0f766e" stroke-width="2.5" stroke-linejoin="round"/><circle cx="1760.0" cy="630.0" r="15.400000000000002" fill="#fff" stroke="#0f766e" stroke-width="2.5"/>
+<text x="1760" y="740" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="middle" >Ranking Engine</text>
+<text x="1760" y="764" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >8 scopes</text>
+<circle class="sdot" cx="1820" cy="570" r="12" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+</g>
+<g class="el node" id="hub-gates" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="1775" y="870" width="150" height="120" rx="14" fill="#fff" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="1800" y="900.0" width="14.000000000000002" height="75.0" fill="#cbd5e1" stroke="#475569" stroke-width="2"/><rect x="1886.0" y="900.0" width="14.000000000000002" height="75.0" fill="#cbd5e1" stroke="#475569" stroke-width="2"/>
+<rect x="1814.0" y="910.0" width="72.0" height="7.000000000000001" fill="#15803d"/>
+<rect x="1814.0" y="925.0" width="72.0" height="7.000000000000001" fill="#15803d"/>
+<rect x="1814.0" y="940.0" width="72.0" height="7.000000000000001" fill="#15803d"/>
+<rect x="1814.0" y="955.0" width="72.0" height="7.000000000000001" fill="#dc2626"/>
+<text x="1850" y="1026" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="middle" >Quality Gates</text>
+<text x="1850" y="1050" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >8 checks</text>
+<circle class="sdot" cx="1920" cy="872" r="12" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+</g>
+<g class="el node" id="hub-published" data-st="g" style="--st:#15803d;--dash:none">
+<path class="frame" d="M1515,1048.0 V1152.0 A75.0,18.0 0 0 0 1665,1152.0 V1048.0" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/><ellipse class="frame" cx="1590.0" cy="1048.0" rx="75.0" ry="18.0" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<text x="1590" y="1122" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="800" fill="#0f766e" text-anchor="middle" >LIVE</text>
+<text x="1590" y="1202" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="middle" >Published</text>
+<text x="1590" y="1226" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >rankings + history</text>
+<circle class="sdot" cx="1658" cy="1038" r="12" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+</g>
+<g class="el node" id="hub-analytics" data-st="a" style="--st:#d97706;--dash:none">
+<circle class="frame" cx="1270" cy="1040" r="58" fill="#fff" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="1234" y="1007.6" width="72" height="64.8" rx="6" fill="#f8fafc" stroke="#475569" stroke-width="2"/>
+<rect x="1242.64" y="1047.2" width="9.36" height="18.0" fill="#94a3b8"/>
+<rect x="1257.04" y="1036.4" width="9.36" height="28.8" fill="#94a3b8"/>
+<rect x="1271.44" y="1041.44" width="9.36" height="23.76" fill="#94a3b8"/>
+<rect x="1285.84" y="1022.0" width="9.36" height="43.199999999999996" fill="#94a3b8"/>
+<path d="M1241.2,1040.0 L1262.8,1029.2 L1277.2,1034.24 L1298.8,1016.96" fill="none" stroke="#0f766e" stroke-width="2.5"/>
+<text x="1270" y="1128" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#1e293b" text-anchor="middle" >Analytics</text>
+<text x="1270" y="1152" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >growth · earnings est.</text>
+<circle class="sdot" cx="1318" cy="992" r="12" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+</g>
+<g class="el node" id="redis" data-st="a" style="--st:#d97706;--dash:none">
+<path class="frame" d="M1440,1304.4 V1375.6 A60.0,14.399999999999999 0 0 0 1560,1375.6 V1304.4" fill="#fff7ed" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/><ellipse class="frame" cx="1500.0" cy="1304.4" rx="60.0" ry="14.399999999999999" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<path d="M1504.68,1328 L1487.2,1353.76 H1500.08 L1496.4,1374 L1515.72,1346.4 H1502.84Z" fill="#fee2e2" stroke="#b45309" stroke-width="2.5" stroke-linejoin="round"/>
+<text x="1500" y="1428" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#1e293b" text-anchor="middle" >Redis</text>
+<text x="1500" y="1452" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >sessions · limits</text>
+</g>
+<g class="el node" id="postgres" data-st="g" style="--st:#15803d;--dash:none">
+<path class="frame" d="M1620,1304.4 V1375.6 A60.0,14.399999999999999 0 0 0 1740,1375.6 V1304.4" fill="#f8fafc" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/><ellipse class="frame" cx="1680.0" cy="1304.4" rx="60.0" ry="14.399999999999999" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<text x="1680" y="1362" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="800" fill="#1e293b" text-anchor="middle" >PG</text>
+<text x="1680" y="1428" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#1e293b" text-anchor="middle" >PostgreSQL</text>
+<text x="1680" y="1452" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >Neon</text>
+</g>
+<g class="el node" id="api" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="2250" y="760" width="160" height="230" rx="16" fill="#fff" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="2270" y="784" width="120" height="36" rx="6" fill="#f1f5f9" stroke="#334155" stroke-width="2"/><circle cx="2290" cy="802" r="6" fill="#22c55e"/><line x1="2310" y1="802" x2="2375" y2="802" stroke="#334155" stroke-width="3"/>
+<rect x="2270" y="834" width="120" height="36" rx="6" fill="#f1f5f9" stroke="#334155" stroke-width="2"/><circle cx="2290" cy="852" r="6" fill="#22c55e"/><line x1="2310" y1="852" x2="2375" y2="852" stroke="#334155" stroke-width="3"/>
+<rect x="2270" y="884" width="120" height="36" rx="6" fill="#f1f5f9" stroke="#334155" stroke-width="2"/><circle cx="2290" cy="902" r="6" fill="#22c55e"/><line x1="2310" y1="902" x2="2375" y2="902" stroke="#334155" stroke-width="3"/>
+<rect x="2270" y="934" width="120" height="36" rx="6" fill="#f1f5f9" stroke="#334155" stroke-width="2"/><circle cx="2290" cy="952" r="6" fill="#22c55e"/><line x1="2310" y1="952" x2="2375" y2="952" stroke="#334155" stroke-width="3"/>
+<text x="2330" y="1032" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="21" font-weight="800" fill="#1e293b" text-anchor="middle" >REST API</text>
+<text x="2330" y="1056" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >public · admin</text>
+<circle class="sdot" cx="2400" cy="770" r="12" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+</g>
+<g class="el node" id="admin-panel" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="1960" y="250" width="470" height="300" rx="14" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<path d="M1962,290 H2428" stroke="#e2e8f0" stroke-width="2"/>
+<circle cx="1982" cy="270" r="6" fill="#f87171"/>
+<circle cx="2002" cy="270" r="6" fill="#fbbf24"/>
+<circle cx="2022" cy="270" r="6" fill="#4ade80"/>
+<rect x="2050" y="259" width="340" height="22" rx="11" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="2064" y="275" font-family="JetBrains Mono, Consolas, monospace" font-size="12" font-weight="400" fill="#475569" text-anchor="start" >admin.&lt;domain&gt;</text>
+<rect x="1972" y="302" width="110" height="236" rx="8" fill="#eef2ff"/>
+<rect x="1984" y="318" width="80" height="12" rx="6" fill="#c7d2fe"/>
+<rect x="1984" y="348" width="80" height="12" rx="6" fill="#c7d2fe"/>
+<rect x="1984" y="378" width="80" height="12" rx="6" fill="#6366f1"/>
+<rect x="1984" y="408" width="80" height="12" rx="6" fill="#c7d2fe"/>
+<rect x="1984" y="438" width="80" height="12" rx="6" fill="#c7d2fe"/>
+<rect x="1984" y="468" width="80" height="12" rx="6" fill="#c7d2fe"/>
+<rect x="1984" y="498" width="80" height="12" rx="6" fill="#c7d2fe"/>
+<rect x="2100" y="312" width="92" height="44" rx="10" fill="#f0fdf4" stroke="#15803d" stroke-width="2"/>
+<text x="2146" y="340" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#1e293b" text-anchor="middle" >Refresh</text>
+<rect x="2208" y="312" width="92" height="44" rx="10" fill="#f0fdf4" stroke="#15803d" stroke-width="2"/>
+<text x="2254" y="340" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#1e293b" text-anchor="middle" >Rank</text>
+<rect x="2316" y="312" width="92" height="44" rx="10" fill="#f0fdf4" stroke="#15803d" stroke-width="2"/>
+<text x="2362" y="340" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#1e293b" text-anchor="middle" >Publish</text>
+<rect x="2100" y="378" width="310" height="18" rx="5" fill="#f1f5f9"/>
+<rect x="2100" y="408" width="310" height="18" rx="5" fill="#f1f5f9"/>
+<rect x="2100" y="438" width="310" height="18" rx="5" fill="#f1f5f9"/>
+<rect x="2100" y="468" width="310" height="18" rx="5" fill="#f1f5f9"/>
+<rect x="2100" y="498" width="310" height="18" rx="5" fill="#f1f5f9"/>
+<text x="2195" y="590" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="21" font-weight="800" fill="#1e293b" text-anchor="middle" >Admin Panel</text>
+<text x="2195" y="614" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >people · pipeline · data hub · team</text>
+<circle class="sdot" cx="2420" cy="260" r="12" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+</g>
+<g class="el node" id="admin-user" data-st="g" style="--st:#15803d;--dash:none">
+<circle class="frame" cx="2605.0" cy="319.8" r="16.2" fill="#fff" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/><path class="frame" d="M2570.8,390 C2570.8,349.5 2639.2,349.5 2639.2,390" fill="#fff" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<text x="2605" y="430" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="middle" >Admin</text>
+<text x="2605" y="454" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >password + MFA</text>
+</g>
+<g class="el node" id="website" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="2700" y="600" width="540" height="360" rx="14" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<path d="M2702,640 H3238" stroke="#e2e8f0" stroke-width="2"/>
+<circle cx="2722" cy="620" r="6" fill="#f87171"/>
+<circle cx="2742" cy="620" r="6" fill="#fbbf24"/>
+<circle cx="2762" cy="620" r="6" fill="#4ade80"/>
+<rect x="2790" y="609" width="410" height="22" rx="11" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="2804" y="625" font-family="JetBrains Mono, Consolas, monospace" font-size="12" font-weight="400" fill="#475569" text-anchor="start" >www.&lt;domain&gt;</text>
+<path d="M2850,800 L2850.0,695.0 A105,105 0 0 1 2902.5,709.067332602634Z" fill="#5eead4" stroke="#fff" stroke-width="2"/>
+<path d="M2850,800 L2902.5,709.067332602634 A105,105 0 0 1 2940.932667397366,747.5Z" fill="#0f766e" stroke="#fff" stroke-width="2"/>
+<path d="M2850,800 L2940.932667397366,747.5 A105,105 0 0 1 2955.0,800.0Z" fill="#5eead4" stroke="#fff" stroke-width="2"/>
+<path d="M2850,800 L2955.0,800.0 A105,105 0 0 1 2940.932667397366,852.5Z" fill="#0f766e" stroke="#fff" stroke-width="2"/>
+<path d="M2850,800 L2940.932667397366,852.5 A105,105 0 0 1 2902.5,890.932667397366Z" fill="#5eead4" stroke="#fff" stroke-width="2"/>
+<path d="M2850,800 L2902.5,890.932667397366 A105,105 0 0 1 2850.0,905.0Z" fill="#0f766e" stroke="#fff" stroke-width="2"/>
+<path d="M2850,800 L2850.0,905.0 A105,105 0 0 1 2797.5,890.932667397366Z" fill="#5eead4" stroke="#fff" stroke-width="2"/>
+<path d="M2850,800 L2797.5,890.932667397366 A105,105 0 0 1 2759.067332602634,852.5Z" fill="#0f766e" stroke="#fff" stroke-width="2"/>
+<path d="M2850,800 L2759.067332602634,852.5 A105,105 0 0 1 2745.0,800.0000000000001Z" fill="#5eead4" stroke="#fff" stroke-width="2"/>
+<path d="M2850,800 L2745.0,800.0 A105,105 0 0 1 2759.067332602634,747.5Z" fill="#0f766e" stroke="#fff" stroke-width="2"/>
+<path d="M2850,800 L2759.067332602634,747.5 A105,105 0 0 1 2797.5,709.0673326026339Z" fill="#5eead4" stroke="#fff" stroke-width="2"/>
+<path d="M2850,800 L2797.5,709.067332602634 A105,105 0 0 1 2850.0,695.0Z" fill="#0f766e" stroke="#fff" stroke-width="2"/>
+<circle cx="2850" cy="800" r="40" fill="#fff"/>
+<text x="2850" y="808" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="800" fill="#b45309" text-anchor="middle" >♛ #1</text>
+<rect x="2990" y="662" width="230" height="30" rx="15" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="3008" y="683" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >⌕ search creators</text>
+<rect x="2990" y="712" width="70" height="64" rx="8" fill="#f1f5f9"/><circle cx="3025" cy="736" r="13" fill="#cbd5e1"/><rect x="3002" y="756" width="46" height="8" rx="4" fill="#cbd5e1"/>
+<rect x="3070" y="712" width="70" height="64" rx="8" fill="#f1f5f9"/><circle cx="3105" cy="736" r="13" fill="#cbd5e1"/><rect x="3082" y="756" width="46" height="8" rx="4" fill="#cbd5e1"/>
+<rect x="3150" y="712" width="70" height="64" rx="8" fill="#f1f5f9"/><circle cx="3185" cy="736" r="13" fill="#cbd5e1"/><rect x="3162" y="756" width="46" height="8" rx="4" fill="#cbd5e1"/>
+<rect x="2990" y="788" width="70" height="64" rx="8" fill="#f1f5f9"/><circle cx="3025" cy="812" r="13" fill="#cbd5e1"/><rect x="3002" y="832" width="46" height="8" rx="4" fill="#cbd5e1"/>
+<rect x="3070" y="788" width="70" height="64" rx="8" fill="#f1f5f9"/><circle cx="3105" cy="812" r="13" fill="#cbd5e1"/><rect x="3082" y="832" width="46" height="8" rx="4" fill="#cbd5e1"/>
+<rect x="3150" y="788" width="70" height="64" rx="8" fill="#f1f5f9"/><circle cx="3185" cy="812" r="13" fill="#cbd5e1"/><rect x="3162" y="832" width="46" height="8" rx="4" fill="#cbd5e1"/>
+<rect x="2990" y="864" width="70" height="64" rx="8" fill="#f1f5f9"/><circle cx="3025" cy="888" r="13" fill="#cbd5e1"/><rect x="3002" y="908" width="46" height="8" rx="4" fill="#cbd5e1"/>
+<rect x="3070" y="864" width="70" height="64" rx="8" fill="#f1f5f9"/><circle cx="3105" cy="888" r="13" fill="#cbd5e1"/><rect x="3082" y="908" width="46" height="8" rx="4" fill="#cbd5e1"/>
+<rect x="3150" y="864" width="70" height="64" rx="8" fill="#f1f5f9"/><circle cx="3185" cy="888" r="13" fill="#cbd5e1"/><rect x="3162" y="908" width="46" height="8" rx="4" fill="#cbd5e1"/>
+<text x="2970" y="1010" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="21" font-weight="800" fill="#1e293b" text-anchor="middle" >Public Website</text>
+<text x="2970" y="1034" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >rankings · profiles · search · compare</text>
+<circle class="sdot" cx="3230" cy="610" r="12" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+</g>
+<g class="el node" id="admin-page-fix" data-st="r" style="--st:#dc2626;--dash:12 7">
+<rect class="frame" x="3000" y="542" width="250" height="36" rx="18" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<text x="3125" y="566" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="middle" >fake /admin page</text>
+</g>
+<g class="el node" id="visitor" data-st="g" style="--st:#15803d;--dash:none">
+<circle class="frame" cx="3425.0" cy="719.8" r="16.2" fill="#fff" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/><path class="frame" d="M3390.8,790 C3390.8,749.5 3459.2,749.5 3459.2,790" fill="#fff" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<text x="3425" y="830" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="middle" >Visitor</text>
+</g>
+<g class="el node" id="creator-dash" data-st="r" style="--st:#dc2626;--dash:12 7">
+<rect class="frame" x="2700" y="1170" width="300" height="200" rx="14" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<path d="M2702,1210 H2998" stroke="#e2e8f0" stroke-width="2"/>
+<circle cx="2722" cy="1190" r="6" fill="#f87171"/>
+<circle cx="2742" cy="1190" r="6" fill="#fbbf24"/>
+<circle cx="2762" cy="1190" r="6" fill="#4ade80"/>
+<rect x="2790" y="1179" width="170" height="22" rx="11" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="2804" y="1195" font-family="JetBrains Mono, Consolas, monospace" font-size="12" font-weight="400" fill="#475569" text-anchor="start" >creator/me</text>
+<path d="M2725,1330 L2790,1290 L2860,1305 L2970,1240" fill="none" stroke="#94a3b8" stroke-width="4"/>
+<text x="2850" y="1410" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="middle" >Creator Dashboard</text>
+<text x="2850" y="1434" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >$25 plan</text>
+</g>
+<g class="el node" id="agency-dash" data-st="r" style="--st:#dc2626;--dash:12 7">
+<rect class="frame" x="3060" y="1170" width="300" height="200" rx="14" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<path d="M3062,1210 H3358" stroke="#e2e8f0" stroke-width="2"/>
+<circle cx="3082" cy="1190" r="6" fill="#f87171"/>
+<circle cx="3102" cy="1190" r="6" fill="#fbbf24"/>
+<circle cx="3122" cy="1190" r="6" fill="#4ade80"/>
+<rect x="3150" y="1179" width="170" height="22" rx="11" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="3164" y="1195" font-family="JetBrains Mono, Consolas, monospace" font-size="12" font-weight="400" fill="#475569" text-anchor="start" >agency/portfolio</text>
+<rect x="3085" y="1230" width="250" height="20" rx="6" fill="#e2e8f0"/>
+<rect x="3085" y="1262" width="250" height="20" rx="6" fill="#e2e8f0"/>
+<rect x="3085" y="1294" width="250" height="20" rx="6" fill="#e2e8f0"/>
+<rect x="3085" y="1326" width="250" height="20" rx="6" fill="#e2e8f0"/>
+<text x="3210" y="1410" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="middle" >Agency Dashboard</text>
+<text x="3210" y="1434" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >$79 plan</text>
+</g>
+<g class="el node" id="creator-user" data-st="r" style="--st:#dc2626;--dash:12 7">
+<circle class="frame" cx="2805.0" cy="1545.4" r="12.6" fill="#fff" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/><path class="frame" d="M2778.4,1600 C2778.4,1568.5 2831.6,1568.5 2831.6,1600" fill="#fff" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<text x="2805" y="1630" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="17" font-weight="800" fill="#1e293b" text-anchor="middle" >Creator</text>
+</g>
+<g class="el node" id="agency-user" data-st="r" style="--st:#dc2626;--dash:12 7">
+<circle class="frame" cx="3165.0" cy="1545.4" r="12.6" fill="#fff" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/><path class="frame" d="M3138.4,1600 C3138.4,1568.5 3191.6,1568.5 3191.6,1600" fill="#fff" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<text x="3165" y="1630" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="17" font-weight="800" fill="#1e293b" text-anchor="middle" >Agency</text>
+</g>
+<g class="el node" id="subscriptions" data-st="r" style="--st:#dc2626;--dash:12 7">
+<circle class="frame" cx="3560" cy="1100" r="62" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="3546.4" cy="1100.0" r="13.600000000000001" fill="#fef3c7" stroke="#a16207" stroke-width="3"/><path d="M3560.0,1100.0 H3590.6 M3580.4,1100.0 V1112.24 M3572.24,1100.0 V1109.52" stroke="#a16207" stroke-width="3" fill="none"/>
+<text x="3560" y="1194" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#1e293b" text-anchor="middle" >Subscriptions</text>
+<text x="3560" y="1218" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >plans · entitlements</text>
+</g>
+<g class="el node" id="payments" data-st="r" style="--st:#dc2626;--dash:12 7">
+<circle class="frame" cx="3560" cy="1420" r="62" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="3526" y="1398.24" width="68" height="43.52" rx="7" fill="#fee2e2" stroke="#b91c1c" stroke-width="2.5"/><rect x="3526" y="1407.76" width="68" height="6.800000000000001" fill="#b91c1c"/><rect x="3532.8" y="1424.08" width="20.4" height="5.44" fill="#b91c1c" opacity=".6"/>
+<text x="3560" y="1514" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#1e293b" text-anchor="middle" >Payments</text>
+<text x="3560" y="1538" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >provider not chosen</text>
+</g>
+<g class="el node" id="push" data-st="r" style="--st:#dc2626;--dash:12 7">
+<circle class="frame" cx="3560" cy="1740" r="62" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<path d="M3539.6,1753.6 C3545.04,1746.8 3543.0,1719.6 3560.0,1718.24 C3577.0,1719.6 3574.96,1746.8 3580.4,1753.6Z" fill="#fee2e2" stroke="#b91c1c" stroke-width="2.5"/><circle cx="3560.0" cy="1760.4" r="4.760000000000001" fill="#b91c1c"/><path d="M3584.48,1719.6 a13.600000000000001,13.600000000000001 0 0 1 5.44,17.0" fill="none" stroke="#b91c1c" stroke-width="2"/>
+<text x="3560" y="1834" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#1e293b" text-anchor="middle" >Push Alerts</text>
+<text x="3560" y="1858" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="500" fill="#475569" text-anchor="middle" >web push · outbox</text>
+</g>
+<rect x="2660" y="1080" width="1050" height="790" rx="24" fill="none" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="6 8" pointer-events="none"/>
+<text x="2690" y="1112" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="800" fill="#94a3b8" text-anchor="start" letter-spacing="3">COMMERCIAL LAYER</text>
+<rect x="60" y="1975" width="3680" height="520" rx="22" fill="#fbfdff" stroke="#cbd5e1" stroke-width="2"/>
+<text x="90" y="2015" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="800" fill="#1e293b" text-anchor="start" letter-spacing="1">PARALLEL COLLECTION LANES  ·  official API vs HTML fallback  ·  merged per field into one hub</text>
+<text x="90" y="2041" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" fill="#475569" text-anchor="start" >Each field is a chip: click it to mark progress. Fallback runs on its own schedule and only fills what the API leaves empty.</text>
+<rect x="330" y="2061" width="1380" height="36" rx="18" fill="#ecfdf5" stroke="#15803d" stroke-width="1.5"/>
+<text x="1020" y="2085" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="800" fill="#15803d" text-anchor="middle" >OFFICIAL API LANE  (priority 1 — always wins when healthy)</text>
+<rect x="2290" y="2061" width="1420" height="36" rx="18" fill="#fff7ed" stroke="#d97706" stroke-width="1.5"/>
+<text x="3000" y="2085" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="800" fill="#b45309" text-anchor="middle" >HTML FALLBACK LANE  (priority 2 — fills missing fields only)</text>
+<rect x="95" y="2137.4" width="56" height="39.199999999999996" rx="10.08" fill="#ff0000"/><path d="M117.4,2146.92 L133.08,2157.0 L117.4,2167.08Z" fill="#fff"/>
+<text x="165" y="2167" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="start" >YouTube</text>
+<line x1="90" y1="2217" x2="3710" y2="2217" stroke="#eef2f7" stroke-width="2"/>
+<defs><linearGradient id="ig952241" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#feda75"/><stop offset=".4" stop-color="#d62976"/><stop offset="1" stop-color="#4f5bd5"/></linearGradient></defs><rect x="95" y="2241" width="56" height="56" rx="15.680000000000001" fill="url(#ig952241)"/><rect x="105.08" y="2251.08" width="35.84" height="35.84" rx="11.200000000000001" fill="none" stroke="#fff" stroke-width="3.9200000000000004"/><circle cx="123.0" cy="2269.0" r="8.4" fill="none" stroke="#fff" stroke-width="3.9200000000000004"/><circle cx="133.08" cy="2258.92" r="2.24" fill="#fff"/>
+<text x="165" y="2279" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="start" >Instagram</text>
+<line x1="90" y1="2329" x2="3710" y2="2329" stroke="#eef2f7" stroke-width="2"/>
+<rect x="95" y="2353" width="56" height="56" rx="12.32" fill="#111"/>
+<path d="M122.12,2364.2 v23.52 a6.72,6.72 0 1 1 -5.6000000000000005,-6.16" fill="none" stroke="#25F4EE" stroke-width="4.48"/><path d="M122.12,2364.2 q2.24,7.840000000000001 11.200000000000001,8.4" fill="none" stroke="#25F4EE" stroke-width="3.9200000000000004"/>
+<path d="M126.12,2364.2 v23.52 a6.72,6.72 0 1 1 -5.6000000000000005,-6.16" fill="none" stroke="#FE2C55" stroke-width="4.48"/><path d="M126.12,2364.2 q2.24,7.840000000000001 11.200000000000001,8.4" fill="none" stroke="#FE2C55" stroke-width="3.9200000000000004"/>
+<path d="M124.12,2364.2 v23.52 a6.72,6.72 0 1 1 -5.6000000000000005,-6.16" fill="none" stroke="#fff" stroke-width="4.48"/><path d="M124.12,2364.2 q2.24,7.840000000000001 11.200000000000001,8.4" fill="none" stroke="#fff" stroke-width="3.9200000000000004"/>
+<text x="165" y="2391" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="start" >TikTok</text>
+<line x1="90" y1="2441" x2="3710" y2="2441" stroke="#eef2f7" stroke-width="2"/>
+<g class="el node" id="f-yt-subs" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="330" y="2133" width="218" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="346" cy="2153" r="7" style="fill:var(--st)"/>
+<text x="360" y="2159" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >Subscribers</text>
+<text x="344" y="2183" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >rounded 3 sig. fig.</text>
+</g>
+<g class="el node" id="f-yt-views" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="560" y="2133" width="218" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="576" cy="2153" r="7" style="fill:var(--st)"/>
+<text x="590" y="2159" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >Total views</text>
+<text x="574" y="2183" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >exact</text>
+</g>
+<g class="el node" id="f-yt-posts" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="790" y="2133" width="218" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="806" cy="2153" r="7" style="fill:var(--st)"/>
+<text x="820" y="2159" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >Posts 30 days</text>
+<text x="804" y="2183" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >uploads playlist</text>
+</g>
+<g class="el node" id="f-yt-videos" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="1020" y="2133" width="218" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="1036" cy="2153" r="7" style="fill:var(--st)"/>
+<text x="1050" y="2159" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >Video count</text>
+<text x="1034" y="2183" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >official</text>
+</g>
+<g class="el node" id="f-yt-avatar" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="1250" y="2133" width="218" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="1266" cy="2153" r="7" style="fill:var(--st)"/>
+<text x="1280" y="2159" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >Avatar + banner</text>
+<text x="1264" y="2183" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >trusted hosts</text>
+</g>
+<g class="el node" id="f-yt-vstats" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="1480" y="2133" width="218" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="1496" cy="2153" r="7" style="fill:var(--st)"/>
+<text x="1510" y="2159" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >Video stats ×50</text>
+<text x="1494" y="2183" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >views·likes·comments</text>
+</g>
+<g class="el node" id="f-yt-html" data-st="r" style="--st:#dc2626;--dash:12 7">
+<rect class="frame" x="2290" y="2133" width="700" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="2306" cy="2153" r="7" style="fill:var(--st)"/>
+<text x="2320" y="2159" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >No YouTube HTML collector</text>
+<text x="2304" y="2183" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >source youtube.http defined (off), no code</text>
+</g>
+<g class="el node" id="f-ig-followers" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="330" y="2245" width="218" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="346" cy="2265" r="7" style="fill:var(--st)"/>
+<text x="360" y="2271" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >Followers</text>
+<text x="344" y="2295" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >exact</text>
+</g>
+<g class="el node" id="f-ig-posts" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="560" y="2245" width="218" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="576" cy="2265" r="7" style="fill:var(--st)"/>
+<text x="590" y="2271" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >Posts 30 days</text>
+<text x="574" y="2295" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >media timestamps ×50</text>
+</g>
+<g class="el node" id="f-ig-avatar" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="790" y="2245" width="218" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="806" cy="2265" r="7" style="fill:var(--st)"/>
+<text x="820" y="2271" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >Profile picture</text>
+<text x="804" y="2295" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >Graph + recovery job</text>
+</g>
+<g class="el node" id="f-ig-id" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="1020" y="2245" width="218" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="1036" cy="2265" r="7" style="fill:var(--st)"/>
+<text x="1050" y="2271" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >Account id</text>
+<text x="1034" y="2295" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >numeric</text>
+</g>
+<g class="el node" id="f-ig-html-avatar" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="2290" y="2245" width="330" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="2306" cy="2265" r="7" style="fill:var(--st)"/>
+<text x="2320" y="2271" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >Profile picture</text>
+<text x="2304" y="2295" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >og:image · only if missing</text>
+</g>
+<g class="el node" id="f-ig-html-cache" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="2640" y="2245" width="330" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="2656" cy="2265" r="7" style="fill:var(--st)"/>
+<text x="2670" y="2271" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >Picture cache</text>
+<text x="2654" y="2295" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >own copy of images</text>
+</g>
+<g class="el node" id="f-ig-html-counts" data-st="r" style="--st:#dc2626;--dash:12 7">
+<rect class="frame" x="2990" y="2245" width="700" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="3006" cy="2265" r="7" style="fill:var(--st)"/>
+<text x="3020" y="2271" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >No follower / post counts from HTML</text>
+<text x="3004" y="2295" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >fallback never fills ranking numbers today</text>
+</g>
+<g class="el node" id="f-tt-api" data-st="r" style="--st:#dc2626;--dash:12 7">
+<rect class="frame" x="330" y="2357" width="1150" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="346" cy="2377" r="7" style="fill:var(--st)"/>
+<text x="360" y="2383" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >No official TikTok API wired</text>
+<text x="344" y="2407" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >provider stub → &quot;unsupported&quot;; DB rejects TikTok accounts</text>
+</g>
+<g class="el node" id="f-tt-title" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="2290" y="2357" width="228" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="2306" cy="2377" r="7" style="fill:var(--st)"/>
+<text x="2320" y="2383" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >Video title</text>
+<text x="2304" y="2407" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >oEmbed, admin-triggered</text>
+</g>
+<g class="el node" id="f-tt-thumb" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="2530" y="2357" width="228" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="2546" cy="2377" r="7" style="fill:var(--st)"/>
+<text x="2560" y="2383" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >Thumbnail</text>
+<text x="2544" y="2407" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >https only</text>
+</g>
+<g class="el node" id="f-tt-identity" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="2770" y="2357" width="228" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="2786" cy="2377" r="7" style="fill:var(--st)"/>
+<text x="2800" y="2383" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >Creator identity</text>
+<text x="2784" y="2407" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >author URL must match</text>
+</g>
+<g class="el node" id="f-tt-counts" data-st="r" style="--st:#dc2626;--dash:12 7">
+<rect class="frame" x="3010" y="2357" width="680" height="66" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="3026" cy="2377" r="7" style="fill:var(--st)"/>
+<text x="3040" y="2383" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >No followers / views</text>
+<text x="3024" y="2407" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#475569" text-anchor="start" >oEmbed has no engagement counts</text>
+</g>
+<g class="el node" id="merge" data-st="g" style="--st:#15803d;--dash:none">
+<polygon class="frame" points="2000,2145 2150,2265 2000,2385 1850,2265" fill="#fff" stroke-width="4" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<text x="2000" y="2251" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="800" fill="#1e293b" text-anchor="middle" >MERGE</text>
+<text x="2000" y="2275" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#0f766e" text-anchor="middle" >API-first</text>
+<text x="2000" y="2295" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="500" fill="#475569" text-anchor="middle" >per field</text>
+</g>
+<text x="1780" y="2117" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="1" font-weight="400" fill="#475569" text-anchor="start" ></text>
+<text x="1780" y="2117" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="1" font-weight="400" fill="#475569" text-anchor="start" ></text>
+<text x="1780" y="2117" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="1" font-weight="400" fill="#475569" text-anchor="start" ></text>
+<text x="1780" y="2117" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="1" font-weight="400" fill="#475569" text-anchor="start" ></text>
+<rect x="60" y="2540" width="3680" height="620" rx="22" fill="#f7fdfb" stroke="#99f6e4" stroke-width="2"/>
+<text x="90" y="2580" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="800" fill="#1e293b" text-anchor="start" letter-spacing="1">WHAT THE HUB RECEIVES  →  WHAT IT HANDS TO EACH SUB-BUCKET</text>
+<text x="90" y="2606" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" fill="#475569" text-anchor="start" >Every reading is stored once; each bucket reads its own slice. Buckets never write back, and deleting a creator removes them everywhere (cascade).</text>
+<g class="el node" id="in-api" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="100" y="2650" width="520" height="84" rx="14" fill="#fff" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="124" cy="2678" r="8" style="fill:var(--st)"/>
+<text x="142" y="2684" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="17" font-weight="800" fill="#1e293b" text-anchor="start" >Official API readings</text>
+<text x="124" y="2712" font-family="JetBrains Mono, Consolas, monospace" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >youtube.api · instagram.api</text>
+</g>
+<g class="el node" id="in-html" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="100" y="2762" width="520" height="84" rx="14" fill="#fff" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="124" cy="2790" r="8" style="fill:var(--st)"/>
+<text x="142" y="2796" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="17" font-weight="800" fill="#1e293b" text-anchor="start" >HTML fallback readings</text>
+<text x="124" y="2824" font-family="JetBrains Mono, Consolas, monospace" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >instagram.http · tiktok.http</text>
+</g>
+<g class="el node" id="in-legacy" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="100" y="2874" width="520" height="84" rx="14" fill="#fff" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="124" cy="2902" r="8" style="fill:var(--st)"/>
+<text x="142" y="2908" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="17" font-weight="800" fill="#1e293b" text-anchor="start" >Legacy refresh mirror</text>
+<text x="124" y="2936" font-family="JetBrains Mono, Consolas, monospace" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >metric_observations → hub (same txn)</text>
+</g>
+<g class="el node" id="in-manual" data-st="x" style="--st:#64748b;--dash:4 7">
+<rect class="frame" x="100" y="2986" width="520" height="84" rx="14" fill="#fff" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="124" cy="3014" r="8" style="fill:var(--st)"/>
+<text x="142" y="3020" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="17" font-weight="800" fill="#1e293b" text-anchor="start" >Admin manual entries</text>
+<text x="124" y="3048" font-family="JetBrains Mono, Consolas, monospace" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >&lt;family&gt;.manual sources (unused for creators)</text>
+</g>
+<g class="el node" id="hub-tables" data-st="g" style="--st:#15803d;--dash:none">
+<path class="frame" d="M840,2662 V3088 A280.0,22 0 0 0 1400,3088 V2662" fill="#f0fdfa" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/><ellipse class="frame" cx="1120.0" cy="2662" rx="280.0" ry="22" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="900" y="2690" width="440" height="40" rx="20" style="fill:var(--st)"/>
+<text x="1120" y="2717" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="2">HUB TABLES</text>
+<rect x="880" y="2765" width="480" height="54" rx="10" fill="#fff" stroke="#99f6e4"/>
+<text x="900" y="2788" font-family="JetBrains Mono, Consolas, monospace" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >ingest_observations</text>
+<text x="900" y="2809" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#475569" text-anchor="start" >every reading · source · run · time</text>
+<rect x="880" y="2829" width="480" height="54" rx="10" fill="#fff" stroke="#99f6e4"/>
+<text x="900" y="2852" font-family="JetBrains Mono, Consolas, monospace" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >ingest_latest</text>
+<text x="900" y="2873" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#475569" text-anchor="start" >current value per field (API-first)</text>
+<rect x="880" y="2893" width="480" height="54" rx="10" fill="#fff" stroke="#99f6e4"/>
+<text x="900" y="2916" font-family="JetBrains Mono, Consolas, monospace" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >ingest_content</text>
+<text x="900" y="2937" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#475569" text-anchor="start" >videos / posts (YouTube, TikTok)</text>
+<rect x="880" y="2957" width="480" height="54" rx="10" fill="#fff" stroke="#99f6e4"/>
+<text x="900" y="2980" font-family="JetBrains Mono, Consolas, monospace" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >hub_account_metrics</text>
+<text x="900" y="3001" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#475569" text-anchor="start" >view: what readers are allowed to see</text>
+<rect x="880" y="3021" width="480" height="54" rx="10" fill="#fff" stroke="#99f6e4"/>
+<text x="900" y="3044" font-family="JetBrains Mono, Consolas, monospace" font-size="15" font-weight="700" fill="#1e293b" text-anchor="start" >health · discrepancies</text>
+<text x="900" y="3065" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#475569" text-anchor="start" >source status, &gt;5 % gaps</text>
+</g>
+<g class="el edge" id="e-in-0" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M622,2692 C720,2692 740,2870 836,2870" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M622,2692 C720,2692 740,2870 836,2870" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+</g>
+<g class="el edge" id="e-in-1" data-st="a" data-bi="0" style="--st:#d97706;--dash:none">
+<path class="hit" d="M622,2804 C720,2804 740,2870 836,2870" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M622,2804 C720,2804 740,2870 836,2870" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#ma)"/>
+</g>
+<g class="el edge" id="e-in-2" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M622,2916 C720,2916 740,2870 836,2870" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M622,2916 C720,2916 740,2870 836,2870" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+</g>
+<g class="el edge" id="e-in-3" data-st="x" data-bi="0" style="--st:#64748b;--dash:4 7">
+<path class="hit" d="M622,3028 C720,3028 740,2870 836,2870" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M622,3028 C720,3028 740,2870 836,2870" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mx)"/>
+</g>
+<g class="el edge" id="e-bk-rank" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M1402,2870 C1550,2870 1560,2760 1688,2760" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M1402,2870 C1550,2870 1560,2760 1688,2760" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+</g>
+<g class="el edge" id="e-bk-cb" data-st="a" data-bi="0" style="--st:#d97706;--dash:none">
+<path class="hit" d="M1402,2870 C1500,2870 1520,2640 1600,2640 L2350,2640 Q2365,2640 2365,2660 L2365,2745 Q2365,2760 2378,2760" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M1402,2870 C1500,2870 1520,2640 1600,2640 L2350,2640 Q2365,2640 2365,2660 L2365,2745 Q2365,2760 2378,2760" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#ma)"/>
+</g>
+<g class="el edge" id="e-bk-dir" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M1402,2870 C1500,2870 1520,2640 1600,2640 L3040,2640 Q3055,2640 3055,2660 L3055,2745 Q3055,2760 3068,2760" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M1402,2870 C1500,2870 1520,2640 1600,2640 L3040,2640 Q3055,2640 3055,2660 L3055,2745 Q3055,2760 3068,2760" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+</g>
+<g class="el edge" id="e-bk-an" data-st="a" data-bi="0" style="--st:#d97706;--dash:none">
+<path class="hit" d="M1402,2870 C1550,2870 1560,3010 1688,3010" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M1402,2870 C1550,2870 1560,3010 1688,3010" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#ma)"/>
+</g>
+<g class="el edge" id="e-bk-hof" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M1402,2870 C1500,2870 1520,2878 1600,2878 L2350,2878 Q2365,2878 2365,2898 L2365,2995 Q2365,3010 2378,3010" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M1402,2870 C1500,2870 1520,2878 1600,2878 L2350,2878 Q2365,2878 2365,2898 L2365,2995 Q2365,3010 2378,3010" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+</g>
+<g class="el edge" id="e-bk-mon" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M1402,2870 C1500,2870 1520,2878 1600,2878 L3040,2878 Q3055,2878 3055,2898 L3055,2995 Q3055,3010 3068,3010" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M1402,2870 C1500,2870 1520,2878 1600,2878 L3040,2878 Q3055,2878 3055,2898 L3055,2995 Q3055,3010 3068,3010" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+</g>
+<g class="el node" id="bk-rankings" data-st="g" style="--st:#15803d;--dash:none">
+<path class="frame" d="M1700,2708 L1717.0,2840 Q1785.0,2856 1853.0,2840 L1870,2708" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<ellipse class="frame" cx="1785.0" cy="2708" rx="85.0" ry="18" fill="#f8fafc" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<path class="frame" d="M1720.4,2704 C1720.4,2642 1849.6,2642 1849.6,2704" fill="none" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<text x="1785" y="2785" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#0f766e" text-anchor="middle" >RANK</text>
+<circle cx="1860" cy="2698" r="11" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+<text x="1895" y="2730" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="start" >Rankings bucket</text>
+<text x="1895" y="2758" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >followers · views · posts 30 d</text>
+<text x="1895" y="2780" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >≤ 7 days fresh, API-first</text>
+<text x="1895" y="2808" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#0f766e" text-anchor="start" >→ wheel · rows · Top 100</text>
+</g>
+<g class="el node" id="bk-creators" data-st="a" style="--st:#d97706;--dash:none">
+<path class="frame" d="M2390,2708 L2407.0,2840 Q2475.0,2856 2543.0,2840 L2560,2708" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<ellipse class="frame" cx="2475.0" cy="2708" rx="85.0" ry="18" fill="#f8fafc" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<path class="frame" d="M2410.4,2704 C2410.4,2642 2539.6,2642 2539.6,2704" fill="none" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<text x="2475" y="2785" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#0f766e" text-anchor="middle" >YT</text>
+<circle cx="2550" cy="2698" r="11" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+<text x="2585" y="2730" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="start" >Creators Bucket</text>
+<text x="2585" y="2758" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >YouTube series 183 d · video cohort</text>
+<text x="2585" y="2780" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >engagement · like rate · rank 93 d</text>
+<text x="2585" y="2808" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#0f766e" text-anchor="start" >→ profile YouTube view</text>
+</g>
+<g class="el node" id="bk-directory" data-st="g" style="--st:#15803d;--dash:none">
+<path class="frame" d="M3080,2708 L3097.0,2840 Q3165.0,2856 3233.0,2840 L3250,2708" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<ellipse class="frame" cx="3165.0" cy="2708" rx="85.0" ry="18" fill="#f8fafc" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<path class="frame" d="M3100.4,2704 C3100.4,2642 3229.6,2642 3229.6,2704" fill="none" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<text x="3165" y="2785" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#0f766e" text-anchor="middle" >INDEX</text>
+<circle cx="3240" cy="2698" r="11" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+<text x="3275" y="2730" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="start" >Creator Index</text>
+<text x="3275" y="2758" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >last-known figures + as-of date</text>
+<text x="3275" y="2780" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >search · category · platform · sort</text>
+<text x="3275" y="2808" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#0f766e" text-anchor="start" >→ /creators · compare</text>
+</g>
+<g class="el node" id="bk-analytics" data-st="a" style="--st:#d97706;--dash:none">
+<path class="frame" d="M1700,2958 L1717.0,3090 Q1785.0,3106 1853.0,3090 L1870,2958" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<ellipse class="frame" cx="1785.0" cy="2958" rx="85.0" ry="18" fill="#f8fafc" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<path class="frame" d="M1720.4,2954 C1720.4,2892 1849.6,2892 1849.6,2954" fill="none" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<text x="1785" y="3035" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#0f766e" text-anchor="middle" >GROWTH</text>
+<circle cx="1860" cy="2948" r="11" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+<text x="1895" y="2980" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="start" >Analytics bucket</text>
+<text x="1895" y="3008" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >growth 24 h / 7 d / 30 d</text>
+<text x="1895" y="3030" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >earnings est. · IG sponsor scenario</text>
+<text x="1895" y="3058" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#0f766e" text-anchor="start" >→ profiles · directory</text>
+</g>
+<g class="el node" id="bk-hof" data-st="g" style="--st:#15803d;--dash:none">
+<path class="frame" d="M2390,2958 L2407.0,3090 Q2475.0,3106 2543.0,3090 L2560,2958" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<ellipse class="frame" cx="2475.0" cy="2958" rx="85.0" ry="18" fill="#f8fafc" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<path class="frame" d="M2410.4,2954 C2410.4,2892 2539.6,2892 2539.6,2954" fill="none" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<text x="2475" y="3035" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#0f766e" text-anchor="middle" >♛</text>
+<circle cx="2550" cy="2948" r="11" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+<text x="2585" y="2980" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="start" >Hall of Fame</text>
+<text x="2585" y="3008" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >rank_history (kept forever)</text>
+<text x="2585" y="3030" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >weekly / monthly #1 per scope</text>
+<text x="2585" y="3058" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#0f766e" text-anchor="start" >→ /hall-of-fame</text>
+</g>
+<g class="el node" id="bk-monitor" data-st="g" style="--st:#15803d;--dash:none">
+<path class="frame" d="M3080,2958 L3097.0,3090 Q3165.0,3106 3233.0,3090 L3250,2958" fill="#fff" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<ellipse class="frame" cx="3165.0" cy="2958" rx="85.0" ry="18" fill="#f8fafc" stroke-width="3.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<path class="frame" d="M3100.4,2954 C3100.4,2892 3229.6,2892 3229.6,2954" fill="none" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<text x="3165" y="3035" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#0f766e" text-anchor="middle" >HEALTH</text>
+<circle cx="3240" cy="2948" r="11" style="fill:var(--st)" stroke="#fff" stroke-width="3"/>
+<text x="3275" y="2980" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="start" >Hub Monitor</text>
+<text x="3275" y="3008" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >source health · coverage tiers</text>
+<text x="3275" y="3030" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >discrepancies · freshness alerts</text>
+<text x="3275" y="3058" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#0f766e" text-anchor="start" >→ admin Data Hub page</text>
+</g>
+<g class="el node" id="bk-other" data-st="x" style="--st:#64748b;--dash:4 7">
+<rect class="frame" x="1700" y="3100" width="1990" height="44" rx="22" fill="#f8fafc" stroke-width="2" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<text x="2695" y="3129" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" fill="#475569" text-anchor="middle" >Also on the same hub, out of scope here: Satify · Satellite · Restaurants</text>
+</g>
+<rect x="60" y="3220" width="3680" height="790" rx="22" fill="#fcfcfd" stroke="#cbd5e1" stroke-width="2"/>
+<text x="90" y="3262" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="22" font-weight="800" fill="#1e293b" text-anchor="start" letter-spacing="1.5">PRODUCTION READINESS — SOFTWARE</text>
+<text x="90" y="3290" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" fill="#475569" text-anchor="start" >Click a card to update it.  TONIGHT = fix or decide before go-live  ·  PHASE 2 = after launch (keys, values, infrastructure later)</text>
+<path d="M110.0,3320 L126.80000000000001,3326.4 V3340.0 C126.80000000000001,3351.2 118.0,3356.8 110.0,3360 C102.0,3356.8 93.2,3351.2 93.2,3340.0 V3326.4Z" fill="#dbeafe" stroke="#1d4ed8" stroke-width="2.5"/><path d="M102.8,3340.8 l5.2,5.2 l10.0,-10.8" fill="none" stroke="#1d4ed8" stroke-width="3"/>
+<text x="144" y="3350" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#1e293b" text-anchor="start" letter-spacing="1.5">SECURITY</text>
+<g class="el node" id="pr-mfa" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="90" y="3382" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="90" y="3392" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="112" y="3413" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Admin MFA · RBAC · CSRF</text>
+<text x="112" y="3438" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >Argon2id + TOTP, 3 roles, audit log</text>
+<circle cx="766" cy="3406" r="10" style="fill:var(--st)"/>
+<text x="766" y="3411" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" >✓</text>
+</g>
+<g class="el node" id="pr-cors" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="90" y="3468" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="90" y="3478" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="112" y="3499" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >CORS allow-list + write guard</text>
+<text x="112" y="3524" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >Origin / Sec-Fetch checks, 32 KB body</text>
+<circle cx="766" cy="3492" r="10" style="fill:var(--st)"/>
+<text x="766" y="3497" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" >✓</text>
+</g>
+<g class="el node" id="pr-valid" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="90" y="3554" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="90" y="3564" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="112" y="3585" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Input validation</text>
+<text x="112" y="3610" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >zod on every route; fail-closed hub writes</text>
+<circle cx="766" cy="3578" r="10" style="fill:var(--st)"/>
+<text x="766" y="3583" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" >✓</text>
+</g>
+<g class="el node" id="pr-proxy" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="90" y="3640" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="90" y="3650" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="112" y="3671" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Rate limit sees real client IP</text>
+<text x="112" y="3696" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >set TRUST_PROXY to match host proxy</text>
+<rect x="686" y="3652" width="92" height="24" rx="12" fill="#1e293b"/>
+<text x="732" y="3669" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="1">TONIGHT</text>
+</g>
+<g class="el node" id="pr-mockadmin" data-st="r" style="--st:#dc2626;--dash:12 7">
+<rect class="frame" x="90" y="3726" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="90" y="3736" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="112" y="3757" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Remove fake /admin page</text>
+<text x="112" y="3782" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >public site shows hard-coded data</text>
+<rect x="686" y="3738" width="92" height="24" rx="12" fill="#1e293b"/>
+<text x="732" y="3755" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="1">TONIGHT</text>
+</g>
+<g class="el node" id="pr-csp" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="90" y="3812" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="90" y="3822" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="112" y="3843" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Content-Security-Policy on public site</text>
+<text x="112" y="3868" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >admin has CSP, public site has none</text>
+<rect x="686" y="3824" width="92" height="24" rx="12" fill="#fff" stroke="#94a3b8"/>
+<text x="732" y="3841" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#64748b" text-anchor="middle" letter-spacing="1">PHASE 2</text>
+</g>
+<g class="el node" id="pr-dbrole" data-st="r" style="--st:#dc2626;--dash:12 7">
+<rect class="frame" x="90" y="3898" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="90" y="3908" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="112" y="3929" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Least-privilege DB role</text>
+<text x="112" y="3954" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >read-only role for public API</text>
+<rect x="686" y="3910" width="92" height="24" rx="12" fill="#fff" stroke="#94a3b8"/>
+<text x="732" y="3927" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#64748b" text-anchor="middle" letter-spacing="1">PHASE 2</text>
+</g>
+<polygon points="852.4,3340.0 852.0464491594195,3343.5896619250966 847.3038652681626,3345.510641426057 845.9731624171567,3348.0002113554824 847.0107647738325,3353.0107647738323 844.2224922875607,3355.299040866367 839.5106414260573,3353.3038652681626 836.8093006370323,3354.1233080378065 834.0,3358.4 830.4103380749033,3358.0464491594194 828.4893585739427,3353.3038652681626 825.9997886445177,3351.973162417157 820.9892352261676,3353.0107647738323 818.7009591336332,3350.2224922875607 820.6961347318374,3345.510641426057 819.8766919621935,3342.8093006370323 815.6,3340.0 815.9535508405805,3336.4103380749034 820.6961347318374,3334.489358573943 822.0268375828433,3331.9997886445176 820.9892352261675,3326.9892352261677 823.7775077124393,3324.700959133633 828.4893585739427,3326.6961347318374 831.1906993629677,3325.8766919621935 834.0,3321.6 837.5896619250967,3321.9535508405806 839.5106414260573,3326.6961347318374 842.0002113554823,3328.026837582843 847.0107647738324,3326.9892352261677 849.2990408663668,3329.7775077124393 847.3038652681626,3334.489358573943 848.1233080378065,3337.1906993629677" fill="#e2e8f0" stroke="#475569" stroke-width="2.5" stroke-linejoin="round"/><circle cx="834.0" cy="3340.0" r="5.6000000000000005" fill="#fff" stroke="#475569" stroke-width="2.5"/>
+<text x="868" y="3350" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#1e293b" text-anchor="start" letter-spacing="1.5">DATA PIPELINE</text>
+<g class="el node" id="pr-pipeline" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="814" y="3382" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="814" y="3392" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="836" y="3413" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Daily refresh → rank → publish</text>
+<text x="836" y="3438" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >8 gates, keeps live ranking on failure</text>
+<circle cx="1490" cy="3406" r="10" style="fill:var(--st)"/>
+<text x="1490" y="3411" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" >✓</text>
+</g>
+<g class="el node" id="pr-rollback" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="814" y="3468" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="814" y="3478" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="836" y="3499" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Ranking rollback</text>
+<text x="836" y="3524" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >admin can restore previous run</text>
+<circle cx="1490" cy="3492" r="10" style="fill:var(--st)"/>
+<text x="1490" y="3497" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" >✓</text>
+</g>
+<g class="el node" id="pr-scheduler" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="814" y="3554" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="814" y="3564" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="836" y="3585" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Exactly one scheduler</text>
+<text x="836" y="3610" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >API-embedded OR worker, not both</text>
+<rect x="1410" y="3566" width="92" height="24" rx="12" fill="#1e293b"/>
+<text x="1456" y="3583" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="1">TONIGHT</text>
+</g>
+<g class="el node" id="pr-earnings" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="814" y="3640" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="814" y="3650" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="836" y="3671" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Earnings estimates on public site</text>
+<text x="836" y="3696" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >decide: show or hide (API policy)</text>
+<rect x="1410" y="3652" width="92" height="24" rx="12" fill="#1e293b"/>
+<text x="1456" y="3669" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="1">TONIGHT</text>
+</g>
+<g class="el node" id="pr-quota" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="814" y="3726" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="814" y="3736" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="836" y="3757" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Quota display is accurate</text>
+<text x="836" y="3782" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >system-health reads retired table</text>
+<rect x="1410" y="3738" width="92" height="24" rx="12" fill="#fff" stroke="#94a3b8"/>
+<text x="1456" y="3755" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#64748b" text-anchor="middle" letter-spacing="1">PHASE 2</text>
+</g>
+<g class="el node" id="pr-igtoken" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="814" y="3812" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="814" y="3822" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="836" y="3843" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Instagram token renewal</text>
+<text x="836" y="3868" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >manual rotation before expiry</text>
+<rect x="1410" y="3824" width="92" height="24" rx="12" fill="#fff" stroke="#94a3b8"/>
+<text x="1456" y="3841" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#64748b" text-anchor="middle" letter-spacing="1">PHASE 2</text>
+</g>
+<g class="el node" id="pr-tiktok" data-st="r" style="--st:#dc2626;--dash:12 7">
+<rect class="frame" x="814" y="3898" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="814" y="3908" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="836" y="3929" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >TikTok accounts accepted</text>
+<text x="836" y="3954" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >DB constraint + collector needed</text>
+<rect x="1410" y="3910" width="92" height="24" rx="12" fill="#fff" stroke="#94a3b8"/>
+<text x="1456" y="3927" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#64748b" text-anchor="middle" letter-spacing="1">PHASE 2</text>
+</g>
+<rect x="1538" y="3320.0" width="40" height="11.200000000000001" rx="4" fill="#f1f5f9" stroke="#334155" stroke-width="2"/><circle cx="1544.0" cy="3325.6" r="3" fill="#22c55e"/><line x1="1552.0" y1="3325.6" x2="1572.0" y2="3325.6" stroke="#334155" stroke-width="2"/>
+<rect x="1538" y="3333.2" width="40" height="11.200000000000001" rx="4" fill="#f1f5f9" stroke="#334155" stroke-width="2"/><circle cx="1544.0" cy="3338.7999999999997" r="3" fill="#22c55e"/><line x1="1552.0" y1="3338.7999999999997" x2="1572.0" y2="3338.7999999999997" stroke="#334155" stroke-width="2"/>
+<rect x="1538" y="3346.4" width="40" height="11.200000000000001" rx="4" fill="#f1f5f9" stroke="#334155" stroke-width="2"/><circle cx="1544.0" cy="3352.0" r="3" fill="#22c55e"/><line x1="1552.0" y1="3352.0" x2="1572.0" y2="3352.0" stroke="#334155" stroke-width="2"/>
+<text x="1592" y="3350" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#1e293b" text-anchor="start" letter-spacing="1.5">API &amp; WEBSITE</text>
+<g class="el node" id="pr-published" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="1538" y="3382" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="1538" y="3392" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="1560" y="3413" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Public API serves published only</text>
+<text x="1560" y="3438" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >drafts never visible</text>
+<circle cx="2214" cy="3406" r="10" style="fill:var(--st)"/>
+<text x="2214" y="3411" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" >✓</text>
+</g>
+<g class="el node" id="pr-legacy" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="1538" y="3468" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="1538" y="3478" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="1560" y="3499" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Retired endpoints answer 410</text>
+<text x="1560" y="3524" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >no stale data leaks</text>
+<circle cx="2214" cy="3492" r="10" style="fill:var(--st)"/>
+<text x="2214" y="3497" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" >✓</text>
+</g>
+<g class="el node" id="pr-errors" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="1538" y="3554" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="1538" y="3564" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="1560" y="3585" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Safe error responses</text>
+<text x="1560" y="3610" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >no stack traces, request id</text>
+<circle cx="2214" cy="3578" r="10" style="fill:var(--st)"/>
+<text x="2214" y="3583" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" >✓</text>
+</g>
+<g class="el node" id="pr-headers" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="1538" y="3640" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="1538" y="3650" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="1560" y="3671" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Security headers</text>
+<text x="1560" y="3696" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >HSTS, nosniff, frame, referrer</text>
+<circle cx="2214" cy="3664" r="10" style="fill:var(--st)"/>
+<text x="2214" y="3669" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" >✓</text>
+</g>
+<g class="el node" id="pr-orphans" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="1538" y="3726" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="1538" y="3736" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="1560" y="3757" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Hide legacy admin pages</text>
+<text x="1560" y="3782" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >/creators /sync /instagram /unified</text>
+<rect x="2134" y="3738" width="92" height="24" rx="12" fill="#fff" stroke="#94a3b8"/>
+<text x="2180" y="3755" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#64748b" text-anchor="middle" letter-spacing="1">PHASE 2</text>
+</g>
+<g class="el node" id="pr-cache" data-st="a" style="--st:#d97706;--dash:none">
+<rect class="frame" x="1538" y="3812" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="1538" y="3822" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="1560" y="3843" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Cache refresh after publish</text>
+<text x="1560" y="3868" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >HTTP cache 30–60 s, no purge</text>
+<rect x="2134" y="3824" width="92" height="24" rx="12" fill="#fff" stroke="#94a3b8"/>
+<text x="2180" y="3841" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#64748b" text-anchor="middle" letter-spacing="1">PHASE 2</text>
+</g>
+<rect x="2262" y="3324.0" width="40" height="32.0" rx="8" fill="#f8fafc" stroke="#475569" stroke-width="2"/><path d="M2265.2,3342.0 H2274.0 l3.2,-10.0 l4.8,16.0 l4.0,-12.0 l2.4,6.0 H2298.8" fill="none" stroke="#dc2626" stroke-width="2.5"/>
+<text x="2316" y="3350" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#1e293b" text-anchor="start" letter-spacing="1.5">OPERATIONS</text>
+<g class="el node" id="pr-health" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="2262" y="3382" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="2262" y="3392" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="2284" y="3413" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Health endpoints</text>
+<text x="2284" y="3438" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >/health/live and /health/ready</text>
+<circle cx="2938" cy="3406" r="10" style="fill:var(--st)"/>
+<text x="2938" y="3411" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" >✓</text>
+</g>
+<g class="el node" id="pr-ci" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="2262" y="3468" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="2262" y="3478" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="2284" y="3499" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >CI: build, tests, migrations</text>
+<text x="2284" y="3524" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >runs on every push to main</text>
+<circle cx="2938" cy="3492" r="10" style="fill:var(--st)"/>
+<text x="2938" y="3497" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" >✓</text>
+</g>
+<g class="el node" id="pr-logs" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="2262" y="3554" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="2262" y="3564" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="2284" y="3585" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Structured logs</text>
+<text x="2284" y="3610" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >IP addresses pseudonymised</text>
+<circle cx="2938" cy="3578" r="10" style="fill:var(--st)"/>
+<text x="2938" y="3583" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" >✓</text>
+</g>
+<g class="el node" id="pr-backup" data-st="x" style="--st:#64748b;--dash:4 7">
+<rect class="frame" x="2262" y="3640" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="2262" y="3650" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="2284" y="3671" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Database backup + restore test</text>
+<text x="2284" y="3696" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >provider-side, verify once</text>
+<rect x="2858" y="3652" width="92" height="24" rx="12" fill="#fff" stroke="#94a3b8"/>
+<text x="2904" y="3669" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#64748b" text-anchor="middle" letter-spacing="1">PHASE 2</text>
+</g>
+<g class="el node" id="pr-alerts" data-st="r" style="--st:#dc2626;--dash:12 7">
+<rect class="frame" x="2262" y="3726" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="2262" y="3736" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="2284" y="3757" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Uptime + error alerting</text>
+<text x="2284" y="3782" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >no external monitor yet</text>
+<rect x="2858" y="3738" width="92" height="24" rx="12" fill="#fff" stroke="#94a3b8"/>
+<text x="2904" y="3755" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#64748b" text-anchor="middle" letter-spacing="1">PHASE 2</text>
+</g>
+<g class="el node" id="pr-pentest" data-st="r" style="--st:#dc2626;--dash:12 7">
+<rect class="frame" x="2262" y="3812" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="2262" y="3822" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="2284" y="3843" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >External security review</text>
+<text x="2284" y="3868" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >not yet done (per docs)</text>
+<rect x="2858" y="3824" width="92" height="24" rx="12" fill="#fff" stroke="#94a3b8"/>
+<text x="2904" y="3841" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#64748b" text-anchor="middle" letter-spacing="1">PHASE 2</text>
+</g>
+<path d="M2996.0,3324.8 V3355.2 M2996.0,3346.0 C2996.0,3338.0 3016.0,3340.0 3016.0,3332.0" fill="none" stroke="#334155" stroke-width="3"/><circle cx="2996.0" cy="3324.8" r="6" fill="#fff" stroke="#334155" stroke-width="3"/><circle cx="2996.0" cy="3355.2" r="6" fill="#fff" stroke="#334155" stroke-width="3"/><circle cx="3016.0" cy="3332.0" r="6" fill="#22c55e" stroke="#334155" stroke-width="3"/>
+<text x="3040" y="3350" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" fill="#1e293b" text-anchor="start" letter-spacing="1.5">GO-LIVE GATE</text>
+<g class="el node" id="pr-cigreen" data-st="x" style="--st:#64748b;--dash:4 7">
+<rect class="frame" x="2986" y="3382" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="2986" y="3392" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="3008" y="3413" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >CI green on main</text>
+<text x="3008" y="3438" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >check the latest run</text>
+<rect x="3582" y="3394" width="92" height="24" rx="12" fill="#1e293b"/>
+<text x="3628" y="3411" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="1">TONIGHT</text>
+</g>
+<g class="el node" id="pr-migrate" data-st="x" style="--st:#64748b;--dash:4 7">
+<rect class="frame" x="2986" y="3468" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="2986" y="3478" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="3008" y="3499" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Migrations applied on production DB</text>
+<text x="3008" y="3524" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >start-up logs show &quot;schema verified&quot;</text>
+<rect x="3582" y="3480" width="92" height="24" rx="12" fill="#1e293b"/>
+<text x="3628" y="3497" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="1">TONIGHT</text>
+</g>
+<g class="el node" id="pr-smoke" data-st="x" style="--st:#64748b;--dash:4 7">
+<rect class="frame" x="2986" y="3554" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="2986" y="3564" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="3008" y="3585" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Smoke test after deploy</text>
+<text x="3008" y="3610" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >/health/ready · /api/v1/public/status · login</text>
+<rect x="3582" y="3566" width="92" height="24" rx="12" fill="#1e293b"/>
+<text x="3628" y="3583" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="1">TONIGHT</text>
+</g>
+<g class="el node" id="pr-owner" data-st="x" style="--st:#64748b;--dash:4 7">
+<rect class="frame" x="2986" y="3640" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="2986" y="3650" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="3008" y="3671" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Owner account with MFA</text>
+<text x="3008" y="3696" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >created via CLI, recovery stored offline</text>
+<rect x="3582" y="3652" width="92" height="24" rx="12" fill="#1e293b"/>
+<text x="3628" y="3669" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="1">TONIGHT</text>
+</g>
+<g class="el node" id="pr-https" data-st="x" style="--st:#64748b;--dash:4 7">
+<rect class="frame" x="2986" y="3726" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="2986" y="3736" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="3008" y="3757" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >HTTPS on all three origins</text>
+<text x="3008" y="3782" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >public, admin and API</text>
+<rect x="3582" y="3738" width="92" height="24" rx="12" fill="#1e293b"/>
+<text x="3628" y="3755" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="1">TONIGHT</text>
+</g>
+<g class="el node" id="pr-revert" data-st="g" style="--st:#15803d;--dash:none">
+<rect class="frame" x="2986" y="3812" width="700" height="74" rx="12" fill="#fff" stroke-width="2.5" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<rect x="2986" y="3822" width="6" height="54" rx="3" style="fill:var(--st)"/>
+<text x="3008" y="3843" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e293b" text-anchor="start" >Rollback plan</text>
+<text x="3008" y="3868" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start" >redeploy previous commit + ranking rollback</text>
+<circle cx="3662" cy="3836" r="10" style="fill:var(--st)"/>
+<text x="3662" y="3841" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" >✓</text>
+</g>
+<rect x="60" y="4060" width="2560" height="150" rx="20" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="90" y="4092" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="800" fill="#94a3b8" text-anchor="start" letter-spacing="3">RUNS ON</text>
+<g class="el node" id="ci" data-st="g" style="--st:#15803d;--dash:none">
+<circle class="frame" cx="180" cy="4130" r="44" fill="#fff" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<path d="M167.5,4111.0 V4149.0 M167.5,4137.5 C167.5,4127.5 192.5,4130.0 192.5,4120.0" fill="none" stroke="#334155" stroke-width="3"/><circle cx="167.5" cy="4111.0" r="6" fill="#fff" stroke="#334155" stroke-width="3"/><circle cx="167.5" cy="4149.0" r="6" fill="#fff" stroke="#334155" stroke-width="3"/><circle cx="192.5" cy="4120.0" r="6" fill="#22c55e" stroke="#334155" stroke-width="3"/>
+<text x="240" y="4126" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="start" >GitHub CI</text>
+<text x="240" y="4150" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >tests on every push</text>
+</g>
+<g class="el node" id="host" data-st="x" style="--st:#64748b;--dash:4 7">
+<circle class="frame" cx="590" cy="4130" r="44" fill="#fff" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<path d="M577.5,4142.5 a8.5,8.5 0 0 1 0,-17.0 a11.0,11.0 0 0 1 20.0,-6.0 a9.0,9.0 0 0 1 15.0,10.0 a6.5,6.5 0 0 1 0,13.0Z" fill="#f1f5f9" stroke="#64748b" stroke-width="2.5"/>
+<text x="650" y="4126" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="start" >Hostinger</text>
+<text x="650" y="4150" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >3 modules from main</text>
+</g>
+<g class="el node" id="neon" data-st="x" style="--st:#64748b;--dash:4 7">
+<circle class="frame" cx="1010" cy="4130" r="44" fill="#fff" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<path d="M997.5,4142.5 a8.5,8.5 0 0 1 0,-17.0 a11.0,11.0 0 0 1 20.0,-6.0 a9.0,9.0 0 0 1 15.0,10.0 a6.5,6.5 0 0 1 0,13.0Z" fill="#f1f5f9" stroke="#64748b" stroke-width="2.5"/>
+<text x="1070" y="4126" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="start" >Neon</text>
+<text x="1070" y="4150" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >PostgreSQL</text>
+</g>
+<g class="el node" id="rhost" data-st="x" style="--st:#64748b;--dash:4 7">
+<circle class="frame" cx="1410" cy="4130" r="44" fill="#fff" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<path d="M1414.0,4105 L1395.0,4133.0 H1409.0 L1405.0,4155 L1426.0,4125.0 H1412.0Z" fill="#fee2e2" stroke="#b91c1c" stroke-width="2.5" stroke-linejoin="round"/>
+<text x="1470" y="4126" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="start" >Redis host</text>
+<text x="1470" y="4150" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >not declared</text>
+</g>
+<g class="el node" id="tls" data-st="x" style="--st:#64748b;--dash:4 7">
+<circle class="frame" cx="1810" cy="4130" r="44" fill="#fff" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<path d="M1810.0,4105 L1831.0,4113.0 V4130.0 C1831.0,4144.0 1820.0,4151.0 1810.0,4155 C1800.0,4151.0 1789.0,4144.0 1789.0,4130.0 V4113.0Z" fill="#dbeafe" stroke="#1d4ed8" stroke-width="2.5"/><path d="M1801.0,4131.0 l6.5,6.5 l12.5,-13.5" fill="none" stroke="#1d4ed8" stroke-width="3"/>
+<text x="1870" y="4126" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="start" >TLS / HTTPS</text>
+<text x="1870" y="4150" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >host-managed</text>
+</g>
+<g class="el node" id="secrets" data-st="a" style="--st:#d97706;--dash:none">
+<circle class="frame" cx="2210" cy="4130" r="44" fill="#fff" stroke-width="3" style="stroke:var(--st);stroke-dasharray:var(--dash)"/>
+<circle cx="2200.0" cy="4130.0" r="10.0" fill="#fef3c7" stroke="#a16207" stroke-width="3"/><path d="M2210.0,4130.0 H2232.5 M2225.0,4130.0 V4139.0 M2219.0,4130.0 V4137.0" stroke="#a16207" stroke-width="3" fill="none"/>
+<text x="2270" y="4126" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="800" fill="#1e293b" text-anchor="start" >Secrets</text>
+<text x="2270" y="4150" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#475569" text-anchor="start" >env variables</text>
+</g>
+<g class="el edge" id="e-api-lane" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M1720,2290 C1800,2290 1800,2265 1845,2265" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M1720,2290 C1800,2290 1800,2265 1845,2265" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+</g>
+<g class="el edge" id="e-html-lane" data-st="a" data-bi="0" style="--st:#d97706;--dash:none">
+<path class="hit" d="M2280,2290 C2200,2290 2200,2265 2155,2265" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M2280,2290 C2200,2290 2200,2265 2155,2265" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#ma)"/>
+</g>
+<g class="el edge" id="e-merge-hub" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M2000,2140 C2000,1600 1950,1300 1895,1180" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M2000,2140 C2000,1600 1950,1300 1895,1180" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+<rect x="1994.4" y="1625" width="91.2" height="28" rx="14" fill="#fff" stroke-width="2" style="stroke:var(--st)"/>
+<text x="2040" y="1645" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" text-anchor="middle" style="fill:var(--st)">into hub</text>
+</g>
+<text x="2000" y="2427" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="1" font-weight="400" fill="#475569" text-anchor="start" ></text>
+<text x="2000" y="2427" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="1" font-weight="400" fill="#475569" text-anchor="start" ></text>
+<text x="2000" y="2427" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="1" font-weight="400" fill="#475569" text-anchor="start" ></text>
+<text x="2000" y="2427" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="1" font-weight="400" fill="#475569" text-anchor="start" ></text>
+<g class="el edge" id="e-merge-tables" data-st="g" data-bi="0" style="--st:#15803d;--dash:none">
+<path class="hit" d="M1880,2330 C1700,2420 1300,2470 1180,2595" fill="none" stroke="transparent" stroke-width="26"/>
+<path class="line" d="M1880,2330 C1700,2420 1300,2470 1180,2595" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#mg)"/>
+<rect x="1441.8" y="2445" width="116.4" height="28" rx="14" fill="#fff" stroke-width="2" style="stroke:var(--st)"/>
+<text x="1500" y="2465" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" text-anchor="middle" style="fill:var(--st)">stored once</text>
+</g>
+<text x="2000" y="2420" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#475569" text-anchor="middle" >API wins · HTML fills gaps · unverified never ranked</text>
+<text x="3730" y="4236" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="800" fill="#1e293b" text-anchor="end" >Rackelto Technologies Ltd.</text>
+</svg>
+    <div class="zoom"><button id="zin">+</button><button id="zout">−</button><button id="zfit" title="Fit">⤢</button></div>
+  </div>
+  <aside>
+    <div class="tabs"><button class="on" data-t="details">Details</button><button data-t="list">All items</button></div>
+    <div class="pane" id="details"><p>Select a component or connection in the diagram.</p></div>
+    <div class="pane list" id="list" hidden></div>
+  </aside>
+</main>
+</div>
+<div id="modal"><div class="box" id="mbox"></div></div>
+<script>
+const REG=[{"id": "e-trigger", "type": "connection", "title": "Scheduler triggers daily refresh", "desc": "Scheduler triggers daily refresh", "status": "g"}, {"id": "e-youtube", "type": "connection", "title": "YouTube: API key \u21c4 JSON statistics", "desc": "API key \u21c4 JSON", "status": "g"}, {"id": "e-instagram", "type": "connection", "title": "Instagram Graph: token \u21c4 JSON", "desc": "token \u21c4 JSON", "status": "a"}, {"id": "e-tiktok", "type": "connection", "title": "TikTok collector (stub, not wired)", "desc": "not wired", "status": "r"}, {"id": "e-jobs", "type": "connection", "title": "Collectors record job runs in PostgreSQL", "desc": "Collectors record job runs in PostgreSQL", "status": "g"}, {"id": "e-raw", "type": "connection", "title": "Raw platform metrics into the hub", "desc": "raw platform metrics", "status": "g"}, {"id": "e-store", "type": "connection", "title": "Validated readings stored once in the Data Hub", "desc": "Validated readings stored once in the Data Hub", "status": "g"}, {"id": "e-rank", "type": "connection", "title": "Fresh readings feed the ranking engine", "desc": "Fresh readings feed the ranking engine", "status": "g"}, {"id": "e-gates", "type": "connection", "title": "Draft rankings checked by quality gates", "desc": "Draft rankings checked by quality gates", "status": "g"}, {"id": "e-publish", "type": "connection", "title": "Passed rankings published live", "desc": "Passed rankings published live", "status": "g"}, {"id": "e-analytics", "type": "connection", "title": "Hub history feeds analytics / earnings estimates", "desc": "Hub history feeds analytics / earnings estimates", "status": "a"}, {"id": "e-api", "type": "connection", "title": "API serves published rankings only", "desc": "published only", "status": "g"}, {"id": "e-commands", "type": "connection", "title": "Admin commands: refresh, rank, publish, rollback", "desc": "admin commands", "status": "g"}, {"id": "e-bucket", "type": "connection", "title": "Admin adds / removes creators", "desc": "add / remove creators", "status": "g"}, {"id": "e-admin-login", "type": "connection", "title": "Admin signs in (password + MFA)", "desc": "Admin signs in (password + MFA)", "status": "g"}, {"id": "e-panel-api", "type": "connection", "title": "Admin panel \u21c4 API (session + CSRF)", "desc": "session + CSRF", "status": "g"}, {"id": "e-web", "type": "connection", "title": "Website \u21c4 API over HTTPS (JSON)", "desc": "HTTPS JSON", "status": "g"}, {"id": "e-visitor", "type": "connection", "title": "Visitors browse, search, compare", "desc": "Visitors browse, search, compare", "status": "g"}, {"id": "e-dash-api", "type": "connection", "title": "Dashboards: login + plan check", "desc": "login + plan check", "status": "r"}, {"id": "e-creator", "type": "connection", "title": "Creator uses own dashboard", "desc": "Creator uses own dashboard", "status": "r"}, {"id": "e-agency", "type": "connection", "title": "Agency uses multi-creator dashboard", "desc": "Agency uses multi-creator dashboard", "status": "r"}, {"id": "e-subs", "type": "connection", "title": "Dashboards check subscription entitlements", "desc": "Dashboards check subscription entitlements", "status": "r"}, {"id": "e-pay", "type": "connection", "title": "Subscriptions \u21c4 payment provider (signed webhook)", "desc": "signed webhook", "status": "r"}, {"id": "e-push", "type": "connection", "title": "Rank-change events \u2192 push alerts", "desc": "rank-change events", "status": "r"}, {"id": "e-ci-host", "type": "connection", "title": "Deploy from GitHub main", "desc": "Deploy from GitHub main", "status": "x"}, {"id": "e-host-neon", "type": "connection", "title": "App uses Neon database", "desc": "App uses Neon database", "status": "x"}, {"id": "e-neon-rhost", "type": "connection", "title": "App uses Redis host", "desc": "App uses Redis host", "status": "x"}, {"id": "src-youtube", "type": "component", "title": "YouTube Data API v3", "desc": "Channels, uploads and video statistics via API key (server-side).", "status": "g"}, {"id": "src-instagram", "type": "component", "title": "Instagram Graph API", "desc": "business_discovery per account; long-lived token rotated manually.", "status": "a"}, {"id": "src-tiktok", "type": "component", "title": "TikTok", "desc": "Provider stub returns \"unsupported\"; DB does not accept TikTok accounts yet.", "status": "r"}, {"id": "scheduler", "type": "component", "title": "Scheduler", "desc": "node-cron, daily 09:00 PKT pipeline plus health checks.", "status": "g"}, {"id": "collectors", "type": "component", "title": "Collectors", "desc": "Provider adapters + refresh service: retries, cooldowns, one result per account.", "status": "g"}, {"id": "jobruns", "type": "component", "title": "Job runs", "desc": "refresh_runs / pipeline_runs tables with locks (no message broker).", "status": "g"}, {"id": "hub", "type": "component", "title": "Creator Index Data Hub", "desc": "Central backend: validate, store, rank, gate and publish.", "status": "g"}, {"id": "hub-validate", "type": "component", "title": "Validate", "desc": "Normalizes results, rejects bad numbers, API-first rule per field.", "status": "g"}, {"id": "hub-db", "type": "component", "title": "Data Hub store", "desc": "ingest_observations / ingest_latest \u2014 every reading stored once.", "status": "g"}, {"id": "hub-rank", "type": "component", "title": "Ranking Engine", "desc": "Pure functions; wheel, platform and category scopes; 7-day freshness.", "status": "g"}, {"id": "hub-gates", "type": "component", "title": "Quality Gates", "desc": "8 checks incl. coverage \u226550% and input hash; failing scope keeps old ranking.", "status": "g"}, {"id": "hub-published", "type": "component", "title": "Published rankings", "desc": "published_pointers + permanent rank_history (hall of fame).", "status": "g"}, {"id": "hub-analytics", "type": "component", "title": "Analytics", "desc": "Growth, video stats, earnings estimates (needs policy review).", "status": "a"}, {"id": "redis", "type": "component", "title": "Redis", "desc": "Sessions, rate limits, quota counter. Public cache not used by new API.", "status": "a"}, {"id": "postgres", "type": "component", "title": "PostgreSQL", "desc": "All tables; migrations 001\u2013124 applied in CI.", "status": "g"}, {"id": "api", "type": "component", "title": "REST API", "desc": "/api/v1 public (read-only) + admin; CORS allow-list, rate limit, validation.", "status": "g"}, {"id": "admin-panel", "type": "component", "title": "Admin Panel", "desc": "People, pipeline, data hub, team, audit \u2014 MFA login.", "status": "g"}, {"id": "admin-user", "type": "component", "title": "Administrator", "desc": "Owner / Editor / Moderator roles.", "status": "g"}, {"id": "website", "type": "component", "title": "Public Website", "desc": "Rankings wheel, rows, profiles, search, compare.", "status": "g"}, {"id": "admin-page-fix", "type": "component", "title": "Remove fake /admin page", "desc": "Public site /admin shows hard-coded mock data.", "status": "r"}, {"id": "visitor", "type": "component", "title": "Visitor", "desc": "Anonymous public user.", "status": "g"}, {"id": "creator-dash", "type": "component", "title": "Creator Dashboard ($25)", "desc": "Own analytics, rank history, alerts. Needs login + ownership proof + plan.", "status": "r"}, {"id": "agency-dash", "type": "component", "title": "Agency Dashboard ($79)", "desc": "Roster of creators, comparisons, seats; needs tenant isolation.", "status": "r"}, {"id": "creator-user", "type": "component", "title": "Independent Creator", "desc": "Paying creator user (no accounts exist yet).", "status": "r"}, {"id": "agency-user", "type": "component", "title": "Agency", "desc": "Paying agency user (no accounts exist yet).", "status": "r"}, {"id": "subscriptions", "type": "component", "title": "Subscriptions", "desc": "Plans $25 / $79, entitlement checks, admin-managed packages.", "status": "r"}, {"id": "payments", "type": "component", "title": "Payments", "desc": "Hosted checkout + signed webhooks; provider decision pending.", "status": "r"}, {"id": "push", "type": "component", "title": "Push Alerts", "desc": "Event outbox, Web Push (VAPID), retries, receipts, preferences.", "status": "r"}, {"id": "f-yt-subs", "type": "field", "title": "Subscribers", "desc": "channels.list statistics.subscriberCount (hidden \u2192 null, never 0)", "status": "g"}, {"id": "f-yt-views", "type": "field", "title": "Total views", "desc": "channels.list statistics.viewCount", "status": "g"}, {"id": "f-yt-posts", "type": "field", "title": "Posts 30 days", "desc": "playlistItems.list, up to 200 uploads, capped flag", "status": "g"}, {"id": "f-yt-videos", "type": "field", "title": "Video count", "desc": "statistics.videoCount (profile only, not ranked)", "status": "g"}, {"id": "f-yt-avatar", "type": "field", "title": "Avatar + banner", "desc": "snippet.thumbnails / brandingSettings banner", "status": "g"}, {"id": "f-yt-vstats", "type": "field", "title": "Video stats \u00d750", "desc": "videos.list for latest 50 uploads (analytics collector)", "status": "a"}, {"id": "f-yt-html", "type": "field", "title": "No YouTube HTML collector", "desc": "youtube.http exists in ingest_sources but nothing writes to it.", "status": "r"}, {"id": "f-ig-followers", "type": "field", "title": "Followers", "desc": "business_discovery.followers_count (Business/Creator accounts only)", "status": "a"}, {"id": "f-ig-posts", "type": "field", "title": "Posts 30 days", "desc": "media.limit(50){timestamp}, capped flag", "status": "a"}, {"id": "f-ig-avatar", "type": "field", "title": "Profile picture", "desc": "profile_picture_url; Graph avatar recovery job (flag)", "status": "a"}, {"id": "f-ig-id", "type": "field", "title": "Account id", "desc": "resolves pending: placeholder ids", "status": "g"}, {"id": "f-ig-html-avatar", "type": "field", "title": "Profile picture", "desc": "instagram.http: every 2 h, 5 accounts, circuit breaker 6 h, retry 24 h/168 h. Flag PCI_INSTAGRAM_HTTP_AVATARS (off by default).", "status": "a"}, {"id": "f-ig-html-cache", "type": "field", "title": "Picture cache", "desc": "avatar_cache: copies pictures from image servers, no Meta quota.", "status": "a"}, {"id": "f-ig-html-counts", "type": "field", "title": "No follower / post counts from HTML", "desc": "HTML lane does not supply followers or posts for Instagram.", "status": "r"}, {"id": "f-tt-api", "type": "field", "title": "No official TikTok API wired", "desc": "Needs TikTok Display/Research API or decision on source.", "status": "r"}, {"id": "f-tt-title", "type": "field", "title": "Video title", "desc": "POST /admin/ingest/tiktok/embed per video URL", "status": "a"}, {"id": "f-tt-thumb", "type": "field", "title": "Thumbnail", "desc": "oEmbed thumbnail_url", "status": "a"}, {"id": "f-tt-identity", "type": "field", "title": "Creator identity", "desc": "identity mismatch rejected", "status": "a"}, {"id": "f-tt-counts", "type": "field", "title": "No followers / views", "desc": "TikTok rankings impossible until a counts source exists.", "status": "r"}, {"id": "merge", "type": "component", "title": "Per-field merge (API-first)", "desc": "decideValue(): healthy recent API value wins; HTML accepted only when API is down or its value is >7 days old; unverified values never ranked; >5% disagreement logged as discrepancy.", "status": "g"}, {"id": "in-api", "type": "field", "title": "Official API readings", "desc": "youtube.api \u00b7 instagram.api", "status": "g"}, {"id": "in-html", "type": "field", "title": "HTML fallback readings", "desc": "instagram.http \u00b7 tiktok.http", "status": "a"}, {"id": "in-legacy", "type": "field", "title": "Legacy refresh mirror", "desc": "metric_observations \u2192 hub (same txn)", "status": "g"}, {"id": "in-manual", "type": "field", "title": "Admin manual entries", "desc": "<family>.manual sources (unused for creators)", "status": "x"}, {"id": "hub-tables", "type": "component", "title": "Hub tables", "desc": "ingest_observations (every reading with source + run), ingest_latest (current value per field), ingest_content (videos/posts), hub_account_metrics (API-first view), hub_source_health, hub_discrepancies.", "status": "g"}, {"id": "e-in-0", "type": "connection", "title": "Official API readings \u2192 hub tables", "desc": "Official API readings \u2192 hub tables", "status": "g"}, {"id": "e-in-1", "type": "connection", "title": "HTML fallback readings \u2192 hub tables", "desc": "HTML fallback readings \u2192 hub tables", "status": "a"}, {"id": "e-in-2", "type": "connection", "title": "Legacy refresh mirror \u2192 hub tables", "desc": "Legacy refresh mirror \u2192 hub tables", "status": "g"}, {"id": "e-in-3", "type": "connection", "title": "Admin manual entries \u2192 hub tables", "desc": "Admin manual entries \u2192 hub tables", "status": "x"}, {"id": "e-bk-rank", "type": "connection", "title": "Hub \u2192 Rankings bucket: latest values", "desc": "Hub \u2192 Rankings bucket: latest values", "status": "g"}, {"id": "e-bk-cb", "type": "connection", "title": "Hub \u2192 Creators Bucket: history + videos", "desc": "Hub \u2192 Creators Bucket: history + videos", "status": "a"}, {"id": "e-bk-dir", "type": "connection", "title": "Hub \u2192 Creator Index: last known", "desc": "Hub \u2192 Creator Index: last known", "status": "g"}, {"id": "e-bk-an", "type": "connection", "title": "Hub \u2192 Analytics bucket: history", "desc": "Hub \u2192 Analytics bucket: history", "status": "a"}, {"id": "e-bk-hof", "type": "connection", "title": "Hub \u2192 Hall of Fame: published positions", "desc": "Hub \u2192 Hall of Fame: published positions", "status": "g"}, {"id": "e-bk-mon", "type": "connection", "title": "Hub \u2192 Hub Monitor: health", "desc": "Hub \u2192 Hub Monitor: health", "status": "g"}, {"id": "bk-rankings", "type": "component", "title": "Rankings bucket", "desc": "followers \u00b7 views \u00b7 posts 30 d; \u2264 7 days fresh, API-first \u2192 wheel \u00b7 rows \u00b7 Top 100", "status": "g"}, {"id": "bk-creators", "type": "component", "title": "Creators Bucket", "desc": "YouTube series 183 d \u00b7 video cohort; engagement \u00b7 like rate \u00b7 rank 93 d \u2192 profile YouTube view", "status": "a"}, {"id": "bk-directory", "type": "component", "title": "Creator Index", "desc": "last-known figures + as-of date; search \u00b7 category \u00b7 platform \u00b7 sort \u2192 /creators \u00b7 compare", "status": "g"}, {"id": "bk-analytics", "type": "component", "title": "Analytics bucket", "desc": "growth 24 h / 7 d / 30 d; earnings est. \u00b7 IG sponsor scenario \u2192 profiles \u00b7 directory", "status": "a"}, {"id": "bk-hof", "type": "component", "title": "Hall of Fame", "desc": "rank_history (kept forever); weekly / monthly #1 per scope \u2192 /hall-of-fame", "status": "g"}, {"id": "bk-monitor", "type": "component", "title": "Hub Monitor", "desc": "source health \u00b7 coverage tiers; discrepancies \u00b7 freshness alerts \u2192 admin Data Hub page", "status": "g"}, {"id": "bk-other", "type": "component", "title": "Other buckets (out of scope)", "desc": "Satify, Satellite and Restaurants also read/write hub tables.", "status": "x"}, {"id": "pr-mfa", "type": "readiness", "title": "Admin MFA \u00b7 RBAC \u00b7 CSRF", "desc": "Argon2id + TOTP, 3 roles, audit log", "status": "g"}, {"id": "pr-cors", "type": "readiness", "title": "CORS allow-list + write guard", "desc": "Origin / Sec-Fetch checks, 32 KB body", "status": "g"}, {"id": "pr-valid", "type": "readiness", "title": "Input validation", "desc": "zod on every route; fail-closed hub writes", "status": "g"}, {"id": "pr-proxy", "type": "readiness", "title": "Rate limit sees real client IP", "desc": "set TRUST_PROXY to match host proxy \u2014 TONIGHT", "status": "a"}, {"id": "pr-mockadmin", "type": "readiness", "title": "Remove fake /admin page", "desc": "public site shows hard-coded data \u2014 TONIGHT", "status": "r"}, {"id": "pr-csp", "type": "readiness", "title": "Content-Security-Policy on public site", "desc": "admin has CSP, public site has none \u2014 PHASE 2", "status": "a"}, {"id": "pr-dbrole", "type": "readiness", "title": "Least-privilege DB role", "desc": "read-only role for public API \u2014 PHASE 2", "status": "r"}, {"id": "pr-pipeline", "type": "readiness", "title": "Daily refresh \u2192 rank \u2192 publish", "desc": "8 gates, keeps live ranking on failure", "status": "g"}, {"id": "pr-rollback", "type": "readiness", "title": "Ranking rollback", "desc": "admin can restore previous run", "status": "g"}, {"id": "pr-scheduler", "type": "readiness", "title": "Exactly one scheduler", "desc": "API-embedded OR worker, not both \u2014 TONIGHT", "status": "a"}, {"id": "pr-earnings", "type": "readiness", "title": "Earnings estimates on public site", "desc": "decide: show or hide (API policy) \u2014 TONIGHT", "status": "a"}, {"id": "pr-quota", "type": "readiness", "title": "Quota display is accurate", "desc": "system-health reads retired table \u2014 PHASE 2", "status": "a"}, {"id": "pr-igtoken", "type": "readiness", "title": "Instagram token renewal", "desc": "manual rotation before expiry \u2014 PHASE 2", "status": "a"}, {"id": "pr-tiktok", "type": "readiness", "title": "TikTok accounts accepted", "desc": "DB constraint + collector needed \u2014 PHASE 2", "status": "r"}, {"id": "pr-published", "type": "readiness", "title": "Public API serves published only", "desc": "drafts never visible", "status": "g"}, {"id": "pr-legacy", "type": "readiness", "title": "Retired endpoints answer 410", "desc": "no stale data leaks", "status": "g"}, {"id": "pr-errors", "type": "readiness", "title": "Safe error responses", "desc": "no stack traces, request id", "status": "g"}, {"id": "pr-headers", "type": "readiness", "title": "Security headers", "desc": "HSTS, nosniff, frame, referrer", "status": "g"}, {"id": "pr-orphans", "type": "readiness", "title": "Hide legacy admin pages", "desc": "/creators /sync /instagram /unified \u2014 PHASE 2", "status": "a"}, {"id": "pr-cache", "type": "readiness", "title": "Cache refresh after publish", "desc": "HTTP cache 30\u201360 s, no purge \u2014 PHASE 2", "status": "a"}, {"id": "pr-health", "type": "readiness", "title": "Health endpoints", "desc": "/health/live and /health/ready", "status": "g"}, {"id": "pr-ci", "type": "readiness", "title": "CI: build, tests, migrations", "desc": "runs on every push to main", "status": "g"}, {"id": "pr-logs", "type": "readiness", "title": "Structured logs", "desc": "IP addresses pseudonymised", "status": "g"}, {"id": "pr-backup", "type": "readiness", "title": "Database backup + restore test", "desc": "provider-side, verify once \u2014 PHASE 2", "status": "x"}, {"id": "pr-alerts", "type": "readiness", "title": "Uptime + error alerting", "desc": "no external monitor yet \u2014 PHASE 2", "status": "r"}, {"id": "pr-pentest", "type": "readiness", "title": "External security review", "desc": "not yet done (per docs) \u2014 PHASE 2", "status": "r"}, {"id": "pr-cigreen", "type": "readiness", "title": "CI green on main", "desc": "check the latest run \u2014 TONIGHT", "status": "x"}, {"id": "pr-migrate", "type": "readiness", "title": "Migrations applied on production DB", "desc": "start-up logs show \"schema verified\" \u2014 TONIGHT", "status": "x"}, {"id": "pr-smoke", "type": "readiness", "title": "Smoke test after deploy", "desc": "/health/ready \u00b7 /api/v1/public/status \u00b7 login \u2014 TONIGHT", "status": "x"}, {"id": "pr-owner", "type": "readiness", "title": "Owner account with MFA", "desc": "created via CLI, recovery stored offline \u2014 TONIGHT", "status": "x"}, {"id": "pr-https", "type": "readiness", "title": "HTTPS on all three origins", "desc": "public, admin and API \u2014 TONIGHT", "status": "x"}, {"id": "pr-revert", "type": "readiness", "title": "Rollback plan", "desc": "redeploy previous commit + ranking rollback", "status": "g"}, {"id": "ci", "type": "infrastructure", "title": "GitHub CI", "desc": "tests on every push", "status": "g"}, {"id": "host", "type": "infrastructure", "title": "Hostinger", "desc": "3 modules from main", "status": "x"}, {"id": "neon", "type": "infrastructure", "title": "Neon", "desc": "PostgreSQL", "status": "x"}, {"id": "rhost", "type": "infrastructure", "title": "Redis host", "desc": "not declared", "status": "x"}, {"id": "tls", "type": "infrastructure", "title": "TLS / HTTPS", "desc": "host-managed", "status": "x"}, {"id": "secrets", "type": "infrastructure", "title": "Secrets", "desc": "env variables", "status": "a"}, {"id": "e-api-lane", "type": "connection", "title": "Official API values \u2192 merge", "desc": "Official API values \u2192 merge", "status": "g"}, {"id": "e-html-lane", "type": "connection", "title": "HTML fallback values \u2192 merge (only empty/stale fields)", "desc": "HTML fallback values \u2192 merge (only empty/stale fields)", "status": "a"}, {"id": "e-merge-hub", "type": "connection", "title": "Merged values written to the Data Hub", "desc": "into hub", "status": "g"}, {"id": "e-merge-tables", "type": "connection", "title": "Merged readings stored in hub tables", "desc": "stored once", "status": "g"}];
+const COL={g:'#15803d',a:'#d97706',r:'#dc2626',x:'#64748b'};
+const DASH={g:'none',a:'none',r:'12 7',x:'4 7'};
+const NAME={g:'Implemented',a:'In progress',r:'Missing',x:'Not verifiable'};
+const params=new URLSearchParams(location.search);
+const VIEW=params.has('view')||params.get('mode')==='view';
+const SRC=params.get('status')||'status.json';
+const KEY='pci-progress:'+location.pathname;
+if(VIEW)document.body.classList.add('view');
+const svg=document.getElementById('diagram');const NS='http://www.w3.org/2000/svg';
+const stage=document.getElementById('stage');
+const byId=Object.fromEntries(REG.map(r=>[r.id,r]));
+const texts=[...svg.querySelectorAll('text')];texts.forEach((t,i)=>t.dataset.t=i);
+const ORIG=texts.map(t=>t.textContent);
+let state={items:{},texts:{},notes:[],arrows:[]};
+let mode='select',sel=null,dirty=false;
+const userLayer=document.createElementNS(NS,'g');userLayer.id='user';svg.appendChild(userLayer);
+
+function store(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}dirty=true;document.getElementById('banner').classList.toggle('show',!VIEW)}
+function setStatus(id,st){
+  const el=document.getElementById(id);if(!el)return;
+  el.dataset.st=st;el.style.setProperty('--st',COL[st]);el.style.setProperty('--dash',DASH[st]);
+  el.querySelectorAll('.line').forEach(p=>{p.setAttribute('marker-end',`url(#m${st})`);if(el.dataset.bi==='1')p.setAttribute('marker-start',`url(#m${st}s)`)});
+}
+function statusOf(id){return state.items[id]?.status||byId[id]?.status||'g'}
+function applyAll(){
+  REG.forEach(r=>setStatus(r.id,statusOf(r.id)));
+  texts.forEach((t,i)=>{t.textContent=state.texts[i]??ORIG[i]});
+  drawUser();progress();list();
+}
+function progress(){
+  const items=REG;const c={g:0,a:0,r:0,x:0};items.forEach(r=>c[statusOf(r.id)]++);
+  (state.arrows||[]).forEach(a=>c[a.st||'g']++);
+  const n=Object.values(c).reduce((a,b)=>a+b,0);
+  document.getElementById('bar').innerHTML=['g','a','r','x'].map(k=>`<i style="width:${c[k]/n*100}%;background:${COL[k]}"></i>`).join('');
+  document.getElementById('pct').innerHTML=`<b style="color:${COL.g}">${Math.round(c.g/n*100)}% done</b> · ${c.a} in progress · ${c.r} missing`;
+}
+// ---------- user arrows & notes ----------
+function drawUser(){
+  userLayer.innerHTML='';
+  (state.arrows||[]).forEach(a=>{
+    const g=document.createElementNS(NS,'g');g.setAttribute('class','el edge uarrow');g.id=a.id;g.dataset.st=a.st;
+    g.style.setProperty('--st',COL[a.st]);g.style.setProperty('--dash',DASH[a.st]);
+    const d=`M${a.x1},${a.y1} L${a.x2},${a.y2}`;
+    g.innerHTML=`<path d="${d}" stroke="transparent" stroke-width="26" fill="none"/><path class="line" d="${d}" fill="none" stroke-width="4.5" stroke-linecap="round" style="stroke:var(--st);stroke-dasharray:var(--dash)" marker-end="url(#m${a.st})"/>`;
+    if(a.label){const mx=(a.x1+a.x2)/2,my=(a.y1+a.y2)/2,w=a.label.length*8.4+24;
+      g.innerHTML+=`<rect x="${mx-w/2}" y="${my-15}" width="${w}" height="28" rx="14" fill="#fff" stroke-width="2" style="stroke:var(--st)"/><text x="${mx}" y="${my+5}" font-size="15" font-weight="700" text-anchor="middle" font-family="Inter,Segoe UI,Arial" style="fill:var(--st)"></text>`;
+      g.querySelector('text').textContent=a.label;}
+    userLayer.appendChild(g);
+  });
+  (state.notes||[]).forEach(n=>{
+    const t=document.createElementNS(NS,'text');t.setAttribute('class','unote');t.id=n.id;
+    t.setAttribute('x',n.x);t.setAttribute('y',n.y);t.setAttribute('font-size',n.size||22);t.setAttribute('font-weight','700');
+    t.setAttribute('font-family','Inter,Segoe UI,Arial');t.setAttribute('fill',n.color||'#1e293b');t.style.cursor='move';
+    t.textContent=n.text;userLayer.appendChild(t);
+  });
+}
+// ---------- details ----------
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function select(id){
+  document.querySelectorAll('.el.sel').forEach(e=>e.classList.remove('sel'));sel=id;
+  const el=document.getElementById(id);if(el&&el.classList.contains('el'))el.classList.add('sel');
+  tab('details');const P=document.getElementById('details');
+  const ua=(state.arrows||[]).find(a=>a.id===id), un=(state.notes||[]).find(n=>n.id===id);
+  if(un){P.innerHTML=`<div class="kind">Your note</div><label>Text</label><textarea id="nt">${esc(un.text)}</textarea>
+   <label>Size</label><input type="text" id="ns" value="${un.size||22}"><label>Colour</label><select id="nc">${Object.entries({'#1e293b':'Dark','#15803d':'Green','#d97706':'Amber','#dc2626':'Red','#2563eb':'Blue','#64748b':'Grey'}).map(([v,k])=>`<option value="${v}" ${un.color===v?'selected':''}>${k}</option>`).join('')}</select>
+   <p style="margin-top:10px">Drag the note on the diagram to move it.</p><button class="edit-only" id="del">Delete note</button>`;
+   if(VIEW){P.querySelectorAll('textarea,input,select').forEach(x=>x.disabled=true)}
+   P.querySelector('#nt').oninput=e=>{un.text=e.target.value;drawUser();store()};
+   P.querySelector('#ns').oninput=e=>{un.size=+e.target.value||22;drawUser();store()};
+   P.querySelector('#nc').onchange=e=>{un.color=e.target.value;drawUser();store()};
+   P.querySelector('#del').onclick=()=>{state.notes=state.notes.filter(n=>n!==un);drawUser();store();P.innerHTML='<p>Note deleted.</p>'};return;}
+  const r=ua?{title:'Your arrow',type:'connection',desc:ua.label||''}:byId[id];if(!r)return;
+  const cur=ua?ua.st:statusOf(id);const note=ua?(ua.note||''):(state.items[id]?.note||'');
+  P.innerHTML=`<div class="kind">${esc(r.type)}</div><h2>${esc(r.title)}</h2><p>${esc(r.desc)}</p>
+   <div class="kind">Status</div><div class="st">${['g','a','r','x'].map(k=>`<button data-s="${k}" class="${k===cur?'cur':''}" style="${k===cur?'border-color:'+COL[k]:''}" ${VIEW?'disabled':''}><span class="dot" style="background:${COL[k]}"></span>${NAME[k]}</button>`).join('')}</div>
+   ${ua?`<label>Label</label><input type="text" id="al" value="${esc(ua.label||'')}" ${VIEW?'disabled':''}>`:''}
+   <label>Progress note</label><textarea id="note" placeholder="${VIEW?'':'e.g. Webhook done, waiting on provider keys'}" ${VIEW?'disabled':''}>${esc(note)}</textarea>
+   ${ua?'<button class="edit-only" id="del" style="margin-top:10px">Delete arrow</button>':''}`;
+  P.querySelectorAll('.st button').forEach(b=>b.onclick=()=>{const s=b.dataset.s;
+    if(ua){ua.st=s;drawUser()}else{state.items[id]={...(state.items[id]||{}),status:s};setStatus(id,s)}
+    store();progress();list();select(id)});
+  P.querySelector('#note').oninput=e=>{if(ua)ua.note=e.target.value;else state.items[id]={status:statusOf(id),...(state.items[id]||{}),note:e.target.value};store()};
+  if(ua){P.querySelector('#al').oninput=e=>{ua.label=e.target.value;drawUser();document.getElementById(id)?.classList.add('sel');store()};
+    P.querySelector('#del').onclick=()=>{state.arrows=state.arrows.filter(a=>a!==ua);drawUser();store();progress();P.innerHTML='<p>Arrow deleted.</p>'}}
+}
+function list(){
+  const L=document.getElementById('list');const grp={component:'Components',field:'Data fields & inputs',readiness:'Production readiness',connection:'Connections',infrastructure:'Infrastructure'};
+  let h='';for(const [k,label] of Object.entries(grp)){h+=`<h3>${label}</h3>`;
+    REG.filter(r=>r.type===k).forEach(r=>{const s=statusOf(r.id);h+=`<div class="it" data-id="${r.id}"><span class="dot" style="background:${COL[s]}"></span><span style="flex:1">${esc(r.title)}</span><small style="color:${COL[s]}">${NAME[s]}</small></div>`})}
+  if(state.arrows?.length){h+='<h3>Your arrows</h3>';state.arrows.forEach(a=>h+=`<div class="it" data-id="${a.id}"><span class="dot" style="background:${COL[a.st]}"></span>${esc(a.label||'Arrow')}</div>`)}
+  L.innerHTML=h;L.querySelectorAll('.it').forEach(i=>i.onclick=()=>{select(i.dataset.id);focusOn(i.dataset.id)});
+}
+function tab(t){document.querySelectorAll('aside .tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  document.getElementById('details').hidden=t!=='details';document.getElementById('list').hidden=t!=='list'}
+document.querySelectorAll('aside .tabs button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
+// ---------- modal ----------
+function ask(title,fields){return new Promise(res=>{const M=document.getElementById('modal'),B=document.getElementById('mbox');
+  B.innerHTML=`<h2 style="margin:0 0 8px;font-size:17px">${esc(title)}</h2>`+fields.map((f,i)=>`<label>${esc(f.label)}</label>${f.type==='select'?`<select id="f${i}">${f.options.map(([v,k])=>`<option value="${v}">${k}</option>`).join('')}</select>`:`<textarea id="f${i}" style="min-height:${f.big?90:44}px">${esc(f.value||'')}</textarea>`}`).join('')+`<div class="row"><button id="mc">Cancel</button><button id="mo" class="on">OK</button></div>`;
+  M.classList.add('show');setTimeout(()=>B.querySelector('#f0')?.focus(),30);
+  const done=v=>{M.classList.remove('show');res(v)};
+  B.querySelector('#mc').onclick=()=>done(null);B.querySelector('#mo').onclick=()=>done(fields.map((_,i)=>B.querySelector('#f'+i).value));});}
+// ---------- pan / zoom ----------
+const VB=svg.viewBox.baseVal;let s=1,tx=0,ty=0;
+svg.setAttribute('width',VB.width);svg.setAttribute('height',VB.height);
+function apply(){svg.style.transform=`translate(${tx}px,${ty}px) scale(${s})`}
+function fit(){const r=stage.getBoundingClientRect();s=Math.min(r.width/VB.width,r.height/VB.height)*0.98;tx=(r.width-VB.width*s)/2;ty=(r.height-VB.height*s)/2;apply()}
+function zoomAt(f,cx,cy){const ns=Math.max(0.05,Math.min(4,s*f));tx=cx-(cx-tx)*ns/s;ty=cy-(cy-ty)*ns/s;s=ns;apply()}
+function toSvg(ev){const r=stage.getBoundingClientRect();return{x:(ev.clientX-r.left-tx)/s,y:(ev.clientY-r.top-ty)/s}}
+function focusOn(id){const el=document.getElementById(id);if(!el)return;const b=el.getBBox(),r=stage.getBoundingClientRect();
+  s=Math.min(1.2,Math.min(r.width/(b.width+400),r.height/(b.height+400)));tx=r.width/2-(b.x+b.width/2)*s;ty=r.height/2-(b.y+b.height/2)*s;apply()}
+stage.addEventListener('wheel',e=>{e.preventDefault();const r=stage.getBoundingClientRect();zoomAt(e.deltaY<0?1.15:1/1.15,e.clientX-r.left,e.clientY-r.top)},{passive:false});
+document.getElementById('zin').onclick=()=>{const r=stage.getBoundingClientRect();zoomAt(1.3,r.width/2,r.height/2)};
+document.getElementById('zout').onclick=()=>{const r=stage.getBoundingClientRect();zoomAt(1/1.3,r.width/2,r.height/2)};
+document.getElementById('zfit').onclick=fit;window.addEventListener('resize',fit);
+const pts=new Map();let start=null,moved=false,dragNote=null,pinch=null,arrowStart=null,tmp=null;
+stage.addEventListener('pointerdown',e=>{
+  if(e.target.closest('.zoom'))return;stage.setPointerCapture(e.pointerId);pts.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=false;
+  if(pts.size===2){const [a,b]=[...pts.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),s};return}
+  const note=e.target.closest?.('.unote');
+  if(note&&!VIEW&&mode==='select'){const n=state.notes.find(x=>x.id===note.id);const p=toSvg(e);dragNote={n,dx:p.x-n.x,dy:p.y-n.y};return}
+  start={x:e.clientX,y:e.clientY,tx,ty};stage.classList.add('drag')});
+stage.addEventListener('pointermove',e=>{
+  if(!pts.has(e.pointerId)){if(arrowStart&&tmp){const p=toSvg(e);tmp.setAttribute('x2',p.x);tmp.setAttribute('y2',p.y)}return}
+  pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pinch&&pts.size===2){const [a,b]=[...pts.values()];const r=stage.getBoundingClientRect();zoomAt(Math.hypot(a.x-b.x,a.y-b.y)/pinch.d*pinch.s/s,(a.x+b.x)/2-r.left,(a.y+b.y)/2-r.top);moved=true;return}
+  if(dragNote){const p=toSvg(e);dragNote.n.x=Math.round(p.x-dragNote.dx);dragNote.n.y=Math.round(p.y-dragNote.dy);const t=document.getElementById(dragNote.n.id);t.setAttribute('x',dragNote.n.x);t.setAttribute('y',dragNote.n.y);moved=true;return}
+  if(arrowStart&&tmp){const p=toSvg(e);tmp.setAttribute('x2',p.x);tmp.setAttribute('y2',p.y)}
+  if(start){const dx=e.clientX-start.x,dy=e.clientY-start.y;if(Math.abs(dx)+Math.abs(dy)>4)moved=true;if(moved){tx=start.tx+dx;ty=start.ty+dy;apply()}}});
+const end=async e=>{pts.delete(e.pointerId);stage.classList.remove('drag');
+  if(pinch){if(pts.size<2)pinch=null;start=null;return}
+  if(dragNote){const d=dragNote;dragNote=null;if(moved)store();else select(d.n.id);return}
+  const wasMoved=moved;start=null;if(wasMoved)return;await clickAt(e)};
+stage.addEventListener('pointerup',end);stage.addEventListener('pointercancel',e=>{pts.delete(e.pointerId);start=null;pinch=null;dragNote=null});
+async function clickAt(e){
+  const target=document.elementFromPoint(e.clientX,e.clientY);
+  if(mode==='text'&&!VIEW){const t=target?.closest?.('text');if(!t)return;
+    if(t.classList.contains('unote')){select(t.id);return}
+    const i=+t.dataset.t;if(isNaN(i))return;const v=await ask('Change text',[{label:'Text',value:t.textContent}]);
+    if(v===null)return;state.texts[i]=v[0];if(v[0]===ORIG[i])delete state.texts[i];t.textContent=v[0];store();return}
+  if(mode==='addtext'&&!VIEW){const p=toSvg(e);const v=await ask('Add text',[{label:'Text',value:'',big:true},{label:'Size',type:'select',options:[['22','Normal'],['30','Large'],['44','Heading'],['16','Small']]},{label:'Colour',type:'select',options:[['#1e293b','Dark'],['#15803d','Green'],['#d97706','Amber'],['#dc2626','Red'],['#2563eb','Blue']]}]);
+    if(!v||!v[0].trim())return;const n={id:'n'+Date.now(),x:Math.round(p.x),y:Math.round(p.y),text:v[0],size:+v[1],color:v[2]};state.notes.push(n);drawUser();store();setMode('select');select(n.id);return}
+  if(mode==='arrow'&&!VIEW){const p=toSvg(e);
+    if(!arrowStart){arrowStart=p;tmp=document.createElementNS(NS,'line');tmp.setAttribute('x1',p.x);tmp.setAttribute('y1',p.y);tmp.setAttribute('x2',p.x);tmp.setAttribute('y2',p.y);tmp.setAttribute('stroke','#2563eb');tmp.setAttribute('stroke-width','4');tmp.setAttribute('stroke-dasharray','8 6');userLayer.appendChild(tmp);hint('Now click where the arrow should end.');return}
+    tmp.remove();tmp=null;const a={id:'a'+Date.now(),x1:Math.round(arrowStart.x),y1:Math.round(arrowStart.y),x2:Math.round(p.x),y2:Math.round(p.y),st:'r',label:''};arrowStart=null;
+    const v=await ask('Arrow label (optional)',[{label:'Label',value:''},{label:'Status',type:'select',options:[['r','Missing'],['a','In progress'],['g','Implemented'],['x','Not verifiable']]}]);
+    if(v){a.label=v[0];a.st=v[1]}state.arrows.push(a);drawUser();store();progress();list();setMode('select');select(a.id);return}
+  const el=target?.closest?.('.el, .unote');if(el)select(el.id);
+}
+function hint(t){document.getElementById('hint').textContent=t}
+const HINTS={select:'Click a shape or arrow to change its status. Drag your notes to move them. Drag the background to pan.',text:'Click any text in the diagram to change it.',addtext:'Click where the text should go.',arrow:'Click where the arrow should start.'};
+function setMode(m){mode=m;arrowStart=null;tmp?.remove();tmp=null;stage.className='mode-'+m;document.querySelectorAll('#modes button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));hint(HINTS[m])}
+document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
+// ---------- load / save ----------
+function merge(src){if(!src)return;state.items={...state.items,...(src.items||{})};state.texts={...(src.texts||{})};state.notes=src.notes||[];state.arrows=src.arrows||[]}
+function download(name,data,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+document.getElementById('exp').onclick=()=>{download('status.json',JSON.stringify({version:1,updated:new Date().toISOString(),...state},null,1),'application/json');};
+document.getElementById('imp').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{state={items:{},texts:{},notes:[],arrows:[]};merge(JSON.parse(await f.text()));applyAll();store()}catch(err){alert('That file is not a valid status.json')}e.target.value=''};
+document.getElementById('reset').onclick=async()=>{if(!confirm('Discard your local changes and reload the shared status?'))return;try{localStorage.removeItem(KEY)}catch(e){}state={items:{},texts:{},notes:[],arrows:[]};await loadServer();applyAll();document.getElementById('banner').classList.remove('show')};
+document.getElementById('svgdl').onclick=()=>{const c=svg.cloneNode(true);c.removeAttribute('style');c.querySelectorAll('.sel').forEach(x=>x.classList.remove('sel'));download('pci-architecture.svg','<?xml version="1.0" encoding="UTF-8"?>\n'+new XMLSerializer().serializeToString(c),'image/svg+xml')};
+async function loadServer(){try{const r=await fetch(SRC,{cache:'no-store'});if(r.ok)merge(await r.json())}catch(e){/* opened as a local file: built-in defaults */}}
+(async()=>{
+  await loadServer();
+  if(!VIEW){try{const l=localStorage.getItem(KEY);if(l){merge(JSON.parse(l));document.getElementById('banner').classList.add('show')}}catch(e){}}
+  applyAll();fit();setMode('select');
+  if(VIEW)hint('');
+})();
+</script>
+</body>
+</html>

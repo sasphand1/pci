@@ -3,7 +3,7 @@ export type NavItem={title:string;href:string;icon:string;roles:Role[]};
 export type NavGroup={label:string|null;items:NavItem[]};
 /** Grouped by how often they are used: daily work first, rarely used settings last. */
 export const NAV_GROUPS:NavGroup[]=[
- {label:null,items:[{title:'Overview',href:'/',icon:'overview',roles:['owner','editor','moderator']}]},
+ {label:null,items:[{title:'Overview',href:'/',icon:'overview',roles:['owner','editor','moderator']},{title:'Progress',href:'/progress',icon:'progress',roles:['owner','editor','moderator']}]},
  {label:'Rankings',items:[
   {title:'People',href:'/bucket',icon:'people',roles:['owner','editor']},
   {title:'Pipeline',href:'/pipeline',icon:'pipeline',roles:['owner','editor']},

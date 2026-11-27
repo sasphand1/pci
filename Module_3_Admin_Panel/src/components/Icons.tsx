@@ -4,6 +4,7 @@ const PATHS:Record<string,ReactElement>={
  overview:<><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></>,
  people:<><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.4 3.2-5.5 6.5-5.5s5.9 2.1 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 010 6.8M18 14.8c2 .7 3.3 2.4 3.6 5.2"/></>,
  pipeline:<path d="M7 4l12 8-12 8z"/>,
+ progress:<><path d="M4 20h16"/><path d="M7 16v-4"/><path d="M12 16V8"/><path d="M17 16V5"/></>,
  tag:<><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.2"/></>,
  edit:<path d="M4 20h4L19 9l-4-4L4 16z"/>,
  chat:<path d="M4 5h16v11H9l-5 4z"/>,
