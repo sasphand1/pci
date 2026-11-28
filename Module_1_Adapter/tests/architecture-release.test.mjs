@@ -11,6 +11,7 @@ function fake({bad=0,fail=false,ledger=[],missing=false,missingGuard=false}={}){
   return {log,async query(sql,params=[]){log.push(sql);
     let rows=[];
     if(sql.startsWith('SELECT current_database'))rows=[{database:'test',role:'owner',ledger_count:applied.length}];
+    else if(sql.startsWith("SELECT to_regclass('public.hub_tiktok_registered')"))rows=[{present:active}];
     else if(sql.startsWith('SELECT version'))rows=applied.map(version=>({version}));
     else if(sql.startsWith('SELECT c.relname AS relation,a.attname'))rows=relations.filter(r=>!missing||r!=='accounts').map(relation=>({relation,column:'id'}));
     else if(sql.startsWith('SELECT c.relname AS relation,t.tgname'))rows=active?expected.slice(missingGuard?1:0).map(([relation,name])=>({relation,name,enabled:'O'})):[];
@@ -36,7 +37,7 @@ test('plan is read only and reports unresolved TikTok',async()=>{
  assert.match(db.log[0],/READ ONLY/);assert.equal(db.log.at(-1),'ROLLBACK');assert.ok(!db.log.some(s=>s.startsWith('INSERT')||s.startsWith('TEST MIGRATION')));
 });
 test('rehearsal checks and rolls back both actual migration records',async()=>{
- const db=fake(),r=await runRelease(db,{...opts,mode:'rehearse'});assert.equal(r.result,'rolled_back_successfully');assert.equal(db.log.filter(s=>s.startsWith('INSERT INTO public.schema_migrations')).length,2);assert.equal(db.log.at(-1),'ROLLBACK');assert.ok(!db.log.includes('COMMIT'));
+ const db=fake(),r=await runRelease(db,{...opts,mode:'rehearse'});assert.equal(r.result,'rolled_back_successfully');assert.equal(db.log.filter(s=>s.startsWith('INSERT INTO public.schema_migrations')).length,MIGRATIONS.length);assert.equal(db.log.at(-1),'ROLLBACK');assert.ok(!db.log.includes('COMMIT'));
 });
 test('apply refuses without explicit opt-in before touching database',async()=>{
  const db=fake();await assert.rejects(runRelease(db,{...opts,mode:'apply',confirmation:opts.token}),/PCI_RELEASE_008/);assert.deepEqual(db.log,[]);

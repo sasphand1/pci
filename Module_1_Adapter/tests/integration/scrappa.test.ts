@@ -82,6 +82,37 @@ test('public TikTok route exposes only approved latest snapshots and revokes vis
  assert.equal((await request(app).get('/tiktok').expect(200)).body.data.length,0);
 });
 
+test('approved TikTok identity ranks through Hub projection, central gates and published pointers',async()=>{
+ const {transaction}=await import('../../src/lib/db.js');
+ const {registerCentralTikTokIdentity}=await import('../../src/modules/creators-bucket/tiktok-identity.js');
+ const {buildBatch,publishBatch}=await import('../../src/modules/publish/service.js');
+ const {readCentralTikTok}=await import('../../src/modules/creators-bucket/tiktok-central.js');
+ const {default:express}=await import('express');const {default:request}=await import('supertest');
+ const {publicTikTokRoutes}=await import('../../src/modules/public/tiktok.js');
+ const old=process.env.PCI_TIKTOK_CENTRAL;process.env.PCI_TIKTOK_CENTRAL='prepare';
+ try{
+  await collectCandidate(id,'manual',null,fixture());
+  await query("INSERT INTO people(slug,display_name) VALUES('pci-scrappa-fixture','Fixture')");
+  // Only this fixture is approved. No creator identities or credentials are inferred.
+  assert.equal((await query('SELECT count(*)::int AS n FROM public.hub_tiktok_registered')).rows[0].n,0);
+  await transaction(c=>registerCentralTikTokIdentity(c,id,{mode:'existing',personSlug:'pci-scrappa-fixture',confirm:true},null));
+  assert.equal((await query('SELECT count(*)::int AS n FROM public.hub_tiktok_registered')).rows[0].n,1);
+  process.env.PCI_TIKTOK_CENTRAL='active';
+  const app=express();app.use('/tiktok',publicTikTokRoutes);
+  assert.equal((await request(app).get('/tiktok').expect(200)).body.data.length,0);
+  const batch=await buildBatch('manual',null);const published=await publishBatch(batch.batchId,null);
+  assert.ok(published.published.includes('tiktok.followers'));assert.ok(published.published.includes('tiktok.average_views'));
+  const followers=(await request(app).get('/tiktok?metric=followers').expect(200)).body.data;
+  assert.equal(followers[0].followers,123);assert.equal(followers[0].rank,1);
+  const averages=await readCentralTikTok({query},'averageViews');assert.equal(averages[0].averageViews,104.5);
+  await query('UPDATE scrappa_candidates SET published_at=NULL WHERE external_id=$1',[id]);
+  assert.equal((await request(app).get('/tiktok').expect(200)).body.data.length,0);
+ }finally{
+  if(old===undefined)delete process.env.PCI_TIKTOK_CENTRAL;else process.env.PCI_TIKTOK_CENTRAL=old;
+  await query("DELETE FROM published_pointers WHERE scope LIKE 'tiktok.%'");await query("DELETE FROM rank_runs WHERE scope LIKE 'tiktok.%'");
+ }
+});
+
 test('Check then Stage uses exactly one credit; repeated check uses cached data',async()=>{
  let calls=0;const fetcher:typeof fetch=async u=>{calls++;return fixture()(u);};
  await assert.rejects(stageVerifiedCandidate('pci_fixture'),/Check this creator successfully/);

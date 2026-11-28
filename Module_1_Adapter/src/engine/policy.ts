@@ -7,7 +7,8 @@ export const FRESHNESS_DAYS_DEFAULT = 7;
 export const METRIC_PLATFORMS: Record<Metric, Platform[]> = {
   followers: ['youtube', 'instagram'],
   views: ['youtube'],
-  posts_30d: ['youtube', 'instagram']
+  posts_30d: ['youtube', 'instagram'],
+  average_views: ['tiktok'], average_likes: ['tiktok'], average_comments: ['tiktok'], average_shares: ['tiktok']
 };
 
 export const FIXED_SCOPES = ['wheel.subscribed', 'wheel.viewed', 'wheel.active', 'youtube.subscribed', 'instagram.followers'] as const;
@@ -20,6 +21,8 @@ export function policyFor(scope: string): ScopePolicy {
     case 'youtube.subscribed': return { scope, policyVersion: 'youtube.subscribed@v1', metric: 'followers', platforms: ['youtube'], requirePlatform: 'youtube' };
     case 'instagram.followers': return { scope, policyVersion: 'instagram.followers@v1', metric: 'followers', platforms: ['instagram'], requirePlatform: 'instagram' };
   }
+  const t = /^tiktok\.(followers|average_views|average_likes|average_comments|average_shares)$/.exec(scope);
+  if(t) return {scope,policyVersion:`${scope}@v1`,metric:t[1] as Metric,platforms:['tiktok'],requirePlatform:'tiktok'};
   const m = /^category\.([a-z0-9-]{2,60})$/.exec(scope);
   if (m) return { scope, policyVersion: 'category.subscribed@v1', metric: 'followers', platforms: METRIC_PLATFORMS.followers, category: m[1] };
   throw new Error(`Unknown scope: ${scope}`);

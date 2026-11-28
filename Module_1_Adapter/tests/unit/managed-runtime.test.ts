@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {schemaMode, managedFindings, REQUIRED_RELATIONS, REQUIRED_GUARDS, skipRuntimeDDL} from '../../src/architecture/managed-runtime.js';
 import type {RoleEvidence} from '../../src/architecture/runtime-audit.js';
-const ledger=['134_architecture_integrity.sql','135_architecture_source_routes.sql'];
+const ledger=['134_architecture_integrity.sql','135_architecture_source_routes.sql','136_tiktok_central_projection.sql'];
 function valid():RoleEvidence{return {role:{username:'pci_runtime',session_role:'pci_runtime',superuser:false,create_role:false,create_database:false,bypass_rls:false,database_owner:false,database_create:false,database_temp:false},privilegedMemberships:[],schemas:[],relations:REQUIRED_RELATIONS.map(r=>{const [schema,relation]=r.split('.');return {schema,relation,owner_member:false,can_read:true,can_insert:false,can_update:false,can_delete:false,can_truncate:false,can_trigger:false};})};}
 test('legacy remains the default; invalid schema modes fail closed',()=>{assert.equal(schemaMode('legacy'),'legacy');assert.equal(schemaMode('managed'),'managed');assert.throws(()=>schemaMode('typo'),/PCI_MANAGED_001/);});
 test('all reviewed prerequisites permit managed startup',()=>assert.deepEqual(managedFindings(valid(),REQUIRED_GUARDS,ledger),[]));

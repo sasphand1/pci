@@ -10,6 +10,7 @@ const sha = text => createHash('sha256').update(text).digest('hex');
 export const MIGRATIONS = Object.freeze([
   ['134_architecture_integrity.sql', '632b3fb401b48c7aad9afadbf1e34b3f0a641b0fa5275ea60a430add377a7640'],
   ['135_architecture_source_routes.sql', '7bfa542a8820d4c5dfa7450af8de4f617b7116fe005ecd192dcbcc0c689099e4'],
+  ['136_tiktok_central_projection.sql', 'b2aa7ac62dc4bd985f292c41eb58bb1a58b23028742a61555d6cb6db57e9d7f3'],
 ]);
 const TABLES = ['accounts','ingest_jobs','ingest_latest','ingest_observations','people','published_pointers','rank_runs','rank_slots','schema_migrations','scrappa_candidates','scrappa_snapshots'];
 const EXPECTED = ['ingest_latest:pci_arch_latest_guard','ingest_latest:pci_arch_z_hub_route_guard','ingest_observations:pci_arch_observation_guard','ingest_observations:pci_arch_z_hub_route_guard','published_pointers:pci_arch_pointer_guard','rank_runs:pci_arch_run_guard'];
@@ -48,6 +49,7 @@ export async function inspect(db){
     WHERE n.nspname='public' AND c.relname=ANY($1::text[]) AND NOT t.tgisinternal ORDER BY c.relname,t.tgname`,[TABLES]);
   const missing=TABLES.filter(t=>!columns.some(c=>c.relation===t));
   if(missing.length) die('PCI_RELEASE_003',`Missing prerequisite tables: ${missing.join(', ')}.`);
+  const viewPresent=(await rows(db,"SELECT to_regclass('public.hub_tiktok_registered') IS NOT NULL AS present"))[0]?.present===true;
   const findings=(await rows(db,`SELECT
     (SELECT count(*)::int FROM public.published_pointers p LEFT JOIN public.rank_runs r ON r.id=p.run_id
       WHERE r.id IS NULL OR r.scope<>p.scope OR r.status<>'published' OR r.published_at IS NULL) AS invalid_pointers,
@@ -57,12 +59,12 @@ export async function inspect(db){
       AND o.value_numeric IS NOT DISTINCT FROM l.value_numeric AND o.value_text IS NOT DISTINCT FROM l.value_text)) AS missing_history,
     (SELECT count(*)::int FROM public.scrappa_candidates s WHERE s.published_at IS NOT NULL AND NOT EXISTS (
       SELECT 1 FROM public.accounts a WHERE a.platform='tiktok' AND a.external_id=s.external_id AND a.person_id=s.person_id)) AS unregistered_public_tiktok`))[0];
-  return {identity,ledger,findings,schemaHash:sha(JSON.stringify({columns,constraints,triggers})),existingTriggers:triggers.map(t=>`${t.relation}:${t.name}`),activeTriggers:triggers.filter(t=>['O','A'].includes(t.enabled)).map(t=>`${t.relation}:${t.name}`)};
+  return {identity,ledger,findings,viewPresent,schemaHash:sha(JSON.stringify({columns,constraints,triggers})),existingTriggers:triggers.map(t=>`${t.relation}:${t.name}`),activeTriggers:triggers.filter(t=>['O','A'].includes(t.enabled)).map(t=>`${t.relation}:${t.name}`)};
 }
 export function checkPending(evidence){
   const names=MIGRATIONS.map(m=>m[0]);
   if(evidence.ledger.some(name=>!names.includes(name))) die('PCI_RELEASE_004','Historical migration entries exist. Use the normal migration runner if its ledger is complete; otherwise reconcile the ledger separately.');
-  if(evidence.ledger.length || (evidence.existingTriggers??evidence.activeTriggers).some(t=>EXPECTED.includes(t))) die('PCI_RELEASE_005','Architecture activation already exists or is partially installed. Inspect the ledger and triggers; do not replay.');
+  if(evidence.viewPresent || evidence.ledger.length || (evidence.existingTriggers??evidence.activeTriggers).some(t=>EXPECTED.includes(t))) die('PCI_RELEASE_005','Architecture activation already exists or is partially installed. Inspect the ledger and triggers; do not replay.');
   if(evidence.findings.invalid_pointers!==0 || evidence.findings.missing_history!==0) die('PCI_RELEASE_006','Repair existing publication/projection integrity before activation.');
 }
 export function checkReceipt(receipt,token,evidence,migrations,now=Date.now()){
@@ -82,7 +84,7 @@ export async function runRelease(db,{mode='plan',token,confirmation,receipt,allo
     if(mode!=='plan'){
       await db.query('SELECT pg_advisory_xact_lock(710323)');
       // Freeze the relevant rows while checking and installing; bounded lock wait above.
-      await db.query('LOCK TABLE public.ingest_jobs, public.ingest_latest, public.ingest_observations, public.published_pointers, public.rank_runs, public.schema_migrations, public.scrappa_candidates IN SHARE ROW EXCLUSIVE MODE');
+      await db.query('LOCK TABLE public.accounts, public.people, public.scrappa_snapshots, public.ingest_jobs, public.ingest_latest, public.ingest_observations, public.published_pointers, public.rank_runs, public.schema_migrations, public.scrappa_candidates IN SHARE ROW EXCLUSIVE MODE');
     }
     const evidence=await inspect(db);
     if(mode==='plan'){
@@ -92,11 +94,11 @@ export async function runRelease(db,{mode='plan',token,confirmation,receipt,allo
     }
     checkPending(evidence);
     if(mode==='apply')checkReceipt(receipt,token,evidence,migrations,clock().getTime());
-    // Only the exact two reviewed migration files. Never read or run migration 128 or any older file.
+    // Only the exact reviewed migration files. Never read or run migration 128 or any older file.
     for(const m of migrations){await db.query(m.sql);await db.query('INSERT INTO public.schema_migrations(version) VALUES($1)',[m.name]);}
     await db.query('SET CONSTRAINTS ALL IMMEDIATE');
     const after=await inspect(db);
-    if(!EXPECTED.every(t=>after.activeTriggers.includes(t))||!migrations.every(m=>after.ledger.includes(m.name))) die('PCI_RELEASE_009','Not all expected architecture guards or migration records are present.');
+    if(!after.viewPresent||!EXPECTED.every(t=>after.activeTriggers.includes(t))||!migrations.every(m=>after.ledger.includes(m.name))) die('PCI_RELEASE_009','Not all expected architecture guards or migration records are present.');
     if(after.findings.invalid_pointers||after.findings.missing_history) die('PCI_RELEASE_009','Post-install integrity checks failed.');
     await db.query(mode==='rehearse'?'ROLLBACK':'COMMIT');ended=true;
     return {version:1,mode,result:mode==='rehearse'?'rolled_back_successfully':'committed',checkedAt:clock().toISOString(),target:token,schemaHash:evidence.schemaHash,migrations:migrations.map(({name,hash})=>({name,hash})),findings:after.findings,historicalLedgerReconciled:false};

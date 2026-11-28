@@ -13,7 +13,7 @@ publishAdminRoutes.use(['/rank', '/pipeline', '/publications', '/overview'], req
 
 const actor = (res: { locals: Record<string, unknown> }) => (res.locals.admin as AdminIdentity | undefined)?.id ?? null;
 const uuid = z.string().uuid();
-const scopeSchema = z.string().regex(/^(wheel\.(subscribed|viewed|active)|youtube\.subscribed|instagram\.followers|category\.[a-z0-9-]{2,60})$/);
+const scopeSchema = z.string().regex(/^(wheel\.(subscribed|viewed|active)|youtube\.subscribed|instagram\.followers|tiktok\.(followers|average_views|average_likes|average_comments|average_shares)|category\.[a-z0-9-]{2,60})$/);
 
 // Rank: build drafts for every scope. Nothing becomes public.
 publishAdminRoutes.post('/rank', roles('owner', 'editor'), handler(async (_req, res) => {

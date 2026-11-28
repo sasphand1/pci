@@ -6,6 +6,8 @@ import { handler, HttpError } from '../../lib/errors.js';
 import { roles, type AdminIdentity } from '../auth/auth.js';
 import type { Router } from 'express';
 import { ensureTikTokSource, storeTikTokCandidate } from '../creators-bucket/tiktok-staging.js';
+import {centralTikTokMode} from '../creators-bucket/tiktok-central.js';
+import {registerCentralTikTokIdentity} from '../creators-bucket/tiktok-identity.js';
 import { collect, collectProfile, summarize, MAX_COLLECTION_CREDITS } from './collector.js';
 import {monthlyCap} from './credit-policy.js';
 import {activeKey,keyUsage,remainingCredits,reserveFor,creditMonitor} from './credits.js';
@@ -124,6 +126,13 @@ export function mountScrappaAdmin(router:Router){
   if(profileOnly&&confirm!==true)throw new HttpError(400,'SCRAPPA_CONFIRM','Confirm the one-credit profile refresh');
   res.json({data:await collectCandidate(id,'manual',(res.locals.admin as AdminIdentity).id,fetch,profileOnly===true)});
  }));
+ router.post('/bucket/scrappa/candidates/:id/registry',roles('owner'),handler(async(req,res)=>{
+  await ensure();
+  if(centralTikTokMode()==='off')throw new HttpError(409,'PCI_TIKTOK_002','Central TikTok preparation is not enabled. Apply the reviewed migration first.');
+  const id=z.string().regex(/^\d{1,30}$/).parse(req.params.id);
+  const body=z.discriminatedUnion('mode',[z.object({mode:z.literal('existing'),personSlug:z.string().trim().min(2).max(60),confirm:z.literal(true)}).strict(),z.object({mode:z.literal('new'),name:z.string().trim().min(1).max(120),confirm:z.literal(true)}).strict()]).parse(req.body);
+  res.json({data:await transaction(c=>registerCentralTikTokIdentity(c,id,body,(res.locals.admin as AdminIdentity).id))});
+ }));
  router.post('/bucket/scrappa/candidates/:id/link',roles('owner'),handler(async(req,res)=>{
   await ensure();
   const id=z.string().regex(/^\d{1,30}$/).parse(req.params.id);
@@ -135,6 +144,7 @@ export function mountScrappaAdmin(router:Router){
    const person=personSlug===null?null:(await c.query<{id:string}>('SELECT id FROM people WHERE slug=$1 FOR KEY SHARE',[personSlug])).rows[0];
    if(personSlug!==null&&!person)throw new HttpError(404,'NOT_FOUND','Existing person slug not found');
    const personId=person?.id??null;
+   if((await c.query("SELECT 1 FROM accounts WHERE platform='tiktok' AND external_id=$1",[id])).rowCount)throw new HttpError(409,'PCI_TIKTOK_003','Registered identity cannot be relinked here. Review it in the central registry.');
    if(personId&&(await c.query('SELECT 1 FROM scrappa_candidates WHERE person_id=$1 AND external_id<>$2',[personId,id])).rowCount)throw new HttpError(409,'PERSON_ALREADY_LINKED','Person already has a staged TikTok account');
    await c.query('UPDATE scrappa_candidates SET person_id=$2,published_at=NULL WHERE external_id=$1',[id,personId]);
    await c.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[(res.locals.admin as AdminIdentity).id,'scrappa.identity.link',id,JSON.stringify({personId})]);
@@ -150,6 +160,7 @@ export function mountScrappaAdmin(router:Router){
     (SELECT profile,observed_at FROM scrappa_snapshots WHERE external_id=s.external_id ORDER BY observed_at DESC,run_id DESC LIMIT 1) x ON true WHERE s.external_id=$1 FOR UPDATE OF s`,[id])).rows[0];
    if(!candidate)throw new HttpError(404,'NOT_FOUND','Candidate not found');
    if(publish&&(!candidate.profile||candidate.profile.handle!==candidate.handle||!Number.isSafeInteger(candidate.profile.followers)||candidate.profile.followers<0||Date.now()-new Date(candidate.observed_at).getTime()>15*86400000))throw new HttpError(409,'SCRAPPA_NOT_READY','Collect a recent verified snapshot with followers first');
+   if(publish&&centralTikTokMode()==='active'&&!(await c.query("SELECT 1 FROM scrappa_candidates s JOIN accounts a ON a.platform='tiktok' AND a.external_id=s.external_id AND a.person_id=s.person_id AND a.handle=s.handle WHERE s.external_id=$1",[id])).rowCount)throw new HttpError(409,'PCI_TIKTOK_004','Register the verified identity before publication.');
    await c.query('UPDATE scrappa_candidates SET published_at=CASE WHEN $2 THEN now() ELSE NULL END WHERE external_id=$1',[id,publish]);
    await c.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[(res.locals.admin as AdminIdentity).id,'scrappa.publication',id,JSON.stringify({publish})]);
   });
@@ -167,6 +178,7 @@ export function mountScrappaAdmin(router:Router){
   await transaction(async c=>{
    await c.query('SELECT pg_advisory_xact_lock(710330)');
    if((await c.query("SELECT 1 FROM ingest_jobs WHERE source_id='scrappa.api' AND status='running' AND started_at>now()-interval '5 minutes'")).rowCount)throw new HttpError(409,'SCRAPPA_BUSY','Wait for the current collection to finish');
+   if((await c.query("SELECT 1 FROM accounts WHERE platform='tiktok' AND external_id=$1",[id])).rowCount)throw new HttpError(409,'PCI_TIKTOK_010','Unpublish this creator first. Registered identities require central registry review before permanent removal.');
    if(!(await c.query('DELETE FROM scrappa_candidates WHERE external_id=$1 RETURNING external_id',[id])).rowCount)throw new HttpError(404,'NOT_FOUND','Candidate not found');
    const key='tiktok_candidate:'+id;
    await c.query("DELETE FROM ingest_latest WHERE source_id='scrappa.api' AND (entity_id=$1 OR left(entity_id,length($1)+1)=$1||':')",[key]);

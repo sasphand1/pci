@@ -12,7 +12,7 @@ const SCOPE_LABEL:Record<string,string>={
  'wheel.subscribed':'Wheel: Combined followers across platforms','wheel.viewed':'Wheel: YouTube lifetime views','wheel.active':'Wheel: Posts in the last 30 days',
  'youtube.subscribed':'YouTube row','instagram.followers':'Instagram row'
 };
-const label=(scope:string)=>SCOPE_LABEL[scope]??(scope.startsWith('category.')?`Category row: ${scope.slice(9)}`:scope);
+const label=(scope:string)=>SCOPE_LABEL[scope]??(scope.startsWith('category.')?`Category row: ${scope.slice(9)}`:scope==='tiktok.followers'?'TikTok followers':scope.startsWith('tiktok.average_')?`TikTok ${scope.slice(7).replace(/_/g,' ')} (stored tenths)`:scope);
 const tone=(status:string):'normal'|'muted'|'danger'=>['succeeded','published','ok'].includes(status)?'normal':['failed','rejected'].includes(status)?'danger':'muted';
 
 export default function PipelinePage(){

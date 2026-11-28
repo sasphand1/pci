@@ -23,6 +23,7 @@ export const REQUIRED_RELATIONS = [
   "public.event_sources",
   "public.hall_of_fame",
   "public.hub_account_metrics",
+  "public.hub_tiktok_registered",
   "public.hub_avatar_attempts",
   "public.hub_discrepancies",
   "public.hub_graph_avatar_attempts",
@@ -96,7 +97,7 @@ export const REQUIRED_RELATIONS = [
   "tiktokingest.oauth_states"
 ] as const;
 export const REQUIRED_GUARDS = ['ingest_latest:pci_arch_latest_guard','ingest_latest:pci_arch_z_hub_route_guard','ingest_observations:pci_arch_observation_guard','ingest_observations:pci_arch_z_hub_route_guard','published_pointers:pci_arch_pointer_guard','rank_runs:pci_arch_run_guard'] as const;
-const REQUIRED_MIGRATIONS=['134_architecture_integrity.sql','135_architecture_source_routes.sql'];
+const REQUIRED_MIGRATIONS=['134_architecture_integrity.sql','135_architecture_source_routes.sql','136_tiktok_central_projection.sql'];
 export function schemaMode(value=process.env.PCI_SCHEMA_MODE):'legacy'|'managed' {
   if(value===undefined||value==='legacy')return 'legacy';
   if(value==='managed')return 'managed';

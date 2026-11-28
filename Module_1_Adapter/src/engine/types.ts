@@ -1,6 +1,6 @@
 // Pure ranking core. This folder must never import the database, network, cache or config.
 export type Platform = 'youtube' | 'instagram' | 'tiktok';
-export type Metric = 'followers' | 'views' | 'posts_30d';
+export type Metric = 'followers' | 'views' | 'posts_30d' | 'average_views' | 'average_likes' | 'average_comments' | 'average_shares';
 export type Accuracy = 'exact' | 'rounded3';
 
 export type AccountIn = { id: string; platform: Platform };

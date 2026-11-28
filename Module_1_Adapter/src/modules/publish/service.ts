@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import {centralTikTokMode,loadTikTokRankInput,TIKTOK_SCOPES} from '../creators-bucket/tiktok-central.js';
 import { query, transaction } from '../../lib/db.js';
 import { HttpError, logger } from '../../lib/errors.js';
 import { FIXED_SCOPES, FRESHNESS_DAYS_DEFAULT, rankScope, removePerson, type Entry, type RankInput, type RankResult, type Unranked } from '../../engine/index.js';
@@ -90,17 +91,19 @@ const knownIds = async (db: Db) => new Set<string>((await db.query('SELECT id FR
 export async function buildBatch(trigger: Trigger, actorId: string | null, opts: { now?: Date; freshnessDays?: number } = {}) {
   const now = opts.now ?? new Date(), freshness = opts.freshnessDays ?? FRESHNESS_DAYS_DEFAULT;
   const input = await loadRankInput(poolDb, now, freshness);
-  const known = new Set(input.people.map(p => p.id));
+  const tiktok=centralTikTokMode()!=='off'?await loadTikTokRankInput(poolDb,now):null;
+  const known = new Set([...input.people,...(tiktok?.people??[])].map(p => p.id));
   const minCoverage = minCoverageFrom();
   const batchId = randomUUID();
   return transaction(async client => {
     const live = await liveSlots(client);
     const drafts: { runId: string; scope: string; population: number; covered: number; gateFailures: GateFailure[] }[] = [];
-    for (const scope of scopesFor(input)) {
-      const result = rankScope(scope, input);
+    for (const scope of [...scopesFor(input),...(tiktok?TIKTOK_SCOPES:[])]) {
+      const scopeInput=scope.startsWith('tiktok.')&&tiktok?tiktok:input;
+      const result = rankScope(scope, scopeInput);
       if (result.population === 0 && !live.has(scope)) continue;
       const failures = runGates(result, { knownPersonIds: known, minCoverage, checkCoverage: true });
-      const runId = await insertRun(client, result, { batchId, trigger, actorId, now, freshnessDays: freshness, failures });
+      const runId = await insertRun(client, result, { batchId, trigger, actorId, now, freshnessDays: scopeInput.freshnessDays??freshness, failures });
       drafts.push({ runId, scope, population: result.population, covered: result.covered, gateFailures: failures });
     }
     await client.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,NULL,$3::jsonb)', [actorId, 'rank.build', JSON.stringify({ trigger, scopes: drafts.length })]);
