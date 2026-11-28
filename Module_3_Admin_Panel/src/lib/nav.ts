@@ -4,7 +4,9 @@ export type NavGroup={label:string|null;items:NavItem[]};
 /** Grouped by how often they are used: daily work first, rarely used settings last. */
 export const NAV_GROUPS:NavGroup[]=[
  {label:null,items:[{title:'Overview',href:'/',icon:'overview',roles:['owner','editor','moderator']},{title:'Progress',href:'/progress',icon:'progress',roles:['owner','editor','moderator']}]},
- {label:'Rankings',items:[
+ {label:'Data Hub & rankings',items:[
+  {title:'Data Hub',href:'/hub',icon:'pulse',roles:['owner','editor']},
+  {title:'Architecture',href:'/hub/architecture',icon:'shield',roles:['owner']},
   {title:'People',href:'/bucket',icon:'people',roles:['owner','editor']},
   {title:'Pipeline',href:'/pipeline',icon:'pipeline',roles:['owner','editor']},
   {title:'Categories',href:'/categories',icon:'tag',roles:['owner','editor']}]},
@@ -22,8 +24,6 @@ export const NAV_GROUPS:NavGroup[]=[
   {title:'Messages & people',href:'/satify/people',icon:'chat',roles:['owner','editor']},
   {title:'Satify sources',href:'/satellite',icon:'settings',roles:['owner']}]},
  {label:'Administration',items:[
-  {title:'Data Hub',href:'/hub',icon:'pulse',roles:['owner','editor']},
-  {title:'Architecture',href:'/hub/architecture',icon:'shield',roles:['owner']},
   {title:'System health',href:'/system',icon:'pulse',roles:['owner']},
   {title:'Audit log',href:'/audit',icon:'clock',roles:['owner']},
   {title:'Team',href:'/admins',icon:'team',roles:['owner']},

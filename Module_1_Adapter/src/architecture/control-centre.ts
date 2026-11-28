@@ -1,3 +1,4 @@
+import {readReleaseCohort,releaseReadiness} from './release-readiness.js';
 import {readMigrationState,planMigrations,MIGRATION_NAME,type AuditDb} from './migration-safety.js';
 import {readRuntimeEvidence,runtimeRoleFindings} from './runtime-audit.js';
 import {readdir} from 'node:fs/promises';
@@ -26,6 +27,7 @@ export async function readArchitectureReport(db:AuditDb, files:readonly string[]
  const missingTriggers=expected.filter(([table,name])=>!triggers.some(t=>t.table_name===table&&t.tgname===name&&['O','A'].includes(t.tgenabled))).map(x=>x.join('.'));
  if(missingTriggers.length)findings.push('PCI_ARCH_DB_010: architecture triggers missing or inactive. Reconcile migrations before activation.');
  if(scheduledDays.some(d=>d.runs===0))findings.push('PCI_ARCH_SCHEDULE_001: scheduled collection days missing in the last 14 days. Review worker and daily recovery.');
- return {checkedAt:new Date().toISOString(),status:findings.length?'attention_required':'checks_passed_not_certified',findings,runtime,migration,appliedMigrations:state.applied,inventory,registry,candidates:candidates[0],publications,unmatchedScrappa:history[0]?.unmatched,scheduler,scheduledDays,triggers,missingTriggers};
+ const release=releaseReadiness({mode:process.env.PCI_TIKTOK_CENTRAL??'off',schemaMode:process.env.PCI_SCHEMA_MODE??'legacy',runtimeRole:runtime.role.username,runtimeFindings:runtimeRoleFindings(runtime),migrationIssues:migration.issues,missingTriggers,invalidPointers:publications.filter(p=>p.status!=='published'||p.scope!==p.run_scope||!p.published_at).length,unmatched:Number(history[0]?.unmatched??0),cohort:await readReleaseCohort(db),scheduledDays:scheduledDays.map(d=>({day:String(d.day),runs:Number(d.runs)}))});
+ return {release,checkedAt:new Date().toISOString(),status:findings.length?'attention_required':'checks_passed_not_certified',findings,runtime,migration,appliedMigrations:state.applied,inventory,registry,candidates:candidates[0],publications,unmatchedScrappa:history[0]?.unmatched,scheduler,scheduledDays,triggers,missingTriggers};
 }
 export async function architectureMigrationFiles(){return (await readdir(fileURLToPath(new URL('../../database/migrations/',import.meta.url)))).filter(x=>MIGRATION_NAME.test(x)).sort();}

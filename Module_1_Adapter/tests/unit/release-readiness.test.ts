@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {releaseReadiness,readReleaseCohort,type ReleaseInput} from '../../src/architecture/release-readiness.js';
+const now=Date.parse('2026-11-28T20:00:00Z'),date='2026-11-28T19:00:00Z';
+const fixture=():ReleaseInput=>({mode:'active',schemaMode:'managed',runtimeRole:'pci_runtime',runtimeFindings:[],migrationIssues:[],missingTriggers:[],invalidPointers:0,unmatched:0,cohort:[{handle:'fixture',registered:true,hub_ready:true,observed_at:date,ranked_at:date,published_rank:1,published_value:'123'}],scheduledDays:[{day:'2026-11-28',runs:1}]});
+test('all reviewed live checks pass only with active mode and restricted role',()=>{const x=releaseReadiness(fixture(),now);assert.equal(x.allChecksPassed,true);assert.equal(x.readyForActive,true);});
+test('prepare is ready to activate only with complete published cohort',()=>{const x=fixture();x.mode='prepare';x.schemaMode='legacy';x.runtimeRole='neondb_owner';const r=releaseReadiness(x,now);assert.equal(r.readyForActive,true);assert.equal(r.allChecksPassed,false);});
+test('missing registration and publication are blocking',()=>{const x=fixture();x.cohort![0].registered=false;assert.equal(releaseReadiness(x,now).readyForActive,false);});
+test('stale or future timestamps and missing rank fail closed',()=>{for(const patch of [{ranked_at:'2026-10-01'},{observed_at:'2026-12-01'},{published_rank:null},{published_value:null}]){const x=fixture();Object.assign(x.cohort![0],patch);assert.equal(releaseReadiness(x,now).readyForActive,false);}});
+test('zero followers is valid when the published evidence is present',()=>{const x=fixture();x.cohort![0].published_value='0';assert.equal(releaseReadiness(x,now).readyForActive,true);});
+test('missing view is distinct from an empty approved cohort',()=>{const x=fixture();x.cohort=null;assert.equal(releaseReadiness(x,now).readyForActive,false);x.cohort=[];assert.equal(releaseReadiness(x,now).readyForActive,true);});
+test('ledger gaps and old scheduler gaps remain visible and prevent all-pass',()=>{const x=fixture();x.migrationIssues=['PCI_ARCH_MIG_004'];x.scheduledDays.push({day:'2026-11-26',runs:0});const r=releaseReadiness(x,now);assert.equal(r.allChecksPassed,false);assert.equal(r.checks.find(c=>c.id==='ledger')?.status,'blocked');assert.equal(r.checks.find(c=>c.id==='scheduler')?.status,'review');});
+test('guard and pointer failures block activation',()=>{const x=fixture();x.invalidPointers=1;assert.equal(releaseReadiness(x,now).readyForActive,false);});
+test('cohort query skips absent view and only uses read-only SQL',async()=>{const q:string[]=[];const db={async query(s:string){q.push(s);return {rows:[{present:false}]};}};assert.equal(await readReleaseCohort(db),null);assert.equal(q.length,1);assert.match(q[0],/^SELECT/);});
