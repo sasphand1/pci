@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {planMigrations,readMigrationState} from '../../src/architecture/migration-safety.ts';
+const files=['001_initial.sql','125_creator.sql','125_progress.sql','134_architecture_integrity.sql','135_architecture_source_routes.sql'];
+const plan=(applied:string[],applicationObjects:string[]=[])=>planMigrations(files,{applied,applicationObjects});
+test('fresh database may apply all migrations in order',()=>{const p=plan([]);assert.equal(p.status,'ready');assert.deepEqual(p.pending,files);});
+test('populated database with empty ledger fails closed',()=>{const p=plan([],['public.people']);assert.equal(p.status,'blocked');assert.match(p.issues.join(),/PCI_ARCH_MIG_003/);});
+test('a fully verified prefix can advance without replaying old migrations',()=>{const p=plan(files.slice(0,4),['public.people']);assert.equal(p.status,'ready');assert.deepEqual(p.pending,files.slice(4));});
+test('same migration number with different names remains legal',()=>assert.equal(plan(files.slice(0,3),['public.people']).status,'ready'));
+test('a gap in the ledger is blocked even if later migrations exist',()=>assert.match(plan([files[0],files[3]],['public.people']).issues.join(),/PCI_ARCH_MIG_004/));
+test('unknown ledger names are blocked',()=>assert.match(plan(['999_unreviewed.sql']).issues.join(),/PCI_ARCH_MIG_002/));
+test('duplicate ledger names and invalid repository inventory are blocked',()=>{assert.match(plan([files[0],files[0]]).issues.join(),/PCI_ARCH_MIG_002/);assert.match(planMigrations(['invalid.sql'],{applied:[],applicationObjects:[]}).issues.join(),/PCI_ARCH_MIG_001/);});
+test('a complete ledger is a no-op',()=>{const p=plan(files,['public.people']);assert.equal(p.status,'ready');assert.deepEqual(p.pending,[]);});
+test('catalogue read does not attempt a SELECT from a missing ledger',async()=>{const sql:string[]=[];const state=await readMigrationState({query:async(s:string)=>{sql.push(s);return {rows:s.includes('to_regclass')?[{present:false}]:[{name:'public.people'}]};}});assert.deepEqual(state,{applied:[],applicationObjects:['public.people']});assert.equal(sql.length,2);assert.ok(sql.every(s=>s.trim().startsWith('SELECT')));});
+test('catalogue read uses the schema-qualified existing ledger',async()=>{const sql:string[]=[];const state=await readMigrationState({query:async(s:string)=>{sql.push(s);return {rows:s.includes('to_regclass')?[{present:true}]:s.includes('SELECT version')?[{version:files[0]}]:[{name:'public.people'}]};}});assert.deepEqual(state,{applied:[files[0]],applicationObjects:['public.people']});assert.match(sql[1],/public\.schema_migrations/);});
