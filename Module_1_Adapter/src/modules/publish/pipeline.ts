@@ -1,4 +1,5 @@
-import { query } from '../../lib/db.js';
+import { query, transaction } from '../../lib/db.js';
+import { dailyPipelineSlot } from './daily-slot.js';
 import { logger } from '../../lib/errors.js';
 import { collectCreatorVideoSnapshots } from '../creator-analytics/videos.js';
 import {mirrorApiRefresh,mirrorVideoSamples} from '../ingest/store.js';
@@ -81,5 +82,30 @@ export async function executePipeline(id: string, trigger: Trigger, actorId: str
 export async function startPipeline(trigger: Trigger, actorId: string | null, deps: Deps = realDeps()) {
   const run = await createPipelineRun(trigger, actorId);
   if (run.started && deps.background) setImmediate(() => { executePipeline(run.id, trigger, actorId, deps).catch(err => logger.error({ err }, 'pipeline run crashed')); });
+  return run;
+}
+
+/** One persistent claim per PKT day, including catch-up after a restart. A recorded
+ * attempt (even a failed one) is not retried automatically: preserve the quota and
+ * leave the outcome visible. Manual pipeline execution is unchanged. */
+export async function createDailyPipelineRun(at = new Date()): Promise<{id: string; started: boolean; reason: 'not_due' | 'already_recorded' | 'busy' | 'started'}> {
+  const slot = dailyPipelineSlot(at);
+  if (!slot) return {id: '', started: false, reason: 'not_due'};
+  return transaction<{id: string; started: boolean; reason: 'not_due' | 'already_recorded' | 'busy' | 'started'}>(async c => {
+    // Transaction-scoped lock covers the read and insert, not provider/network I/O.
+    await c.query("SELECT pg_advisory_xact_lock(hashtext('pci.daily.pipeline'), 0)");
+    const existing = (await c.query<{id: string}>(`SELECT id FROM pipeline_runs WHERE trigger='scheduled' AND created_at >= $1::timestamptz AND created_at < $2::timestamptz ORDER BY created_at LIMIT 1`, [slot.start, slot.end])).rows[0];
+    if (existing) return {id: existing.id, started: false, reason: 'already_recorded'};
+    // Preserve the existing one-hour stale-run recovery only when a new run is due.
+    await c.query("UPDATE pipeline_runs SET status='failed', finished_at=now() WHERE status='running' AND created_at < $1::timestamptz - interval '60 minutes'", [at.toISOString()]);
+    const inserted = (await c.query<{id: string}>(`INSERT INTO pipeline_runs(trigger,created_by,created_at) VALUES('scheduled',NULL,$1::timestamptz) ON CONFLICT DO NOTHING RETURNING id`, [at.toISOString()])).rows[0];
+    return inserted ? {id: inserted.id, started: true, reason: 'started'} : {id: '', started: false, reason: 'busy'};
+  });
+}
+
+/** Called only from the existing scheduler. No additional worker or schedule owner. */
+export async function startDailyPipeline() {
+  const run = await createDailyPipelineRun();
+  if (run.started) setImmediate(() => { executePipeline(run.id, 'scheduled', null).catch(err => logger.error({err}, 'Daily pipeline run crashed')); });
   return run;
 }

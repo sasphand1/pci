@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {dailyPipelineSlot} from '../../src/modules/publish/daily-slot.ts';
+const slot = (iso: string) => dailyPipelineSlot(new Date(iso));
+test('no claim before 09:00 PKT', () => assert.equal(slot('2026-11-28T03:59:59.999Z'), null));
+test('claim at 09:00 PKT', () => assert.deepEqual(slot('2026-11-28T04:00:00.000Z'), {start:'2026-11-28T04:00:00.000Z', end:'2026-11-28T19:00:00.000Z'}));
+test('catch up after missed cron', () => assert.deepEqual(slot('2026-11-28T16:46:00Z'), slot('2026-11-28T04:00:00Z')));
+test('last millisecond of PKT day is eligible', () => assert.ok(slot('2026-11-28T18:59:59.999Z')));
+test('next PKT midnight is not eligible', () => assert.equal(slot('2026-11-28T19:00:00.000Z'), null));
+test('next morning is a different slot', () => assert.equal(slot('2026-11-29T04:00:00Z')?.start, '2026-11-29T04:00:00.000Z'));
+test('year boundary uses PKT date', () => assert.equal(slot('2026-12-31T18:59:59Z')?.end,'2026-12-31T19:00:00.000Z'));
+test('invalid clock fails explicitly', () => assert.throws(() => dailyPipelineSlot(new Date(NaN)), /Invalid daily pipeline clock/));

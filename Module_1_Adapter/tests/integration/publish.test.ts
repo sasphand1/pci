@@ -6,7 +6,7 @@ import { ensureRegistrySchema } from '../../src/lib/registry-schema.js';
 import { ensureObservationsSchema } from '../../src/lib/observations-schema.js';
 import { ensurePublicationSchema } from '../../src/lib/publication-schema.js';
 import { activeRefreshCount, buildBatch, getBatch, getPublication, listPublications, publishBatch, rollbackScope } from '../../src/modules/publish/service.js';
-import { createPipelineRun, executePipeline, waitForRefreshes } from '../../src/modules/publish/pipeline.js';
+import { createDailyPipelineRun, createPipelineRun, executePipeline, waitForRefreshes } from '../../src/modules/publish/pipeline.js';
 import { getPipelineStatus } from '../../src/modules/publish/status.js';
 import { deletePerson } from '../../src/modules/bucket/service.js';
 import type { Deps } from '../../src/modules/refresh/service.js';
@@ -261,4 +261,26 @@ test('flow: an alert clears itself when that ranking publishes; unrelated alerts
   assert.equal(ok.rejected.length, 0);
   assert.equal(await n(`SELECT count(*)::int AS n FROM pipeline_alerts WHERE kind='gate_failed' AND NOT acknowledged`), 0);
   assert.equal(await n(`SELECT count(*)::int AS n FROM pipeline_alerts WHERE kind='pipeline_failed' AND NOT acknowledged`), 1);
+});
+
+
+test('daily pipeline catch-up persists one claim per PKT day across concurrent schedulers', async () => {
+  const at = new Date('2026-11-28T16:00:00Z');
+  assert.equal((await createDailyPipelineRun(new Date('2026-11-28T03:59:59Z'))).reason, 'not_due');
+  const claims = await Promise.all(Array.from({length: 6}, () => createDailyPipelineRun(at)));
+  assert.equal(claims.filter(r => r.started).length, 1);
+  assert.equal(claims.filter(r => r.reason === 'already_recorded').length, 5);
+  const id = claims.find(r => r.started)!.id;
+  await query("UPDATE pipeline_runs SET status='failed',finished_at=now() WHERE id=$1", [id]);
+  assert.equal((await createDailyPipelineRun(new Date('2026-11-28T18:59:59Z'))).reason, 'already_recorded');
+  assert.equal(await n("SELECT count(*)::int AS n FROM pipeline_runs WHERE trigger='scheduled'"), 1);
+  assert.equal((await createDailyPipelineRun(new Date('2026-11-29T04:00:00Z'))).started, true);
+});
+
+test('daily pipeline does not displace an active manual run, and can claim after it ends', async () => {
+  const at = new Date('2026-11-28T10:00:00Z');
+  const id = (await query("INSERT INTO pipeline_runs(trigger,created_at) VALUES('manual',$1) RETURNING id", [at.toISOString()])).rows[0].id;
+  assert.equal((await createDailyPipelineRun(at)).reason, 'busy');
+  await query("UPDATE pipeline_runs SET status='succeeded',finished_at=now() WHERE id=$1", [id]);
+  assert.equal((await createDailyPipelineRun(at)).started, true);
 });

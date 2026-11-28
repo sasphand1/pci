@@ -12,7 +12,7 @@ import {query} from '../../lib/db.js';
 import {logger} from '../../lib/errors.js';
 import {recoverStalledRuns} from '../refresh/service.js';
 import {runHubRetention,runRetention} from '../refresh/retention.js';
-import {startPipeline} from '../publish/pipeline.js';
+import {startDailyPipeline} from '../publish/pipeline.js';
 import {collectCreatorVideoSnapshots} from '../creator-analytics/videos.js';
 import {mirrorVideoSamples} from '../ingest/store.js';
 import {runHubCheck} from '../ingest/monitor.js';
@@ -138,11 +138,14 @@ export async function startScheduler(opts:{embedded:boolean}):Promise<SchedulerH
  tasks.push(cron.schedule('15 */6 * * *',()=>{void refreshCreatorVideoSamples();},{timezone:'Asia/Karachi'}));
  tasks.push(cron.schedule('30 4 * * *',()=>runRetention().then(r=>logger.info(r,'Observation retention done')).then(()=>runHubRetention()).then(r=>logger.info(r,'Hub retention done')).then(()=>pruneRankRuns()).catch(e=>logger.error({err:e},'observation retention failed')),{timezone:'Asia/Karachi'}));
  // PCI_ZIP_3: the daily pipeline (refresh, rank, publish) with no approval step. Set PCI_PIPELINE_DAILY=false to switch it off.
- tasks.push(cron.schedule('0 9 * * *',async()=>{
-   if(process.env.PCI_PIPELINE_DAILY==='false')return;
-   try{const r=await startPipeline('scheduled',null);logger.info(r,'Daily pipeline requested');}
+ const requestDailyPipeline=async()=>{
+   if(stopped||process.env.PCI_PIPELINE_DAILY==='false')return;
+   try{const r=await startDailyPipeline();if(r.started)logger.info(r,'Daily pipeline requested');}
    catch(err){logger.error({err},'Daily pipeline failed to start');}
- },{timezone:'Asia/Karachi'}));
+ };
+ // Recheck persisted eligibility after startup and every minute, not just at 09:00.
+ tasks.push(cron.schedule('* * * * *',()=>void requestDailyPipeline(),{timezone:'Asia/Karachi'}));
+ void requestDailyPipeline();
  tasks.push(cron.schedule('0 4 * * *',()=>cleanupRetention().catch(e=>logger.error({err:e},'retention failed')),{timezone:'Asia/Karachi'}));
  // Instagram sync is independent of YouTube's enable switch and schedule.
  tasks.push(cron.schedule('0 9,21 * * *',async()=>{
