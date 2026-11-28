@@ -22,6 +22,7 @@ export type CreatorsProps = {
   categories: { slug: string; label: string }[];
   compare: string[]; open: boolean;
   compareRows: PubCreatorRow[];
+  unavailable?: boolean;
 };
 
 const SORTS = [{ id: "rank", label: "Best ranked" }, { id: "followers", label: "Most followers" }, { id: "name", label: "Name A–Z" }];
@@ -66,6 +67,8 @@ export function CreatorsPage(props: CreatorsProps) {
   const chosen = useMemo(() => selected.map((s) => known[s]).filter(Boolean) as PubCreatorRow[], [selected, known]);
   const onToggle = (slug: string) => setSelected((cur) => toggleSlug(cur, slug));
   const grid = view === "grid";
+  const tiktok = platform === "tiktok";
+  const profileRoute = tiktok ? "/creators/tiktok/$id" : "/creators/$id";
   const kpis = [
     { label: "Creators in the index", value: totals ? String(totals.creators) : "Not available", sub: "all categories", icon: UsersRound, },
     { label: "On YouTube", value: totals ? String(totals.youtube) : "Not available", sub: "channels tracked", icon: YouTubeIcon, plain: true },
@@ -82,9 +85,9 @@ export function CreatorsPage(props: CreatorsProps) {
             <SearchBox className="mt-4" value={query} onChange={setQuery} onSubmit={() => go({ search: query.trim() })} placeholder="Search by name or handle…" label="Search creators" />
             <div className="mt-4 grid grid-cols-3 gap-3">{kpis.map((item) => <KpiTile key={item.label} item={item} />)}</div>
           </div>
-          <HeadToHeadCard subtitle="Pick two creators, then a platform for each" pool={Object.values(known).map(toEntity)} items={chosen.map(toEntity)}
+          {tiktok ? <div className="rounded-xl border border-border/70 p-4 text-xs text-muted-foreground">TikTok · Source: Scrappa. Cross-platform comparison is not available yet.</div> : <HeadToHeadCard subtitle="Pick two creators, then a platform for each" pool={Object.values(known).map(toEntity)} items={chosen.map(toEntity)}
             onPick={onToggle} onRemove={onToggle} onClear={() => setSelected([])} onCompare={() => setOpen(true)}
-            slotExtra={(e) => { const c = known[e.key]; return <OptionButtons label={`Platform for ${c.displayName}`} value={plats[c.slug] ?? firstPlatform(c)} onChange={(id) => setPlats((m) => ({ ...m, [c.slug]: id as Plat }))} options={platOptions(c)} iconOnly />; }} />
+            slotExtra={(e) => { const c = known[e.key]; return <OptionButtons label={`Platform for ${c.displayName}`} value={plats[c.slug] ?? firstPlatform(c)} onChange={(id) => setPlats((m) => ({ ...m, [c.slug]: id as Plat }))} options={platOptions(c)} iconOnly />; }} />}
         </div>
       </section>
 
@@ -99,22 +102,22 @@ export function CreatorsPage(props: CreatorsProps) {
         <ChipRow value={category} onChange={(id) => go({ category: id })} chips={[{ id: "", label: "All categories" }, ...categories.map((c) => ({ id: c.slug, label: c.label }))]} />
 
         <div className="mt-4" aria-live="polite">
-          <h2 className="text-sm font-bold text-foreground">{platform === "youtube" ? "YouTube creators" : platform === "instagram" ? "Instagram creators" : "All creators"}</h2>
+          <h2 className="text-sm font-bold text-foreground">{platform === "youtube" ? "YouTube creators" : platform === "instagram" ? "Instagram creators" : tiktok ? "TikTok creators" : "All creators"}</h2>
           <p className="text-[11px] text-muted-foreground"><span className="font-semibold text-foreground">{total}</span> {total === 1 ? "creator" : "creators"}{search ? <> matching “{search}”</> : null}, ordered by {SORTS.find((s) => s.id === sort)?.label.toLowerCase()}.</p>
 
-          {rows.length === 0 ? <div className="mt-3"><EmptyState onReset={() => { setQuery(""); router.push("/creators"); }} /></div> : grid ? (
+          {props.unavailable ? <p role="status">TikTok data temporarily unavailable.</p> : rows.length === 0 ? <div className="mt-3"><EmptyState onReset={() => { setQuery(""); router.push("/creators"); }} /></div> : grid ? (
             <ul className="mt-3 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
               {rows.map((r) => (
                 <li key={r.slug} className={cn("overflow-hidden rounded-xl border border-border/70 bg-background/50 p-2.5", selected.includes(r.slug) && "ring-2 ring-primary")}>
-                  <Link to="/creators/$id" params={{ id: r.slug }} className="relative block aspect-[3/2] overflow-hidden rounded-lg bg-muted sm:aspect-[4/3]">
+                  <Link to={profileRoute} params={{ id: r.slug }} className="relative block aspect-[3/2] overflow-hidden rounded-lg bg-muted sm:aspect-[4/3]">
                     <Pic src={r.avatarUrl} alt={r.displayName} className="h-full w-full object-cover transition duration-300 hover:scale-105" />
                     {r.rank !== null && <span className="absolute left-2 top-2 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-bold text-primary backdrop-blur">#{r.rank}</span>}
                   </Link>
                   <div className="mt-2.5">
-                    <Link to="/creators/$id" params={{ id: r.slug }} className="block truncate text-xs font-bold text-foreground hover:text-primary">{r.displayName}</Link>
+                    <Link to={profileRoute} params={{ id: r.slug }} className="block truncate text-xs font-bold text-foreground hover:text-primary">{r.displayName}</Link>
                     <p className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground"><Badges row={r} /><span className="truncate">{r.categories[0]?.label}</span></p>
                     <div className="mt-1.5"><Followers row={r} /></div>
-                    <div className="mt-2.5 grid"><CompareToggle name={r.displayName} limit={MAX_COMPARE} selected={selected.includes(r.slug)} full={full} onToggle={() => onToggle(r.slug)} /></div>
+                    <div className="mt-2.5 grid">{tiktok ? <Link to={profileRoute} params={{id:r.slug}} className="text-xs font-semibold text-primary">View profile</Link> : <CompareToggle name={r.displayName} limit={MAX_COMPARE} selected={selected.includes(r.slug)} full={full} onToggle={() => onToggle(r.slug)} />}</div>
                   </div>
                 </li>
               ))}
@@ -128,25 +131,25 @@ export function CreatorsPage(props: CreatorsProps) {
                 {rows.map((r) => (
                   <li key={r.slug} className={cn("grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 bg-background/50 px-3 py-2.5 md:grid-cols-[2.5rem_minmax(0,2.4fr)_5rem_minmax(0,1fr)_minmax(0,1fr)_6.5rem] md:gap-4 md:px-4", selected.includes(r.slug) && "bg-secondary/60")}>
                     <span className="text-center text-sm font-bold text-primary">{r.rank ?? "—"}</span>
-                    <Link to="/creators/$id" params={{ id: r.slug }} className="flex min-w-0 items-center gap-2.5">
+                    <Link to={profileRoute} params={{ id: r.slug }} className="flex min-w-0 items-center gap-2.5">
                       <span className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-muted"><Pic src={r.avatarUrl} alt={r.displayName} className="h-full w-full object-cover" /></span>
                       <span className="min-w-0"><span className="block truncate text-xs font-bold text-foreground hover:text-primary">{r.displayName}</span><span className="block truncate text-[10px] text-muted-foreground">{r.categories.map((c) => c.label).join(" · ") || "Creator"}</span></span>
                     </Link>
                     <span className="hidden md:block"><Badges row={r} /></span>
                     <span className="hidden md:block"><Followers row={r} /></span>
                     <span className="hidden md:block">{r.earningsUsd === null ? <span className="text-[11px] text-muted-foreground">Not available</span> : <><span className="text-sm font-bold text-foreground">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(r.earningsUsd)}</span><span className="block text-[10px] text-muted-foreground">modeled estimate</span></>}</span>
-                    <CompareToggle name={r.displayName} limit={MAX_COMPARE} selected={selected.includes(r.slug)} full={full} onToggle={() => onToggle(r.slug)} />
+                    {tiktok ? <Link to={profileRoute} params={{id:r.slug}} className="text-xs font-semibold text-primary">View profile</Link> : <CompareToggle name={r.displayName} limit={MAX_COMPARE} selected={selected.includes(r.slug)} full={full} onToggle={() => onToggle(r.slug)} />}
                   </li>
                 ))}
               </ul>
             </div>
           )}
           <Pagination page={Math.min(page, pages)} pages={pages} onChange={(n) => go({ page: n })} />
-          <p className="mt-5 text-[10px] leading-5 text-muted-foreground">Followers are each creator’s last recorded figures across their accounts, with the date shown. “Older” means the newest figure is more than 7 days old. Earnings are modeled estimates, not reported income. A missing figure is never shown as zero.</p>
+          <p className="mt-5 text-[10px] leading-5 text-muted-foreground">{tiktok ? "Source: Scrappa. TikTok follower rankings are independent; readings older than 15 days are unranked. Earnings and unavailable metrics are never inferred." : "Followers are each creator’s last recorded figures across their accounts, with the date shown. “Older” means the newest figure is more than 7 days old. Earnings are modeled estimates, not reported income. A missing figure is never shown as zero."}</p>
         </div>
       </section>
 
-      {open && selected.length >= 2 && <ComparePanel slugs={selected} plats={plats} onPlat={(slug, pl) => setPlats((m) => ({ ...m, [slug]: pl }))} initial={compareRows} onClose={() => setOpen(false)} />}
+      {!tiktok && open && selected.length >= 2 && <ComparePanel slugs={selected} plats={plats} onPlat={(slug, pl) => setPlats((m) => ({ ...m, [slug]: pl }))} initial={compareRows} onClose={() => setOpen(false)} />}
     </main>
   );
 }

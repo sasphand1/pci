@@ -15,3 +15,13 @@ export function rankTikTok(rows:TikTokRow[],metric:TikTokMetric):TikTokRow[]{
  let rank=0,last:number|null=null;
  return sorted.map((r,i)=>{const value=r.stale?null:r[metric];if(value===null)return {...r,rank:null};if(value!==last)rank=i+1;last=value;return {...r,rank};});
 }
+
+/** Filter and sort the published cohort before pagination; preserve global competition ranks. */
+export function selectTikTokRows(rows:TikTokRow[],options:{category?:string;categoryLabel?:string;sort?:string;search?:string;handle?:string;person?:string}):TikTokRow[]{
+ const norm=(v:string|null|undefined)=>(v??'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+ const search=options.search?.toLowerCase();
+ const filtered=rows.filter(x=>(!options.person||x.personSlug===options.person)&&(!options.handle||x.handle===options.handle)&&(!search||`${x.displayName} ${x.handle}`.toLowerCase().includes(search))&&(!options.category||[norm(options.category),norm(options.categoryLabel)].filter(Boolean).includes(norm(x.category))));
+ if(options.sort==='name')filtered.sort((a,b)=>a.displayName.localeCompare(b.displayName)||a.handle.localeCompare(b.handle));
+ else if(options.sort==='followers')filtered.sort((a,b)=>(b.followers??-1)-(a.followers??-1)||a.handle.localeCompare(b.handle));
+ return filtered;
+}

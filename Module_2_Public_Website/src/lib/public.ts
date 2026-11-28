@@ -2,14 +2,14 @@ import {adapterGet} from '@/lib/api';
 import type {PubCreatorsBucket,CreatorAudience} from '@/lib/creators-bucket';
 
 // Shapes returned by /api/v1/public. Everything the site shows comes from rankings that were published.
-export type PubAccount={platform:'youtube'|'instagram';handle:string;url:string|null};
+export type PubAccount={platform:'youtube'|'instagram'|'tiktok';handle:string;url:string|null};
 export type PubEarningsStatus='ready'|'needs_history'|'no_view_data'|'stale'|'invalid'|'no_youtube';
 export type PubPerson={slug:string;displayName:string;avatarUrl:string|null;estimatedMonthlyEarningsUsd?:number|null;earningsStatus?:PubEarningsStatus;earningsBasis?:'observed_view_gain'|'recent_uploads_floor'|null;instagramSponsorScenarioUsd?:number|null;categories:{slug:string;label:string}[];accounts:PubAccount[]};
 export type PubEntry={slot:number;rank:number;tied:boolean;value:number;counted:number;contributions:{platform:string;value:number}[];person:PubPerson};
 export type PubRanking={scope:string;kind:'wheel'|'platform'|'category';label:string;unit:string;publishedAt:string|null;stale:boolean;population:number;covered:number;entries:PubEntry[]};
 export type PubRows={platforms:PubRanking[];categories:PubRanking[]};
 export type PubCategory={slug:string;label:string;description:string|null;people:number;hasRanking:boolean};
-export type PubCreatorAccount={platform:'youtube'|'instagram';handle:string;url:string|null;followers:number|null;views:number|null;posts30d:number|null;asOf:string|null};
+export type PubCreatorAccount={platform:'youtube'|'instagram'|'tiktok';handle:string;url:string|null;followers:number|null;views:number|null;posts30d:number|null;asOf:string|null};
 export type PubCreatorRow={slug:string;displayName:string;avatarUrl:string|null;categories:{slug:string;label:string}[];rank:number|null;totalFollowers:number|null;asOf:string|null;stale:boolean;accounts:PubCreatorAccount[];earningsUsd:number|null;earningsStatus:PubEarningsStatus;earningsBasis:'observed_view_gain'|'recent_uploads_floor'|null;instagramSponsorScenarioUsd:number|null;growth?:{subscribers:Record<'24h'|'7d'|'30d',number|null>;views:Record<'24h'|'7d'|'30d',number|null>};positions?:{scope:string;label:string;unit:string;rank:number;value:number}[]};
 export type PubCreatorTotals={creators:number;youtube:number;instagram:number};
 export type PubStatus={publishedAt:string|null;stale:boolean;people:number};
