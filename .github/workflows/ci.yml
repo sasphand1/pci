@@ -46,7 +46,7 @@ jobs:
           APP_PUBLIC_URL: http://localhost:3000
           MFA_ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
           LOG_HMAC_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
-        run: node --import tsx --test --test-concurrency=1 tests/integration/bucket.test.ts tests/integration/refresh.test.ts tests/integration/publish.test.ts tests/integration/public.test.ts tests/integration/overview.test.ts tests/integration/broadcast.test.ts tests/integration/scrappa.test.ts
+        run: node --import tsx --test --test-concurrency=1 tests/integration/bucket.test.ts tests/integration/refresh.test.ts tests/integration/publish.test.ts tests/integration/public.test.ts tests/integration/overview.test.ts tests/integration/broadcast.test.ts tests/integration/scrappa.test.ts tests/integration/architecture-db.test.ts
 
   public-site:
     name: Module 2 (public website) type-check, tests, build
