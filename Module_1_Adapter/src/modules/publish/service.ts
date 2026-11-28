@@ -54,9 +54,9 @@ async function insertRun(db: Db, r: RankResult, m: { batchId: string; trigger: T
   const diagnostics = { population: r.population, covered: r.covered, unranked: r.unranked, freshnessDays: m.freshnessDays, asOf: m.now.toISOString(), gateFailures: m.failures };
   const id = (await db.query('INSERT INTO rank_runs(batch_id,scope,policy_version,input_hash,status,trigger,created_by,diagnostics) VALUES($1,$2,$3,$4,\'draft\',$5,$6,$7::jsonb) RETURNING id',
     [m.batchId, r.scope, r.policyVersion, r.inputHash, m.trigger, m.actorId, JSON.stringify(diagnostics)])).rows[0].id as string;
-  for (const e of r.entries)
-    await db.query('INSERT INTO rank_slots(run_id,slot,rank,person_id,value,breakdown) VALUES($1,$2,$3,$4,$5,$6::jsonb)',
-      [id, e.slot, e.rank, e.personId, e.value, JSON.stringify({ linked: e.linked, counted: e.counted, contributions: e.breakdown })]);
+  if(r.entries.length)await db.query(
+    'INSERT INTO rank_slots(run_id,slot,rank,person_id,value,breakdown) SELECT $1::uuid,x.slot,x.rank,x.person_id,x.value,x.breakdown FROM jsonb_to_recordset($2::jsonb) AS x(slot integer,rank integer,person_id uuid,value bigint,breakdown jsonb)',
+    [id,JSON.stringify(r.entries.map(e=>({slot:e.slot,rank:e.rank,person_id:e.personId,value:String(e.value),breakdown:{linked:e.linked,counted:e.counted,contributions:e.breakdown}})))]);
   return id;
 }
 
@@ -90,12 +90,13 @@ const knownIds = async (db: Db) => new Set<string>((await db.query('SELECT id FR
 // ---------- Rank (build drafts) ----------
 export async function buildBatch(trigger: Trigger, actorId: string | null, opts: { now?: Date; freshnessDays?: number } = {}) {
   const now = opts.now ?? new Date(), freshness = opts.freshnessDays ?? FRESHNESS_DAYS_DEFAULT;
-  const input = await loadRankInput(poolDb, now, freshness);
-  const tiktok=centralTikTokMode()!=='off'?await loadTikTokRankInput(poolDb,now):null;
-  const known = new Set([...input.people,...(tiktok?.people??[])].map(p => p.id));
   const minCoverage = minCoverageFrom();
   const batchId = randomUUID();
   return transaction(async client => {
+    await client.query('SELECT pg_advisory_xact_lock(710325)');
+    const input=await loadRankInput(client,now,freshness);
+    const tiktok=centralTikTokMode()!=='off'?await loadTikTokRankInput(client,now):null;
+    const known=new Set([...input.people,...(tiktok?.people??[])].map(p=>p.id));
     const live = await liveSlots(client);
     const drafts: { runId: string; scope: string; population: number; covered: number; gateFailures: GateFailure[] }[] = [];
     for (const scope of [...scopesFor(input),...(tiktok?TIKTOK_SCOPES:[])]) {

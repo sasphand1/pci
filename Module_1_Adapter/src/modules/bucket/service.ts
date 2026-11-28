@@ -143,6 +143,7 @@ async function clearHubRecords(client: pg.PoolClient, personId: string, has: (t:
 /** Hard delete. Registry rows go by cascade; linked legacy rows are removed in the same transaction. */
 export async function deletePerson(personId: string, actorId: string | null) {
   return transaction(async client => {
+    await client.query('SELECT pg_advisory_xact_lock(710325)'); // acquire before person locks
     const person = await client.query('SELECT id FROM people WHERE id=$1 FOR UPDATE', [personId]);
     if (!person.rowCount) throw new HttpError(404, 'NOT_FOUND', 'Person not found');
     const acc = await client.query<{ legacy_creator_id: string | null; legacy_instagram_creator_id: string | null }>('SELECT legacy_creator_id, legacy_instagram_creator_id FROM accounts WHERE person_id=$1', [personId]);
@@ -156,7 +157,6 @@ export async function deletePerson(personId: string, actorId: string | null) {
     }
     // PCI_ZIP_3: remember every live ranking that contains this person, delete, then replace those rankings
     // (same transaction) with the same ranking minus this person. Nothing public can still show them.
-    await client.query('SELECT pg_advisory_xact_lock(710325)'); // same lock as publishing: a publish and a delete never interleave
     const live = await captureLive(client);
     const hubRows = await clearHubRecords(client, personId, has);
     await client.query('DELETE FROM people WHERE id=$1', [personId]);

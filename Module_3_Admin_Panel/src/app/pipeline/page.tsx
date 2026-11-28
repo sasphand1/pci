@@ -39,12 +39,12 @@ export default function PipelinePage(){
   try{const r=await f();setOk(done(r));}catch(e){setError(errorText(e));}finally{setBusy('');status.reload();batch.reload();}
  }
  const refresh=()=>act('refresh',()=>api<{runs:StartedRun[]}>('/admin/refresh',{method:'POST',body:{},csrf}),r=>r.runs.map(x=>`${x.platform}: ${x.started?'started':x.reason==='cooldown'?'cooldown active':'already running'}`).join('; ')+'. Results appear below as accounts finish.');
- const rank=()=>act('rank',()=>api<{scopes:number;gateFailures:number}>('/admin/rank',{method:'POST',csrf}),r=>`${r.scopes} drafts built${r.gateFailures?`, ${r.gateFailures} would be blocked by a gate`:''}. Nothing is public yet. Review them, then Publish.`);
+ const rank=()=>act('rank',()=>api<{scopes:number;gateFailures:number}>('/admin/rank',{method:'POST',csrf,timeoutMs:120000}),r=>`${r.scopes} drafts built${r.gateFailures?`, ${r.gateFailures} would be blocked by a gate`:''}. Nothing is public yet. Review them, then Publish.`);
  const publish=()=>{
   const b=batch.data;if(!b)return;
   const n=b.scopes.filter(s=>s.status==='draft').length;
   if(!window.confirm(`Publish ${n} ranking${n===1?'':'s'}? Any draft that fails a safety gate is skipped and its current live ranking stays.`))return;
-  return act('publish',()=>api<PublishOutcome>(`/admin/rank/${b.batchId}/publish`,{method:'POST',csrf}),r=>`${r.published.length} published${r.rejected.length?`, ${r.rejected.length} blocked by a gate (live ranking kept, see alerts)`:''}.`);
+  return act('publish',()=>api<PublishOutcome>(`/admin/rank/${b.batchId}/publish`,{method:'POST',csrf,timeoutMs:120000}),r=>`${r.published.length} published${r.rejected.length?`, ${r.rejected.length} blocked by a gate (live ranking kept, see alerts)`:''}.`);
  };
  const runAll=()=>{
   if(!window.confirm('Run Refresh, Rank and Publish now? This uses API quota and publishes whatever passes the safety gates.'))return;

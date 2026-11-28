@@ -113,6 +113,35 @@ test('approved TikTok identity ranks through Hub projection, central gates and p
  }
 });
 
+test('guided repair keeps the original account UUID and observations, invalidates old drafts and uses the canonical person',async()=>{
+ const {transaction}=await import('../../src/lib/db.js');
+ const {registerCentralTikTokIdentity,previewTikTokIdentity,approveAutomaticTikTokIdentity}=await import('../../src/modules/creators-bucket/tiktok-identity.js');
+ const {buildBatch}=await import('../../src/modules/publish/service.js');
+ const old=process.env.PCI_TIKTOK_CENTRAL;process.env.PCI_TIKTOK_CENTRAL='prepare';
+ let batchId:string|undefined;
+ try{
+  await collectCandidate(id,'manual',null,fixture());
+  const registered=await transaction(c=>registerCentralTikTokIdentity(c,id,{mode:'new',name:'Unique Scrappa Repair Fixture',confirm:true},null));
+  const target=(await query("INSERT INTO people(slug,display_name) VALUES('pci-scrappa-fixture','Existing Instagram Fixture') RETURNING id")).rows[0].id;
+  await query("INSERT INTO accounts(person_id,platform,external_id,handle) VALUES($1,'instagram','pci-repair-ig','pci_fixture_')",[target]);
+  const plan=await previewTikTokIdentity({query},id);
+  assert.equal(plan.personSlug,'pci-scrappa-fixture');assert.equal(plan.repair,true);
+  await assert.rejects(transaction(c=>approveAutomaticTikTokIdentity(c,id,'invalid-token',null)),/proposal changed/);
+  batchId=(await buildBatch('manual',null)).batchId;
+  const before=(await query("SELECT count(*)::int n FROM ingest_observations WHERE source_id='scrappa.api'")).rows[0].n;
+  const repaired=await transaction(c=>approveAutomaticTikTokIdentity(c,id,plan.token,null));
+  assert.equal(repaired.accountId,registered.accountId);assert.equal(repaired.personId,target);
+  assert.equal((await query('SELECT count(*)::int n FROM people WHERE id=$1',[registered.personId])).rows[0].n,0);
+  assert.equal((await query("SELECT count(*)::int n FROM ingest_observations WHERE source_id='scrappa.api'")).rows[0].n,before);
+  assert.equal((await query("SELECT count(*)::int n FROM rank_runs WHERE batch_id=$1 AND status='draft'",[batchId])).rows[0].n,0);
+  assert.equal((await query('SELECT person_id FROM hub_tiktok_registered WHERE external_id=$1',[id])).rows[0].person_id,target);
+ }finally{
+  if(old===undefined)delete process.env.PCI_TIKTOK_CENTRAL;else process.env.PCI_TIKTOK_CENTRAL=old;
+  if(batchId)await query('DELETE FROM rank_runs WHERE batch_id=$1',[batchId]);
+  await query('DELETE FROM people WHERE slug=$1',['tiktok-'+id]);
+ }
+});
+
 test('Check then Stage uses exactly one credit; repeated check uses cached data',async()=>{
  let calls=0;const fetcher:typeof fetch=async u=>{calls++;return fixture()(u);};
  await assert.rejects(stageVerifiedCandidate('pci_fixture'),/Check this creator successfully/);

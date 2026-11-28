@@ -7,7 +7,7 @@ import { roles, type AdminIdentity } from '../auth/auth.js';
 import type { Router } from 'express';
 import { ensureTikTokSource, storeTikTokCandidate } from '../creators-bucket/tiktok-staging.js';
 import {centralTikTokMode} from '../creators-bucket/tiktok-central.js';
-import {registerCentralTikTokIdentity} from '../creators-bucket/tiktok-identity.js';
+import {registerCentralTikTokIdentity,previewTikTokIdentity,previewPublishedTikTokIdentities,approveAutomaticTikTokIdentity} from '../creators-bucket/tiktok-identity.js';
 import { collect, collectProfile, summarize, MAX_COLLECTION_CREDITS } from './collector.js';
 import {monthlyCap} from './credit-policy.js';
 import {activeKey,keyUsage,remainingCredits,reserveFor,creditMonitor} from './credits.js';
@@ -125,6 +125,42 @@ export function mountScrappaAdmin(router:Router){
   const {profileOnly,confirm}=z.object({profileOnly:z.boolean().optional(),confirm:z.boolean().optional()}).strict().parse(req.body??{});
   if(profileOnly&&confirm!==true)throw new HttpError(400,'SCRAPPA_CONFIRM','Confirm the one-credit profile refresh');
   res.json({data:await collectCandidate(id,'manual',(res.locals.admin as AdminIdentity).id,fetch,profileOnly===true)});
+ }));
+ router.get('/bucket/scrappa/registry-plan',roles('owner'),handler(async(_req,res)=>{
+  await ensure();
+  if(centralTikTokMode()==='off')throw new HttpError(409,'PCI_TIKTOK_002','Enable central TikTok preparation first.');
+  res.json({data:await previewPublishedTikTokIdentities({query})});
+ }));
+ router.post('/bucket/scrappa/registry-apply',roles('owner'),handler(async(req,res)=>{
+  await ensure();
+  if(centralTikTokMode()==='off')throw new HttpError(409,'PCI_TIKTOK_002','Enable central TikTok preparation first.');
+  const {items}=z.object({items:z.array(z.object({id:z.string().regex(/^\d{1,30}$/),token:z.string().regex(/^[a-f0-9]{64}$/)}).strict()).min(1).max(200),confirm:z.literal(true)}).strict().parse(req.body);
+  if(new Set(items.map(i=>i.id)).size!==items.length)throw new HttpError(400,'PCI_TIKTOK_REVIEW_CHANGED','Duplicate review entries.');
+  const result=await transaction(async c=>{
+   await c.query('SELECT pg_advisory_xact_lock(710324)');
+   await c.query('SELECT pg_advisory_xact_lock(710325)');
+   const plan=await previewPublishedTikTokIdentities(c);
+   const pending=plan.filter(p=>!p.registered||p.repair);
+   if(!plan.length||plan.some(p=>!p.ready||p.kind==='ambiguous')||pending.length!==items.length||items.some(i=>!pending.some(p=>p.id===i.id&&p.token===i.token)))throw new HttpError(409,'PCI_TIKTOK_REVIEW_CHANGED','The review has changed or contains unresolved identities. Reload the review.');
+   for(const i of items)await approveAutomaticTikTokIdentity(c,i.id,i.token,(res.locals.admin as AdminIdentity).id);
+   const after=await previewPublishedTikTokIdentities(c);
+   if(after.some(p=>!p.hubReady||p.repair||p.kind==='ambiguous'))throw new HttpError(409,'PCI_TIKTOK_REVIEW_CHANGED','Some identities are not ready for central publication. No assignments saved.');
+   return {assigned:items.length,plan:after};
+  });
+  res.json({data:result});
+ }));
+ router.get('/bucket/scrappa/candidates/:id/registry-plan',roles('owner'),handler(async(req,res)=>{
+  await ensure();
+  if(centralTikTokMode()==='off')throw new HttpError(409,'PCI_TIKTOK_002','Enable central TikTok preparation first.');
+  const id=z.string().regex(/^\d{1,30}$/).parse(req.params.id);
+  res.json({data:await previewTikTokIdentity({query},id)});
+ }));
+ router.post('/bucket/scrappa/candidates/:id/registry-auto',roles('owner'),handler(async(req,res)=>{
+  await ensure();
+  if(centralTikTokMode()==='off')throw new HttpError(409,'PCI_TIKTOK_002','Enable central TikTok preparation first.');
+  const id=z.string().regex(/^\d{1,30}$/).parse(req.params.id);
+  const {token}=z.object({token:z.string().regex(/^[a-f0-9]{64}$/),confirm:z.literal(true)}).strict().parse(req.body);
+  res.json({data:await transaction(c=>approveAutomaticTikTokIdentity(c,id,token,(res.locals.admin as AdminIdentity).id,false))});
  }));
  router.post('/bucket/scrappa/candidates/:id/registry',roles('owner'),handler(async(req,res)=>{
   await ensure();
