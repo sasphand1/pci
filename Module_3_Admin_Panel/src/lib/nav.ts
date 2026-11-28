@@ -23,6 +23,7 @@ export const NAV_GROUPS:NavGroup[]=[
   {title:'Satify sources',href:'/satellite',icon:'settings',roles:['owner']}]},
  {label:'Administration',items:[
   {title:'Data Hub',href:'/hub',icon:'pulse',roles:['owner','editor']},
+  {title:'Architecture',href:'/hub/architecture',icon:'shield',roles:['owner']},
   {title:'System health',href:'/system',icon:'pulse',roles:['owner']},
   {title:'Audit log',href:'/audit',icon:'clock',roles:['owner']},
   {title:'Team',href:'/admins',icon:'team',roles:['owner']},

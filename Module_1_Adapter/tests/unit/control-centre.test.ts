@@ -1,0 +1,32 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readArchitectureReport} from '../../src/architecture/control-centre.js';
+test('audit flags unreconciled migration, TikTok bypass, absent triggers and missed schedule; fixed read-only queries',async()=>{
+ const queries:string[]=[];
+ const db={async query(sql:string){queries.push(sql);let rows:any[]=[];
+ if(sql.includes('current_user AS username'))rows=[{username:'owner',session_role:'owner',database_owner:true}];
+ else if(sql.includes('to_regclass'))rows=[{present:true}];
+ else if(sql.includes(' AS name'))rows=[{name:'public.accounts'}];
+ else if(sql.includes('AS staged_public'))rows=[{candidates:5,staged_public:5,public_without_registry:5}];
+ else if(sql.includes('AS unmatched'))rows=[{unmatched:0}];
+ else if(sql.includes('generate_series'))rows=[{day:'2026-11-28',runs:0}];
+ return {rows};}};
+ const report=await readArchitectureReport(db,['001_init.sql']);
+ for(const code of ['PCI_ARCH_ROLE_001','PCI_ARCH_MIG_003','PCI_ARCH_004','PCI_ARCH_005','PCI_ARCH_DB_010','PCI_ARCH_SCHEDULE_001'])assert.ok(report.findings.some(f=>f.startsWith(code)),code);
+ assert.equal(report.missingTriggers.length,6);assert.equal(report.status,'attention_required');assert.ok(queries.every(q=>/^SELECT\b/.test(q.trim())));
+});
+test('valid evidence does not claim certification and disabled triggers fail',async()=>{
+ const enabled=[['ingest_observations','pci_arch_observation_guard'],['ingest_latest','pci_arch_latest_guard'],['published_pointers','pci_arch_pointer_guard'],['rank_runs','pci_arch_run_guard'],['ingest_observations','pci_arch_z_hub_route_guard'],['ingest_latest','pci_arch_z_hub_route_guard']];
+ let disable=false;
+ const db={async query(sql:string){let rows:any[]=[];
+ if(sql.includes('current_user AS username'))rows=[{username:'pci_runtime',session_role:'pci_runtime'}];
+ else if(sql.includes('to_regclass'))rows=[{present:true}];
+ else if(sql.includes('SELECT version FROM'))rows=[{version:'001_init.sql'}];
+ else if(sql.includes('AS staged_public'))rows=[{candidates:0,staged_public:0,public_without_registry:0}];
+ else if(sql.includes('AS unmatched'))rows=[{unmatched:0}];
+ else if(sql.includes('generate_series'))rows=[{day:'2026-11-28',runs:1}];
+ else if(sql.includes('pg_catalog.pg_trigger'))rows=enabled.map(([table_name,tgname],i)=>({table_name,tgname,tgenabled:disable&&i===0?'D':'O'}));
+ return {rows};}};
+ assert.equal((await readArchitectureReport(db,['001_init.sql'])).status,'checks_passed_not_certified');
+ disable=true; const result=await readArchitectureReport(db,['001_init.sql']);assert.equal(result.status,'attention_required');assert.equal(result.missingTriggers.length,1);
+});

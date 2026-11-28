@@ -1,7 +1,8 @@
 import type {Router} from 'express';
 import {z} from 'zod';
 import {handler,HttpError} from '../../lib/errors.js';
-import {query} from '../../lib/db.js';
+import {query,pool} from '../../lib/db.js';
+import {architectureMigrationFiles,readArchitectureReport} from '../../architecture/control-centre.js';
 import {POLICY,isStale} from './policy.js';
 import {runHubCheck} from './monitor.js';
 import {creatorsBucketStatus} from '../creators-bucket/data.js';
@@ -12,6 +13,17 @@ export const TIERS=[{key:'1m_plus',min:1_000_000},{key:'500k_1m',min:500_000},{k
 
 /** Hub Read API: admin-only. Control-panel pages and consumers read hub data through these routes. */
 export function registerHubReadRoutes(r:Router):void {
+  r.get('/ingest/architecture',roles('owner'),handler(async(_req,res)=>{
+    res.setHeader('Cache-Control','no-store');
+    const files=await architectureMigrationFiles();
+    const c=await pool.connect();
+    try{
+      await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      await c.query("SET LOCAL statement_timeout='8s'");
+      const report=await readArchitectureReport(c,files);
+      res.json({data:report});
+    }finally{try{await c.query('ROLLBACK');}finally{c.release();}}
+  }));
   r.get('/ingest/creators-bucket',handler(async(_req,res)=>res.json({data:await creatorsBucketStatus()})));
   r.get('/ingest/health',handler(async(_req,res)=>{
     const [sources,alerts,jobs,disc,stored]=await Promise.all([
