@@ -43,6 +43,11 @@ function Followers({ row }: { row: PubCreatorRow }) {
   );
 }
 
+function TikTokMetrics({row}:{row:PubCreatorRow}) {
+  const m=row.tiktokMetrics;
+  return <div className="text-[11px] text-muted-foreground"><p><strong className="text-foreground">{count(m?.likes??null)}</strong> likes</p><p><strong className="text-foreground">{count(m?.posts??null)}</strong> videos</p><p><strong className="text-foreground">{count(m?.following??null)}</strong> following</p></div>;
+}
+
 export function CreatorsPage(props: CreatorsProps) {
   const { rows, total, pages, page, totals, search, category, platform, sort, view, categories, compareRows } = props;
   const router = useRouter();
@@ -116,7 +121,7 @@ export function CreatorsPage(props: CreatorsProps) {
                   <div className="mt-2.5">
                     <Link to={profileRoute} params={{ id: r.slug }} className="block truncate text-xs font-bold text-foreground hover:text-primary">{r.displayName}</Link>
                     <p className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground"><Badges row={r} /><span className="truncate">{r.categories[0]?.label}</span></p>
-                    <div className="mt-1.5"><Followers row={r} /></div>
+                    <div className="mt-1.5"><Followers row={r} />{tiktok&&<TikTokMetrics row={r}/>}</div>
                     <div className="mt-2.5 grid">{tiktok ? <Link to={profileRoute} params={{id:r.slug}} className="text-xs font-semibold text-primary">View profile</Link> : <CompareToggle name={r.displayName} limit={MAX_COMPARE} selected={selected.includes(r.slug)} full={full} onToggle={() => onToggle(r.slug)} />}</div>
                   </div>
                 </li>
@@ -125,7 +130,7 @@ export function CreatorsPage(props: CreatorsProps) {
           ) : (
             <div className="mt-3 overflow-hidden rounded-xl border border-border/70">
               <div className="hidden grid-cols-[2.5rem_minmax(0,2.4fr)_5rem_minmax(0,1fr)_minmax(0,1fr)_6.5rem] items-center gap-4 border-b border-border/70 bg-secondary/40 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground md:grid">
-                <span>Rank</span><span>Creator</span><span>Platforms</span><span>Followers</span><span>Est. monthly earnings</span><span className="sr-only">Compare</span>
+                <span>Rank</span><span>Creator</span><span>Platforms</span><span>Followers</span><span>{tiktok?"Profile metrics":"Est. monthly earnings"}</span><span className="sr-only">Compare</span>
               </div>
               <ul className="divide-y divide-border/70">
                 {rows.map((r) => (
@@ -133,11 +138,11 @@ export function CreatorsPage(props: CreatorsProps) {
                     <span className="text-center text-sm font-bold text-primary">{r.rank ?? "—"}</span>
                     <Link to={profileRoute} params={{ id: r.slug }} className="flex min-w-0 items-center gap-2.5">
                       <span className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-muted"><Pic src={r.avatarUrl} alt={r.displayName} className="h-full w-full object-cover" /></span>
-                      <span className="min-w-0"><span className="block truncate text-xs font-bold text-foreground hover:text-primary">{r.displayName}</span><span className="block truncate text-[10px] text-muted-foreground">{r.categories.map((c) => c.label).join(" · ") || "Creator"}</span></span>
+                      <span className="min-w-0"><span className="block truncate text-xs font-bold text-foreground hover:text-primary">{r.displayName}</span><span className="block truncate text-[10px] text-muted-foreground">{r.categories.map((c) => c.label).join(" · ") || "Creator"}</span>{tiktok&&<span className="block md:hidden"><Followers row={r}/><TikTokMetrics row={r}/></span>}</span>
                     </Link>
                     <span className="hidden md:block"><Badges row={r} /></span>
                     <span className="hidden md:block"><Followers row={r} /></span>
-                    <span className="hidden md:block">{r.earningsUsd === null ? <span className="text-[11px] text-muted-foreground">Not available</span> : <><span className="text-sm font-bold text-foreground">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(r.earningsUsd)}</span><span className="block text-[10px] text-muted-foreground">modeled estimate</span></>}</span>
+                    <span className="hidden md:block">{tiktok?<TikTokMetrics row={r}/>:r.earningsUsd === null ? <span className="text-[11px] text-muted-foreground">Not available</span> : <><span className="text-sm font-bold text-foreground">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(r.earningsUsd)}</span><span className="block text-[10px] text-muted-foreground">modeled estimate</span></>}</span>
                     {tiktok ? <Link to={profileRoute} params={{id:r.slug}} className="text-xs font-semibold text-primary">View profile</Link> : <CompareToggle name={r.displayName} limit={MAX_COMPARE} selected={selected.includes(r.slug)} full={full} onToggle={() => onToggle(r.slug)} />}
                   </li>
                 ))}
@@ -145,7 +150,7 @@ export function CreatorsPage(props: CreatorsProps) {
             </div>
           )}
           <Pagination page={Math.min(page, pages)} pages={pages} onChange={(n) => go({ page: n })} />
-          <p className="mt-5 text-[10px] leading-5 text-muted-foreground">{tiktok ? "Source: Scrappa. TikTok follower rankings are independent; readings older than 15 days are unranked. Earnings and unavailable metrics are never inferred." : "Followers are each creator’s last recorded figures across their accounts, with the date shown. “Older” means the newest figure is more than 7 days old. Earnings are modeled estimates, not reported income. A missing figure is never shown as zero."}</p>
+          <p className="mt-5 text-[10px] leading-5 text-muted-foreground">{tiktok ? "Source: Scrappa. TikTok follower rankings are independent; readings older than 15 days are unranked. Profile likes, videos and following are reported counts. Missing figures are never inferred." : "Followers are each creator’s last recorded figures across their accounts, with the date shown. “Older” means the newest figure is more than 7 days old. Earnings are modeled estimates, not reported income. A missing figure is never shown as zero."}</p>
         </div>
       </section>
 

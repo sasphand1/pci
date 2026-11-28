@@ -23,8 +23,9 @@ export function safeCreatorImage(url){
     const u=new URL(url);
     const host=u.hostname.toLowerCase();
     const meta=host.endsWith('.cdninstagram.com')||host.endsWith('.fbcdn.net');
+    const tiktok=['.tiktokcdn.com','.tiktokcdn-us.com','.tiktokcdn-eu.com'].some(suffix=>host.endsWith(suffix));
     const cached=/^\/api\/v1\/public\/avatars\/[0-9a-fA-F-]{36}$/.test(u.pathname);
-    return u.protocol==='https:'&&!u.username&&!u.password&&(meta||cached||safeYoutubeImage(url)!==null)?u.toString():null;
+    return u.protocol==='https:'&&!u.username&&!u.password&&(meta||cached||(tiktok&&!u.port)||safeYoutubeImage(url)!==null)?u.toString():null;
   }catch{return null;}
 }
 export function safeVideoId(s){return typeof s==='string'&&/^[A-Za-z0-9_-]{11}$/.test(s)?s:null;}

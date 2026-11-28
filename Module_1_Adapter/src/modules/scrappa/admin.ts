@@ -119,7 +119,9 @@ export function mountScrappaAdmin(router:Router){
  }));
  router.post('/bucket/scrappa/candidates/:id/collect',roles('owner'),handler(async(req,res)=>{
   const id=z.string().regex(/^\d{1,30}$/).parse(req.params.id);
-  res.json({data:await collectCandidate(id,'manual',(res.locals.admin as AdminIdentity).id)});
+  const {profileOnly,confirm}=z.object({profileOnly:z.boolean().optional(),confirm:z.boolean().optional()}).strict().parse(req.body??{});
+  if(profileOnly&&confirm!==true)throw new HttpError(400,'SCRAPPA_CONFIRM','Confirm the one-credit profile refresh');
+  res.json({data:await collectCandidate(id,'manual',(res.locals.admin as AdminIdentity).id,fetch,profileOnly===true)});
  }));
  router.post('/bucket/scrappa/candidates/:id/link',roles('owner'),handler(async(req,res)=>{
   await ensure();
@@ -248,7 +250,7 @@ export async function collectPending(handle:string,trigger:'manual'|'scheduled',
 }
 
 /** Shared manual/scheduled collector. The database lease serializes all workers. */
-export async function collectCandidate(id:string,trigger:'manual'|'scheduled',actorId:string|null,fetcher:typeof fetch=fetch){
+export async function collectCandidate(id:string,trigger:'manual'|'scheduled',actorId:string|null,fetcher:typeof fetch=fetch,profileOnly=false){
  await ensure();
  const key=await activeKey();
  const run=await transaction(async c=>{
@@ -257,19 +259,24 @@ export async function collectCandidate(id:string,trigger:'manual'|'scheduled',ac
   if((await c.query(`SELECT 1 FROM ingest_jobs WHERE source_id='scrappa.api' AND status='running'`)).rowCount)throw new HttpError(409,'SCRAPPA_BUSY','Another collection is running');
   const candidate=(await c.query<{handle:string}>('SELECT handle FROM scrappa_candidates WHERE external_id=$1 FOR UPDATE',[id])).rows[0];
   if(!candidate)throw new HttpError(404,'NOT_FOUND','Stage a verified creator first');
+  if(profileOnly){
+   const latest=(await c.query<{sampled:boolean}>("SELECT jsonb_array_length(posts)>0 AS sampled FROM scrappa_snapshots WHERE external_id=$1 ORDER BY observed_at DESC,run_id DESC LIMIT 1",[id])).rows[0];
+   if(!latest||latest.sampled)throw new HttpError(409,'SCRAPPA_PROFILE_ONLY_UNAVAILABLE','Use full collection to preserve the sampled video snapshot');
+  }
   if(trigger==='scheduled'){
    const eligible=await c.query(`SELECT 1 FROM scrappa_candidates WHERE external_id=$1 AND (last_success_at IS NULL OR last_success_at<now()-interval '15 days') AND (last_attempt_at IS NULL OR last_attempt_at<now()-interval '24 hours')`,[id]);
    if(!eligible.rowCount)throw new HttpError(409,'SCRAPPA_NOT_DUE','Candidate is not due');
    if(!(await c.query("SELECT 1 FROM ingest_sources WHERE id='scrappa.api' AND enabled=true")).rowCount)throw new HttpError(409,'SCRAPPA_DISABLED','Source is disabled');
   }
-  if(await remainingCredits(key.id,trigger==='scheduled',c)<MAX_COLLECTION_CREDITS)throw new HttpError(429,'SCRAPPA_QUOTA','Insufficient credit budget for a bounded collection');
+  if(await remainingCredits(key.id,trigger==='scheduled',c)<(profileOnly?1:MAX_COLLECTION_CREDITS))throw new HttpError(429,'SCRAPPA_QUOTA','Insufficient credit budget for a bounded collection');
   const runId=(await c.query<{id:string}>(`INSERT INTO ingest_jobs(source_id,trigger,status,requested_by,started_at) VALUES('scrappa.api',$1,'running',$2,now()) RETURNING id`,[trigger,actorId])).rows[0].id;
   await c.query('UPDATE scrappa_candidates SET last_attempt_at=now() WHERE external_id=$1',[id]);
   await c.query("UPDATE ingest_sources SET last_attempt_at=now() WHERE id='scrappa.api'");
   return {runId,handle:candidate.handle};
  });
  try{
-  const result=await collect(run.handle,decryptSecret(key.ciphertext),reserveFor(key.id,trigger==='scheduled',run.runId),fetcher,id);
+  const secret=decryptSecret(key.ciphertext),reserve=reserveFor(key.id,trigger==='scheduled',run.runId);
+  const result=profileOnly?await (async()=>{const profile=await collectProfile(run.handle,secret,reserve,fetcher);return {source:'scrappa.api',observedAt:new Date().toISOString(),profile,posts:[],analytics:summarize([])};})():await collect(run.handle,secret,reserve,fetcher,id);
   if(result.profile.accountId!==id)throw Error('candidate_identity_changed');
   const stored=await storeTikTokCandidate(run.runId,result);
   return {runId:run.runId,stored,profile:result.profile,analytics:result.analytics};

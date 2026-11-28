@@ -11,3 +11,5 @@ test('TikTok listing reuses the shared list/grid template, not the separate card
  const route=read('src/app/creators/page.tsx');assert.match(route,/<CreatorsPage key="tiktok"/);assert.doesNotMatch(route,/<TikTokDirectory/);assert.match(route,/categoryLabel:/);assert.match(route,/views:null,posts30d:null/);
  const shared=read('src/fifi/pages/creators.tsx');assert.match(shared,/platform === "tiktok"/);assert.match(shared,/\/creators\/tiktok\/\$id/);assert.match(shared,/ViewToggle/);assert.match(shared,/ChipRow/);assert.match(shared,/!tiktok && open/);
 });
+
+test('TikTok listing maps safe avatars and profile totals into the shared layout',()=>{const route=read('src/app/creators/page.tsx');assert.match(route,/avatarUrl:safeCreatorImage\(x.avatarUrl\)/);assert.match(route,/tiktokMetrics:\{likes:x.likes/);const shared=read('src/fifi/pages/creators.tsx');assert.match(shared,/TikTokMetrics row=\{r\}/);assert.match(shared,/tiktok\?"Profile metrics":"Est. monthly earnings"/);});

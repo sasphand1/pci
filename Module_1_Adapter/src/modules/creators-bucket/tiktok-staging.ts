@@ -1,3 +1,4 @@
+import { inspectProfileAvatar } from '../../providers/avatar.js';
 import { query, transaction } from '../../lib/db.js';
 import { recordObservation } from '../ingest/store.js';
 import type { collect } from '../scrappa/collector.js';
@@ -39,8 +40,9 @@ export async function storeTikTokCandidate(runId:string, result:Awaited<ReturnTy
    for(const [metric,value] of Object.entries({views:post.views,likes:post.likes,comments:post.comments,shares:post.shares,favorites:post.favorites,downloads:post.downloads}))await put('content',key+':'+post.postId,metric,value);
   }
   // Store the coherent sampled cohort (including nulls and publication timestamps).
-  const {avatar: _avatar,bio: _bio,...safeProfile}=profile;
-  await c.query('INSERT INTO scrappa_snapshots(run_id,external_id,observed_at,profile,posts,analytics) VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb)',[runId,profile.accountId,observedAt,JSON.stringify(safeProfile),JSON.stringify(posts),JSON.stringify(analytics)]);
+  const {avatar: rawAvatar,bio: _bio,...safeProfile}=profile;
+  const avatar=inspectProfileAvatar(rawAvatar).avatarUrl??null;
+  await c.query('INSERT INTO scrappa_snapshots(run_id,external_id,observed_at,profile,posts,analytics) VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb)',[runId,profile.accountId,observedAt,JSON.stringify({...safeProfile,avatar}),JSON.stringify(posts),JSON.stringify(analytics)]);
   await c.query('UPDATE scrappa_candidates SET last_success_at=$2,last_error=NULL WHERE external_id=$1',[profile.accountId,observedAt]);
   const complete=profile.followers!==null&&analytics.sampleSize===10&&analytics.averageViews!==null&&analytics.averageLikes!==null&&analytics.averageComments!==null&&analytics.averageShares!==null;
   await c.query(`UPDATE ingest_jobs SET status=$3,finished_at=now(),observations=$2 WHERE id=$1`,[runId,stored,complete?'succeeded':'partial']);

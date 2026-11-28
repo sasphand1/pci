@@ -30,3 +30,5 @@ test('safeCreatorImage accepts the own-copy picture path and nothing else on unk
   assert.equal(safeCreatorImage('https://api.example.com/other/123e4567-e89b-12d3-a456-426614174000'),null);
   assert.equal(safeCreatorImage('https://evil.example.com/a.jpg'),null);
 });
+
+test('TikTok avatar intake shares the established HTTPS image policy',async()=>{const {safeCreatorImage}=await import('../src/lib/format.mjs');assert.ok(safeCreatorImage('https://p16-sign-va.tiktokcdn.com/pic.jpg'));for(const url of ['https://p16.tiktokcdn.com.evil.example/pic','http://p16.tiktokcdn.com/pic','https://u:p@p16.tiktokcdn.com/pic','https://p16.tiktokcdn.com:8080/pic'])assert.equal(safeCreatorImage(url),null);});
