@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {pool,query} from '../../src/lib/db.js';
 import {encryptSecret} from '../../src/lib/security.js';
-import {collectCandidate,ensureScrappaSchema,refreshScrappaCandidates} from '../../src/modules/scrappa/admin.js';
+import {collectCandidate,collectPending,registerPending,ensureScrappaSchema,refreshScrappaCandidates} from '../../src/modules/scrappa/admin.js';
 import {storeTikTokCandidate} from '../../src/modules/creators-bucket/tiktok-staging.js';
 import {collect} from '../../src/modules/scrappa/collector.js';
 import {checkProfile,stageVerifiedCandidate} from '../../src/modules/scrappa/checks.js';
@@ -21,7 +21,7 @@ async function clean(){
  await query("DELETE FROM ingest_observations WHERE source_id='scrappa.api'");
  await query('DELETE FROM scrappa_credit_ledger');await query('DELETE FROM scrappa_key_credit_month');await query('DELETE FROM scrappa_profile_checks');
  await query("DELETE FROM ingest_jobs WHERE source_id='scrappa.api'");
- await query('DELETE FROM scrappa_candidates');await query('DELETE FROM scrappa_admin_keys');await query('DELETE FROM scrappa_credit_month');
+ await query('DELETE FROM scrappa_pending_accounts');await query('DELETE FROM scrappa_candidates');await query('DELETE FROM scrappa_admin_keys');await query('DELETE FROM scrappa_credit_month');
  await query("DELETE FROM people WHERE slug='pci-scrappa-fixture'");
  await query("DELETE FROM hub_source_health WHERE source_id='scrappa.api'");
  await query("UPDATE ingest_sources SET enabled=false,last_error=NULL,last_success_at=NULL,last_attempt_at=NULL WHERE id='scrappa.api'");
@@ -131,4 +131,17 @@ test('migration 132 preserves unallocated legacy usage and is idempotent',async(
   const rows=(await client.query('SELECT used,legacy_used FROM scrappa_key_credit_month ORDER BY key_id')).rows;assert.deepEqual(rows,[{used:42,legacy_used:42},{used:42,legacy_used:42}]);
   await client.query("UPDATE scrappa_credit_month SET used=1000 WHERE month='2026-01-01'");
  }finally{await client.query('ROLLBACK');client.release();}
+});
+
+test('pending registration costs zero, first profile collection verifies and stores metrics once',async()=>{
+ await query('DELETE FROM scrappa_candidates');
+ const result=await registerPending([{account:'@PCI_FIXTURE',person:'Fixture',niche:'tech'},{account:'pci_fixture'},{account:'bad handle'}],null);
+ assert.deepEqual(result.map(x=>x.status),['added','duplicate','invalid']);assert.equal((await keyUsage())[0].used,0);
+ let calls=0;const fetcher:typeof fetch=async u=>{calls++;assert.match(String(u),/profile/);return fixture()(u);};
+ await collectPending('pci_fixture','manual',null,fetcher);assert.equal(calls,1);assert.equal((await keyUsage())[0].used,1);
+ assert.equal((await query('SELECT count(*)::int n FROM scrappa_pending_accounts')).rows[0].n,0);
+ assert.equal((await query('SELECT person_name FROM scrappa_candidates WHERE external_id=$1',[id])).rows[0].person_name,'Fixture');
+ assert.equal(Number((await query("SELECT value_numeric FROM ingest_latest WHERE entity_id=$1 AND metric='followers'",[prefix])).rows[0].value_numeric),123);
+ assert.equal((await query('SELECT published_at FROM scrappa_candidates WHERE external_id=$1',[id])).rows[0].published_at,null);
+ await assert.rejects(collectPending('pci_fixture','manual',null,fetcher),/Pending creator not found/);assert.equal(calls,1);
 });

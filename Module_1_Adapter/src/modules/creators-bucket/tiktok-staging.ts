@@ -9,11 +9,18 @@ export async function ensureTikTokSource(){
  await query(`INSERT INTO ingest_sources(id,platform,method,enabled,category,expected_hours,label)
  VALUES('scrappa.api','tiktok','api',false,'creators',360,'Scrappa public TikTok API') ON CONFLICT(id) DO NOTHING`);
 }
-export async function storeTikTokCandidate(runId:string, result:Awaited<ReturnType<typeof collect>>){
+export async function storeTikTokCandidate(runId:string, result:Awaited<ReturnType<typeof collect>>,promotePending=false){
  return transaction(async c=>{
   const {profile,posts,analytics,observedAt}=result;
   const lease=await c.query("SELECT 1 FROM ingest_jobs WHERE id=$1 AND source_id='scrappa.api' AND status='running' AND started_at>now()-interval '5 minutes' FOR UPDATE",[runId]);
   if(!lease.rowCount)throw Error('collection_lease_expired');
+  if(promotePending){
+   const pending=(await c.query<{person_name:string|null;niche:string|null}>('SELECT person_name,niche FROM scrappa_pending_accounts WHERE handle=$1 FOR UPDATE',[profile.handle])).rows[0];
+   if(!pending)throw Error('pending_changed');
+   if((await c.query('SELECT 1 FROM scrappa_candidates WHERE external_id=$1 OR handle=$2',[profile.accountId,profile.handle])).rowCount)throw Error('candidate_identity_conflict');
+   await c.query('INSERT INTO scrappa_candidates(external_id,handle,display_name,person_name,niche,checked_at,last_attempt_at) VALUES($1,$2,$3,$4,$5,$6,$6)',[profile.accountId,profile.handle,profile.name,pending.person_name,pending.niche,observedAt]);
+   await c.query('DELETE FROM scrappa_pending_accounts WHERE handle=$1',[profile.handle]);
+  }
   const candidate=await c.query('SELECT 1 FROM scrappa_candidates WHERE external_id=$1 AND handle=$2 FOR UPDATE',[profile.accountId,profile.handle]);
   if(!candidate.rowCount)throw Error('candidate_changed');
   const key='tiktok_candidate:'+profile.accountId;

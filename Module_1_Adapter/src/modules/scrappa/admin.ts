@@ -5,10 +5,10 @@ import { handler, HttpError } from '../../lib/errors.js';
 import { roles, type AdminIdentity } from '../auth/auth.js';
 import type { Router } from 'express';
 import { ensureTikTokSource, storeTikTokCandidate } from '../creators-bucket/tiktok-staging.js';
-import { collect, MAX_COLLECTION_CREDITS } from './collector.js';
+import { collect, collectProfile, summarize, MAX_COLLECTION_CREDITS } from './collector.js';
 import {monthlyCap} from './credit-policy.js';
 import {activeKey,keyUsage,remainingCredits,reserveFor,creditMonitor} from './credits.js';
-import {checkProfile,stageVerifiedCandidate,collectionError} from './checks.js';
+import {checkProfile,stageVerifiedCandidate,collectionError,normalizeHandle} from './checks.js';
 const SQL = `CREATE TABLE IF NOT EXISTS scrappa_admin_keys (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), label text NOT NULL, fingerprint text NOT NULL UNIQUE, ciphertext text NOT NULL, active boolean NOT NULL DEFAULT false);
 CREATE UNIQUE INDEX IF NOT EXISTS scrappa_one_active_key ON scrappa_admin_keys(active) WHERE active;
@@ -66,6 +66,13 @@ CREATE TABLE IF NOT EXISTS scrappa_profile_checks (
  handle text PRIMARY KEY, attempt_id uuid NOT NULL, attempted_at timestamptz NOT NULL,
  completed_at timestamptz, checked_at timestamptz, profile jsonb, last_error text,
  CHECK((profile IS NULL)=(checked_at IS NULL)));
+
+-- Unverified registration is private and does not require a provider identity.
+CREATE TABLE IF NOT EXISTS scrappa_pending_accounts (
+ handle text PRIMARY KEY CHECK(handle ~ '^[a-z0-9._]{2,24}$'),
+ person_name text, niche text, created_at timestamptz NOT NULL DEFAULT now(),
+ last_attempt_at timestamptz, last_error text
+);
 
 `;
 let ready: Promise<unknown>|undefined;
@@ -165,6 +172,25 @@ export function mountScrappaAdmin(router:Router){
   });
   res.json({data:{removed:true}});
  }));
+ router.get('/bucket/scrappa/pending',roles('owner','editor'),handler(async(_req,res)=>{
+  await ensure();res.json({data:(await query('SELECT handle,person_name,niche,created_at,last_attempt_at,last_error FROM scrappa_pending_accounts ORDER BY created_at,handle LIMIT 1000')).rows});
+ }));
+ router.post('/bucket/scrappa/pending',roles('owner','editor'),handler(async(req,res)=>{
+  await ensure();const rows=z.array(z.object({account:z.string().min(1).max(200),person:z.string().max(120).optional(),niche:z.string().max(60).optional()}).strict()).min(1).max(200).parse(req.body);
+  res.json({data:await registerPending(rows,(res.locals.admin as AdminIdentity).id)});
+ }));
+ router.post('/bucket/scrappa/pending/:handle/collect',roles('owner'),handler(async(req,res)=>{
+  z.object({confirm:z.literal(true)}).strict().parse(req.body);
+  res.json({data:await collectPending(normalizeHandle(req.params.handle),'manual',(res.locals.admin as AdminIdentity).id)});
+ }));
+ router.post('/bucket/scrappa/pending/:handle/remove',roles('owner'),handler(async(req,res)=>{
+  await ensure();z.object({confirm:z.literal(true)}).strict().parse(req.body);const handle=normalizeHandle(req.params.handle);
+  await transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock(710330)');
+   if((await c.query("SELECT 1 FROM ingest_jobs WHERE source_id='scrappa.api' AND status='running' AND started_at>now()-interval '5 minutes'")).rowCount)throw new HttpError(409,'SCRAPPA_BUSY','Wait for collection to finish');
+   await c.query('DELETE FROM scrappa_pending_accounts WHERE handle=$1',[handle]);
+   await c.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[(res.locals.admin as AdminIdentity).id,'scrappa.pending.remove','scrappa','{}']);
+  });res.json({data:{removed:true}});
+ }));
  router.post('/bucket/scrappa/check',roles('owner','editor'),handler(async(req,res)=>{
   await ensure();const b=z.object({account:z.string().min(1).max(200),force:z.boolean().optional()}).strict().parse(req.body);const actor=res.locals.admin as AdminIdentity;
   if(b.force){if(actor.role!=='owner')throw new HttpError(403,'FORBIDDEN','Only the Owner can force a paid recheck');await query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[actor.id,'scrappa.check.force','scrappa','{}']);}
@@ -173,6 +199,52 @@ export function mountScrappaAdmin(router:Router){
  router.post('/bucket/scrappa/candidates',roles('owner','editor'),handler(async(req,res)=>{
   await ensure();const b=z.object({account:z.string().min(1).max(200),person:z.string().max(120).optional(),niche:z.string().max(60).optional()}).strict().parse(req.body);res.json({data:await stageVerifiedCandidate(b.account,b.person,b.niche)});
  }));
+}
+
+/** Local-only registration. No credential lookup or provider call. */
+export async function registerPending(rows:{account:string;person?:string;niche?:string}[],actorId:string|null){
+ return transaction(async c=>{
+  await c.query('SELECT pg_advisory_xact_lock(710330)');
+  const results:{handle:string;status:'added'|'duplicate'|'invalid'}[]=[],seen=new Set<string>();
+  for(const row of rows){
+   let handle:string;try{handle=normalizeHandle(row.account);}catch{results.push({handle:row.account,status:'invalid'});continue;}
+   if(seen.has(handle)){results.push({handle,status:'duplicate'});continue;}seen.add(handle);
+   const inserted=await c.query(`INSERT INTO scrappa_pending_accounts(handle,person_name,niche)
+    SELECT $1,$2,$3 WHERE NOT EXISTS(SELECT 1 FROM scrappa_candidates WHERE handle=$1)
+    ON CONFLICT(handle) DO NOTHING RETURNING handle`,[handle,row.person||null,row.niche||null]);
+   results.push({handle,status:inserted.rowCount?'added':'duplicate'});
+  }
+  if(actorId)await c.query('INSERT INTO admin_audit_logs(actor_id,action,subject,metadata) VALUES($1,$2,$3,$4::jsonb)',[actorId,'scrappa.pending.register','scrappa',JSON.stringify({added:results.filter(r=>r.status==='added').length})]);
+  return results;
+ });
+}
+/** First collection resolves identity and records actual profile metrics in one paid request. */
+export async function collectPending(handle:string,trigger:'manual'|'scheduled',actorId:string|null,fetcher:typeof fetch=fetch){
+ await ensure();handle=normalizeHandle(handle);const key=await activeKey();
+ const runId=await transaction(async c=>{
+  await c.query('SELECT pg_advisory_xact_lock(710330)');
+  await c.query("UPDATE ingest_jobs SET status='failed',finished_at=now(),error_code='expired' WHERE source_id='scrappa.api' AND status='running' AND started_at<now()-interval '5 minutes'");
+  if((await c.query("SELECT 1 FROM ingest_jobs WHERE source_id='scrappa.api' AND status='running'")).rowCount)throw new HttpError(409,'SCRAPPA_BUSY','Another collection is running');
+  const pending=(await c.query<{recent:boolean}>("SELECT COALESCE(last_attempt_at>now()-interval '24 hours',false) AS recent FROM scrappa_pending_accounts WHERE handle=$1 FOR UPDATE",[handle])).rows[0];
+  if(!pending)throw new HttpError(404,'NOT_FOUND','Pending creator not found');
+  if(pending.recent)throw new HttpError(409,'SCRAPPA_RECENT_CHECK','Already attempted within 24 hours');
+  if(trigger==='scheduled'&&!(await c.query("SELECT 1 FROM ingest_sources WHERE id='scrappa.api' AND enabled=true")).rowCount)throw new HttpError(409,'SCRAPPA_DISABLED','Source is disabled');
+  if(await remainingCredits(key.id,trigger==='scheduled',c)<1)throw new HttpError(429,'SCRAPPA_QUOTA','Insufficient credit budget');
+  const id=(await c.query<{id:string}>("INSERT INTO ingest_jobs(source_id,trigger,status,requested_by,started_at) VALUES('scrappa.api',$1,'running',$2,now()) RETURNING id",[trigger,actorId])).rows[0].id;
+  await c.query('UPDATE scrappa_pending_accounts SET last_attempt_at=now() WHERE handle=$1',[handle]);
+  await c.query("UPDATE ingest_sources SET last_attempt_at=now() WHERE id='scrappa.api'");return id;
+ });
+ try{
+  const profile=await collectProfile(handle,decryptSecret(key.ciphertext),reserveFor(key.id,trigger==='scheduled',runId),fetcher);
+  const result={source:'scrappa.api',observedAt:new Date().toISOString(),profile,posts:[],analytics:summarize([])};
+  const stored=await storeTikTokCandidate(runId,result,true);
+  return {runId,stored,profile:{...profile,avatar:null,bio:null},analytics:result.analytics};
+ }catch(e){
+  const err=collectionError(e);await transaction(async c=>{
+   const changed=await c.query("UPDATE ingest_jobs SET status='failed',finished_at=now(),error_code=$2 WHERE id=$1 AND status='running'",[runId,err.code]);
+   if(changed.rowCount){await c.query('UPDATE scrappa_pending_accounts SET last_error=$2 WHERE handle=$1',[handle,err.code]);await c.query("UPDATE ingest_sources SET last_error=$1 WHERE id='scrappa.api'",[err.code]);}
+  });throw err;
+ }
 }
 
 /** Shared manual/scheduled collector. The database lease serializes all workers. */
@@ -224,7 +296,10 @@ export async function refreshScrappaCandidates(fetcher:typeof fetch=fetch){
     AND NOT (COALESCE(s.last_error IN ('provider_auth','provider_rate_limited'),false) AND COALESCE(s.last_attempt_at>now()-interval '24 hours',false))
     AND NOT (COALESCE(h.consecutive_failures,0)>=3 AND COALESCE(s.last_attempt_at>now()-interval '6 hours',false))`)).rowCount)return;
  const key=await activeKey().catch(e=>{if(e instanceof HttpError&&e.code==='SCRAPPA_KEY_MISSING')return null;throw e;});
- if(!key||await remainingCredits(key.id,true)<MAX_COLLECTION_CREDITS)return;
+ if(!key||await remainingCredits(key.id,true)<1)return;
+ const pending=(await query<{handle:string}>("SELECT handle FROM scrappa_pending_accounts WHERE last_attempt_at IS NULL OR last_attempt_at<now()-interval '24 hours' ORDER BY created_at,handle LIMIT 1")).rows[0];
+ if(pending){await collectPending(pending.handle,'scheduled',null,fetcher);return;}
+ if(await remainingCredits(key.id,true)<MAX_COLLECTION_CREDITS)return;
  const candidate=(await query<{external_id:string}>(`SELECT external_id FROM scrappa_candidates
   WHERE (last_success_at IS NULL OR last_success_at<now()-interval '15 days') AND (last_attempt_at IS NULL OR last_attempt_at<now()-interval '24 hours')
   ORDER BY last_success_at NULLS FIRST,last_attempt_at NULLS FIRST,external_id LIMIT 1`)).rows[0];
