@@ -1,3 +1,4 @@
+import {verifyManagedRuntime} from './architecture/managed-runtime.js';
 import {ensureScrappaSchema} from './modules/scrappa/admin.js';
 import {ensureBroadcastSchema} from './lib/broadcast-schema.js';
 import {ensureHubCadence,ensureProgressSchema} from './lib/progress-schema.js';
@@ -191,6 +192,7 @@ async function main(){
     for(let attempt=1;!shutdownStarted;attempt++){
       try {
         await pool.query('SELECT 1');
+        await verifyManagedRuntime();
         try {
           await ensureUnifiedSchema();
           logger.info('Unified creator schema verified');

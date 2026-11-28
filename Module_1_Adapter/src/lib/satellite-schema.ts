@@ -1,8 +1,9 @@
+import {skipRuntimeDDL} from '../architecture/managed-runtime.js';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {pool} from './db.js';
 /** Idempotent runtime schema bootstrap for hosting deployments. */
-export async function ensureSatelliteSchema():Promise<void>{
+export async function ensureSatelliteSchema():Promise<void>{if(skipRuntimeDDL())return;
  const client=await pool.connect();let locked=false;
  try{
   await client.query('SELECT pg_advisory_lock(710331)');locked=true;

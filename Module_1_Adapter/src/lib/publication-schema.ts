@@ -1,3 +1,4 @@
+import {skipRuntimeDDL} from '../architecture/managed-runtime.js';
 import { pool } from './db.js';
 
 // Mirrors database/migrations/094_publication.sql exactly (a test enforces identical DDL).
@@ -70,7 +71,7 @@ CREATE TABLE IF NOT EXISTS pipeline_alerts (
 CREATE INDEX IF NOT EXISTS pipeline_alerts_open_idx ON pipeline_alerts(created_at DESC) WHERE NOT acknowledged;
 `;
 
-export async function ensurePublicationSchema():Promise<void>{
+export async function ensurePublicationSchema():Promise<void>{if(skipRuntimeDDL())return;
   const client=await pool.connect();
   let lockHeld=false;
   try{

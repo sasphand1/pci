@@ -1,0 +1,12 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {schemaMode, managedFindings, REQUIRED_RELATIONS, REQUIRED_GUARDS, skipRuntimeDDL} from '../../src/architecture/managed-runtime.js';
+import type {RoleEvidence} from '../../src/architecture/runtime-audit.js';
+const ledger=['134_architecture_integrity.sql','135_architecture_source_routes.sql'];
+function valid():RoleEvidence{return {role:{username:'pci_runtime',session_role:'pci_runtime',superuser:false,create_role:false,create_database:false,bypass_rls:false,database_owner:false,database_create:false,database_temp:false},privilegedMemberships:[],schemas:[],relations:REQUIRED_RELATIONS.map(r=>{const [schema,relation]=r.split('.');return {schema,relation,owner_member:false,can_read:true,can_insert:false,can_update:false,can_delete:false,can_truncate:false,can_trigger:false};})};}
+test('legacy remains the default; invalid schema modes fail closed',()=>{assert.equal(schemaMode('legacy'),'legacy');assert.equal(schemaMode('managed'),'managed');assert.throws(()=>schemaMode('typo'),/PCI_MANAGED_001/);});
+test('all reviewed prerequisites permit managed startup',()=>assert.deepEqual(managedFindings(valid(),REQUIRED_GUARDS,ledger),[]));
+test('owner and DDL privileges prevent managed mode',()=>{const e=valid();e.role.username='neondb_owner';e.role.create_role=true;e.role.database_temp=true;assert.ok(managedFindings(e,REQUIRED_GUARDS,ledger).some(s=>s.includes('PCI_MANAGED_002')));assert.ok(managedFindings(e,REQUIRED_GUARDS,ledger).some(s=>s.includes('PCI_ARCH_ROLE_001')));});
+test('missing relations, guards and migration records prevent managed mode',()=>{const e=valid();e.relations.pop();const f=managedFindings(e,[],[]);for(const id of ['003','004','005'])assert.ok(f.some(s=>s.includes('PCI_MANAGED_'+id)));});
+test('runtime may not modify migration ledger',()=>{const e=valid();e.relations.find(r=>r.relation==='schema_migrations')!.can_insert=true;assert.ok(managedFindings(e,REQUIRED_GUARDS,ledger).some(s=>s.includes('PCI_MANAGED_006')));});
+test('managed DDL cannot be skipped until preflight passes',()=>{const old=process.env.PCI_SCHEMA_MODE;try{process.env.PCI_SCHEMA_MODE='managed';assert.throws(()=>skipRuntimeDDL(),/PCI_MANAGED_007/);process.env.PCI_SCHEMA_MODE='legacy';assert.equal(skipRuntimeDDL(),false);}finally{if(old===undefined)delete process.env.PCI_SCHEMA_MODE;else process.env.PCI_SCHEMA_MODE=old;}});

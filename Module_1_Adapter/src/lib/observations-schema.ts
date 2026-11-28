@@ -1,3 +1,4 @@
+import {skipRuntimeDDL} from '../architecture/managed-runtime.js';
 import { pool } from './db.js';
 
 // Mirrors database/migrations/093_observations.sql exactly (a test enforces identical DDL).
@@ -54,7 +55,7 @@ CREATE INDEX IF NOT EXISTS metric_latest_idx ON metric_observations(account_id, 
 CREATE INDEX IF NOT EXISTS metric_observed_idx ON metric_observations(observed_at);
 `;
 
-export async function ensureObservationsSchema():Promise<void>{
+export async function ensureObservationsSchema():Promise<void>{if(skipRuntimeDDL())return;
   const client=await pool.connect();
   let lockHeld=false;
   try{

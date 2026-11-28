@@ -1,8 +1,9 @@
+import {skipRuntimeDDL} from '../architecture/managed-runtime.js';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {pool} from './db.js';
 /** Idempotent Satify Hub bootstrap (own `satify` schema). Safe on every start of the API and the worker. */
-export async function ensureSatifySchema():Promise<void>{
+export async function ensureSatifySchema():Promise<void>{if(skipRuntimeDDL())return;
  const client=await pool.connect();let locked=false;
  try{
   await client.query('SELECT pg_advisory_lock(710441)');locked=true;

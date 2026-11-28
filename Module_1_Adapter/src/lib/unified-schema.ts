@@ -1,3 +1,4 @@
+import {skipRuntimeDDL} from '../architecture/managed-runtime.js';
 /**
  * Module 1 safe schema compatibility bridge.
  * The CLI migration is normally the authoritative schema migration path.
@@ -8,7 +9,7 @@
 import type pg from 'pg';
 import {pool} from './db.js';
 
-export async function ensureUnifiedSchema(): Promise<void> {
+export async function ensureUnifiedSchema(): Promise<void> {if(skipRuntimeDDL())return;
   const client:pg.PoolClient = await pool.connect();
   let lockHeld=false;
   try {

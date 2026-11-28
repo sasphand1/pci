@@ -1,3 +1,4 @@
+import {verifyManagedRuntime} from './architecture/managed-runtime.js';
 import {ensureScrappaSchema} from './modules/scrappa/admin.js';
 import {ensureSatelliteSchema} from './lib/satellite-schema.js';
 import {ensureSatifySchema} from './lib/satify-schema.js';
@@ -19,7 +20,7 @@ import { startScheduler } from './modules/sync/scheduler.js';
 // PCI Update 1: the scheduling logic now lives in modules/sync/scheduler.ts so the API process
 // can host it too (RUN_WORKER_IN_API=true). This file remains the standalone worker entry point.
 async function main(){
- await pool.query('SELECT 1');await ensureRedis();
+ await pool.query('SELECT 1');await verifyManagedRuntime();await ensureRedis();
  try{await ensureUnifiedSchema();}catch(err){logger.error({err},'Unified schema verification failed in worker');}
  try{await ensureEngineSchema();}catch(err){logger.error({err},'Engine schema verification failed in worker');}
  try{await ensureRegistrySchema();await ensureObservationsSchema();await ensurePublicationSchema();await ensurePublicSchema();}catch(err){logger.error({err},'Registry/observations schema verification failed in worker');}

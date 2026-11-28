@@ -1,9 +1,10 @@
+import {skipRuntimeDDL} from '../architecture/managed-runtime.js';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {pool} from './db.js';
 
 /** Same SQL file is the migration and bootstrap source of truth. */
-export async function ensureEventsSchema(){
+export async function ensureEventsSchema(){if(skipRuntimeDDL())return;
  const filename=fileURLToPath(new URL('../../database/migrations/097_events.sql',import.meta.url));
  const sql=await readFile(filename,'utf8');
  const client=await pool.connect();

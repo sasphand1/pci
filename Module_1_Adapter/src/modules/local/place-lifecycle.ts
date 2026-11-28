@@ -1,9 +1,10 @@
+import {skipRuntimeDDL} from '../../architecture/managed-runtime.js';
 import type pg from 'pg';
 import { query, transaction } from '../../lib/db.js';
 import { HttpError } from '../../lib/errors.js';
 import { bustPublicCache } from '../../lib/redis.js';
 export const TOMBSTONE_SQL='CREATE TABLE IF NOT EXISTS local_place_tombstones (place_id text PRIMARY KEY);';
-export async function ensureLocalPlaceLifecycle(){await query(TOMBSTONE_SQL);}
+export async function ensureLocalPlaceLifecycle(){if(skipRuntimeDDL())return;await query(TOMBSTONE_SQL);}
 export async function lockPlace(tx:pg.PoolClient,id:string){await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1,731914))",[id]);}
 export async function isDeleted(tx:pg.PoolClient,id:string){return Boolean((await tx.query('SELECT 1 FROM local_place_tombstones WHERE place_id=$1',[id])).rowCount);}
 export async function purgePlace(id:string){

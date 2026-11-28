@@ -1,3 +1,4 @@
+import {skipRuntimeDDL} from '../architecture/managed-runtime.js';
 /**
  * PCI Update 1 schema bridge (mirrors database/migrations/091_engine_foundation.sql).
  * Idempotent and additive only, so Hostinger deployments that cannot run `npm run migrate`
@@ -24,7 +25,7 @@ CREATE TABLE IF NOT EXISTS worker_heartbeats (
 );
 `;
 
-export async function ensureEngineSchema():Promise<void>{
+export async function ensureEngineSchema():Promise<void>{if(skipRuntimeDDL())return;
   const client=await pool.connect();
   let lockHeld=false;
   try{

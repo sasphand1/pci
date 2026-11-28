@@ -1,7 +1,8 @@
+import {skipRuntimeDDL} from '../architecture/managed-runtime.js';
 import {pool} from './db.js';
 
 /** Safe to run from the API and worker; matches migration 102. */
-export async function ensureCreatorAnalyticsSchema():Promise<void> {
+export async function ensureCreatorAnalyticsSchema():Promise<void> {if(skipRuntimeDDL())return;
   const sql=`CREATE TABLE IF NOT EXISTS creator_video_catalogue (
     video_id text PRIMARY KEY CHECK(length(video_id)=11),
     account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,

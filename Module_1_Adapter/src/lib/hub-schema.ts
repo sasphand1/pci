@@ -1,3 +1,4 @@
+import {skipRuntimeDDL} from '../architecture/managed-runtime.js';
 import {pool} from './db.js';
 /** Same additive DDL as migrations 104-120 (hub parts); executed at startup (after publication and ingest schemas). */
 export const HUB_SCHEMA_SQL = `-- PCI Hub v1 (additive). Monitor state, discrepancies and alert metadata.
@@ -444,7 +445,7 @@ INSERT INTO ingest_sources(id,platform,method,enabled,category,expected_hours,la
  ('sat_insights.api','sat_insights','api',false,'satellite',3,'Satellite scores: Go-Out Score and weekly city rankings')
 ON CONFLICT (id) DO NOTHING;
 `;
-export async function ensureHubSchema():Promise<void> {
+export async function ensureHubSchema():Promise<void> {if(skipRuntimeDDL())return;
   const client=await pool.connect();
   try {
     await client.query('SELECT pg_advisory_lock(710324)');

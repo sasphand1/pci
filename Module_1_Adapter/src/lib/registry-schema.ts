@@ -1,3 +1,4 @@
+import {skipRuntimeDDL} from '../architecture/managed-runtime.js';
 import { pool } from './db.js';
 
 // Mirrors database/migrations/092_registry.sql exactly (a test enforces identical DDL).
@@ -39,7 +40,7 @@ CREATE INDEX IF NOT EXISTS person_categories_category_idx ON person_categories(c
 CREATE UNIQUE INDEX IF NOT EXISTS person_categories_one_primary_uq ON person_categories(person_id) WHERE is_primary;
 `;
 
-export async function ensureRegistrySchema():Promise<void>{
+export async function ensureRegistrySchema():Promise<void>{if(skipRuntimeDDL())return;
   const client=await pool.connect();
   let lockHeld=false;
   try{

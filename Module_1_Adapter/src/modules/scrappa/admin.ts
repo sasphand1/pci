@@ -1,3 +1,4 @@
+import {skipRuntimeDDL} from '../../architecture/managed-runtime.js';
 import { z } from 'zod';
 import { query, transaction } from '../../lib/db.js';
 import { encryptSecret, decryptSecret, sha256 } from '../../lib/security.js';
@@ -76,7 +77,7 @@ CREATE TABLE IF NOT EXISTS scrappa_pending_accounts (
 
 `;
 let ready: Promise<unknown>|undefined;
-export async function ensureScrappaSchema(){monthlyCap(process.env.SCRAPPA_MONTHLY_CREDIT_CAP);return ready??=(transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock(710323)');await c.query(SQL);}).then(()=>ensureTikTokSource()).catch(e=>{ready=undefined;throw e;}));}
+export async function ensureScrappaSchema(){monthlyCap(process.env.SCRAPPA_MONTHLY_CREDIT_CAP);if(skipRuntimeDDL())return;return ready??=(transaction(async c=>{await c.query('SELECT pg_advisory_xact_lock(710323)');await c.query(SQL);}).then(()=>ensureTikTokSource()).catch(e=>{ready=undefined;throw e;}));}
 const ensure=ensureScrappaSchema;
 const keys=keyUsage;
 const defaultCap=()=>monthlyCap(process.env.SCRAPPA_MONTHLY_CREDIT_CAP);

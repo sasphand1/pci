@@ -1,3 +1,4 @@
+import {skipRuntimeDDL} from '../architecture/managed-runtime.js';
 import { pool } from './db.js';
 
 // Mirrors database/migrations/095_public.sql exactly (a test enforces identical DDL).
@@ -7,7 +8,7 @@ ALTER TABLE accounts ADD COLUMN IF NOT EXISTS avatar_url text;
 CREATE INDEX IF NOT EXISTS people_display_name_idx ON people(lower(display_name));
 `;
 
-export async function ensurePublicSchema():Promise<void>{
+export async function ensurePublicSchema():Promise<void>{if(skipRuntimeDDL())return;
   const client=await pool.connect();
   let lockHeld=false;
   try{
