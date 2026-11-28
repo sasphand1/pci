@@ -27,6 +27,7 @@ export const ERRORS = Object.freeze({
   PCI_ARCH_008:'Declare the metric in the source-specific contract; do not silently introduce a new field.',
   PCI_ARCH_009:'Review unresolved dynamic SQL or routing manually before granting database permissions.',
   PCI_ARCH_010:'Preserve the existing compatibility bridge until its replacement is proven and approved.',
+  PCI_ARCH_011:'Route Scrappa candidates through the Creators Bucket staging writer with a matching numeric candidate ID, candidate metadata and a null account association. Registered promotion requires the approved registry-to-Hub pipeline, not this staging writer.',
 });
 export type Code = keyof typeof ERRORS;
 export type Finding = {code:Code; correction:string};
@@ -62,4 +63,27 @@ export function observeArchitecture(input:Parameters<typeof inspectObservation>[
    console.warn(JSON.stringify({event:'pci_architecture_shadow',...f}));
   }
  } catch { /* Observation mode must not affect production collection. */ }
+}
+
+/** Batch 2 staged activation: Scrappa's verified candidate writer is the only
+ * strict source until the live routing/privilege audit has been reviewed.
+ * This is an application boundary, not a database authorization mechanism. */
+export class ArchitectureViolation extends Error {
+  readonly findings: readonly Finding[];
+  constructor(findings: readonly Finding[]) {
+    super(findings.map(f=>`${f.code}: ${f.correction}`).join('; '));
+    this.name='ArchitectureViolation';
+    this.findings=findings;
+  }
+}
+export function enforceArchitecture(input:Parameters<typeof inspectObservation>[0]):void {
+  if(input.sourceId!=='scrappa.api')return;
+  const findings=inspectObservation(input);
+  const id=input.metadata?.candidateId;
+  const key=typeof id==='string'&&/^\d{1,30}$/.test(id)?`tiktok_candidate:${id}`:null;
+  const staged=key!==null&&input.accountId===null&&input.metadata?.stage==='candidate'&&
+    (input.entityKind==='account'?input.entityId===key:
+      input.entityKind==='content'&&input.entityId.startsWith(`${key}:`)&&/^\d{1,30}$/.test(input.entityId.slice(key.length+1)));
+  if(!staged)findings.push(finding('PCI_ARCH_011'));
+  if(findings.length)throw new ArchitectureViolation(findings);
 }

@@ -1,5 +1,5 @@
 import type pg from 'pg';
-import {observeArchitecture} from '../../architecture/contracts.js';
+import {enforceArchitecture,observeArchitecture} from '../../architecture/contracts.js';
 import {query,transaction} from '../../lib/db.js';
 import {retentionDays} from '../refresh/normalize.js';
 import {decideValue,isDiscrepancy,methodOf,validCount,type Precision,type SourceMethod,type Snapshot} from './policy.js';
@@ -24,6 +24,7 @@ const kindRe=/^[a-z][a-z0-9_]{1,31}$/;
 
 /** One canonical writer for API and HTTP fields. Fail-closed input validation. */
 export async function recordObservation(input:MetricObservation,client?:pg.PoolClient):Promise<'stored'|'duplicate'|'invalid'> {
+  enforceArchitecture(input);
   observeArchitecture(input);
   const scale=input.valueScale??0;
   if(!sourceRe.test(input.sourceId)||!kindRe.test(input.entityKind)||!Number.isInteger(scale)||scale<0||scale>6||

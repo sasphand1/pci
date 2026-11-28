@@ -1,0 +1,24 @@
+name: Architecture guard
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  architecture:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Module_1_Adapter
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Module_1_Adapter/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: node --experimental-strip-types --test tests/architecture/*.test.mjs
+      - run: node --experimental-strip-types scripts/architecture-gate.mjs
