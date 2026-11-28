@@ -16,6 +16,26 @@
     }
   ],
   "paths": {
+    "/ingest/architecture": {
+      "get": {
+        "summary": "Read-only architecture compliance diagnostics",
+        "description": "Roles: owner.",
+        "tags": [
+          "Data Hub"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK. Body: { \"data\": ... }"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Allowed roles: owner"
+          }
+        }
+      }
+    },
     "/ingest/health": {
       "get": {
         "summary": "Source health, open alerts, recent jobs, disagreements and what is stored per category",

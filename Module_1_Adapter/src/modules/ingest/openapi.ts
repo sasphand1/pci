@@ -7,6 +7,7 @@ const int = (min: number, max: number, def?: number) => ({ type: 'integer', mini
 const pathId = (name: string, format = 'uuid') => ({ name, in: 'path', required: true, schema: { type: 'string', format } });
 
 export const HUB_OPERATIONS: Op[] = [
+  { method: 'get', path: '/ingest/architecture', summary: 'Read-only architecture compliance diagnostics', roles: 'owner' },
   { method: 'get', path: '/ingest/health', summary: 'Source health, open alerts, recent jobs, disagreements and what is stored per category', roles: 'any admin' },
   { method: 'get', path: '/ingest/alerts', summary: 'Hub alerts (open or all)', roles: 'any admin', params: [{ name: 'state', in: 'query', schema: { type: 'string', enum: ['open', 'all'], default: 'open' } }] },
   { method: 'get', path: '/ingest/discrepancies', summary: 'Last 100 API vs web disagreements over 5%', roles: 'any admin' },
